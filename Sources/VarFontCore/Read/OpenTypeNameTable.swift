@@ -23,6 +23,31 @@ enum OpenTypeNameTable {
         return nil
     }
 
+    static func uniqueNameIDs(in data: Data) -> Set<Int> {
+        Set(parseRecords(data).map { Int($0.nameID) })
+    }
+
+    static func firstFreeNameID(used: Set<Int>, startingAt: Int = 256) -> Int {
+        var candidate = startingAt
+        while used.contains(candidate) {
+            candidate += 1
+        }
+        return candidate
+    }
+
+    static func standardNameLabel(for id: Int) -> String? {
+        switch id {
+        case 0: "Unicode copyright"
+        case 1: "Font Family name"
+        case 2: "Font Subfamily name"
+        case 3: "Unique font identifier"
+        case 4: "Full font name"
+        case 5: "Version string"
+        case 6: "PostScript name"
+        default: nil
+        }
+    }
+
     private struct NameRecord {
         var platformID: UInt16
         var encodingID: UInt16

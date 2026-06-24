@@ -21,6 +21,7 @@ public enum InstancePlanner {
         let includedWhitelist = Set(font.includedInstanceKeys)
 
         var warnings = validateAxes(font.axes)
+        warnings.append(contentsOf: validateInstanceKeySets(font))
         var instances: [PlannedInstance] = []
         var seenNames: [String: String] = [:]
 
@@ -159,5 +160,19 @@ public enum InstancePlanner {
             }
         }
         return warnings
+    }
+
+    private static func validateInstanceKeySets(_ font: FontDocument) -> [PlanWarning] {
+        let overlap = Set(font.includedInstanceKeys).intersection(font.excludedInstanceKeys)
+        guard !overlap.isEmpty else { return [] }
+        return [
+            PlanWarning(
+                code: "conflicting_instance_keys",
+                axis: nil,
+                name: nil,
+                keys: Array(overlap).sorted(),
+                message: "\(overlap.count) instance key(s) appear in both included and excluded lists."
+            ),
+        ]
     }
 }

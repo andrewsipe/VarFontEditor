@@ -36,6 +36,20 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!editor.canSave)
             }
+
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo") {
+                    editor.undo()
+                }
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(!editor.canUndo)
+
+                Button("Redo") {
+                    editor.redo()
+                }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!editor.canRedo)
+            }
         }
     }
 }

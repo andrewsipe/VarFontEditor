@@ -43,10 +43,10 @@ public enum ProjectImporter {
         default: axis.default,
         max: axis.max,
         role: axis.roleInferred,
-        values: axis.valuesExisting.enumerated().map { index, stop in
+        values: axis.valuesExisting.map { stop in
           AxisValue(
-            id: "\(axis.tag)-\(index + 1)",
-            value: stop.value ?? axis.default,
+            id: "\(axis.tag)-\(UUID().uuidString.prefix(8))",
+            value: resolvedStopValue(stop, axis: axis),
             name: stop.name,
             elidable: stop.elidable ?? false,
             statFormat: stop.format ?? 1,
@@ -70,5 +70,14 @@ public enum ProjectImporter {
       excludedInstanceKeys: [],
       overrides: InstanceOverrides()
     )
+  }
+
+  private static func resolvedStopValue(
+    _ stop: FontAnalysis.StatValueSnapshot,
+    axis: FontAnalysis.AnalyzedAxis
+  ) -> Double {
+    if let value = stop.value { return value }
+    if let nominal = stop.nominal { return nominal }
+    return axis.default
   }
 }

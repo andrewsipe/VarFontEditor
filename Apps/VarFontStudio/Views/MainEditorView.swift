@@ -6,22 +6,13 @@ struct MainEditorView: View {
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
-        Group {
-            if editor.project == nil {
-                WelcomeView()
-            } else {
-                editorChrome
+        editorChrome
+            .overlay {
+                if editor.isBusy {
+                    loadingOverlay
+                }
             }
-        }
-        .overlay {
-            if editor.isBusy {
-                ProgressView()
-                    .controlSize(.large)
-                    .padding(20)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-            }
-        }
-        .fontFileDropTarget()
+            .fontFileDropTarget()
     }
 
     private var editorChrome: some View {
@@ -82,24 +73,23 @@ struct MainEditorView: View {
         .padding(.vertical, 6)
         .background(.bar)
     }
-}
 
-private struct WelcomeView: View {
-    @EnvironmentObject private var editor: EditorViewModel
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.12)
+                .ignoresSafeArea()
 
-    var body: some View {
-        ContentUnavailableView {
-            Label("VarFont Studio", systemImage: "textformat.size")
-        } description: {
-            Text("Open a variable font to edit its STAT instance grid and style names, or drag a font file here.")
-        } actions: {
-            Button("Open Font…") {
-                editor.presentOpenPanel()
+            VStack(spacing: 14) {
+                Label("VarFont Studio", systemImage: "textformat.size")
+                    .font(.title2)
+                ProgressView()
+                    .controlSize(.regular)
             }
-            .keyboardShortcut("o", modifiers: .command)
-            .controlSize(.large)
+            .padding(.horizontal, 36)
+            .padding(.vertical, 28)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.opacity)
     }
 }
 
@@ -136,8 +126,8 @@ private struct FontFileDropTargetModifier: ViewModifier {
 
     private func loadDroppedURL(from provider: NSItemProvider) async -> URL? {
         await withCheckedContinuation { continuation in
-            provider.loadObject(ofClass: URL.self) { object, _ in
-                continuation.resume(returning: object as? URL)
+            _ = provider.loadObject(ofClass: URL.self) { object, _ in
+                continuation.resume(returning: object)
             }
         }
     }

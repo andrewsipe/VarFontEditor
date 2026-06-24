@@ -152,6 +152,22 @@ public enum FontAnalysisReader {
         let elidedFallbackID = stat?.elidedFallbackNameID
         let elidedFallbackName = elidedFallbackID.flatMap { OpenTypeNameTable.name(id: $0, from: font) }
 
+        let additionalNamingTags = fvar.axes.map(\.tag)
+            + statValues.map(\.tag)
+            + gridAxisTags
+        let namingOrderSuggested = NamingOrderInference.suggest(
+            designAxes: stat?.designAxes ?? [],
+            additionalTags: additionalNamingTags
+        )
+
+        let nameAudit = buildNameAudit(
+            font: font,
+            fvar: fvar,
+            statValues: statValues,
+            elidedFallbackID: elidedFallbackID,
+            elidedFallbackName: elidedFallbackName
+        )
+
         return FontAnalysis(
             schemaVersion: 1,
             source: FontAnalysis.SourceInfo(
@@ -175,17 +191,62 @@ public enum FontAnalysisReader {
                 total: fvar.instances.count,
                 sampleCount: sampleCount
             ),
-            nameAudit: FontAnalysis.NameAudit(
-                freeStart: 256,
-                used: [],
-                elidedFallbackID: elidedFallbackID,
-                elidedFallbackName: elidedFallbackName
-            ),
+            nameAudit: nameAudit,
             inferred: FontAnalysis.InferredAnalysis(
                 isItalicFont: isItalicFont,
                 gridAxisTags: gridAxisTags,
-                namingOrderSuggested: ["wdth", "wght", "opsz", "slnt", "ital"]
+                namingOrderSuggested: namingOrderSuggested
             )
+        )
+    }
+
+    private static func buildNameAudit(
+        font: CTFont,
+        fvar: (axes: [FvarAxis], instances: [FvarInstance]),
+        statValues: [FontAnalysis.StatValueRecord],
+        elidedFallbackID: Int?,
+        elidedFallbackName: String?
+    ) -> FontAnalysis.NameAudit {
+        let nameData = CTFontCopyTable(font, OpenTypeBinary.tag("name"), []) as Data?
+        let usedIDs = nameData.map { OpenTypeNameTable.uniqueNameIDs(in: $0) } ?? []
+
+        var labels: [Int: String] = [:]
+        for id in usedIDs {
+            if let label = OpenTypeNameTable.standardNameLabel(for: id) {
+                labels[id] = label
+            }
+        }
+        for axis in fvar.axes {
+            labels[axis.nameID] = "fvar axis \(axis.tag)"
+        }
+        for instance in fvar.instances {
+            labels[instance.subfamilyNameID] = "fvar instance subfamily"
+            if instance.postscriptNameID > 0, instance.postscriptNameID != 0xFFFF {
+                labels[instance.postscriptNameID] = "fvar instance PostScript"
+            }
+        }
+        for statValue in statValues {
+            if let nameID = statValue.nameID {
+                labels[nameID] = "STAT \(statValue.tag)"
+            }
+        }
+        if let elidedFallbackID {
+            labels[elidedFallbackID] = "STAT elided fallback"
+        }
+
+        let used = usedIDs.sorted().map { id in
+            FontAnalysis.NameAudit.NameIDUse(
+                id: id,
+                description: labels[id] ?? "name table record",
+                protected: (0...6).contains(id) ? true : nil
+            )
+        }
+
+        return FontAnalysis.NameAudit(
+            freeStart: OpenTypeNameTable.firstFreeNameID(used: usedIDs),
+            used: used,
+            elidedFallbackID: elidedFallbackID,
+            elidedFallbackName: elidedFallbackName
         )
     }
 
@@ -221,7 +282,7 @@ public enum FontAnalysisReader {
             inferred: FontAnalysis.InferredAnalysis(
                 isItalicFont: isItalicFont,
                 gridAxisTags: [],
-                namingOrderSuggested: ["wdth", "wght", "opsz", "slnt", "ital"]
+                namingOrderSuggested: NamingOrderInference.fallbackTags
             )
         )
     }

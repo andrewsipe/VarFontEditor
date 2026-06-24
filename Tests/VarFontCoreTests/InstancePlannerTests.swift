@@ -71,6 +71,33 @@ final class InstancePlannerTests: XCTestCase {
         XCTAssertTrue(plan.warnings.contains { $0.code == "multiple_elidable" })
     }
 
+    func testConflictingInstanceKeysProduceWarning() {
+        let font = FontDocument(
+            id: "test",
+            sourcePath: "/tmp/test.ttf",
+            outputPath: nil,
+            analysisSnapshotID: nil,
+            dirty: false,
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    role: .instance,
+                    values: [AxisValue(id: "a", value: 400, name: "Regular", elidable: false)]
+                ),
+            ],
+            options: CommitOptions(),
+            includedInstanceKeys: ["wght:400"],
+            excludedInstanceKeys: ["wght:400"],
+            overrides: InstanceOverrides()
+        )
+
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["wght"], elidedFallback: "Regular")
+        )
+        XCTAssertTrue(plan.warnings.contains { $0.code == "conflicting_instance_keys" })
+    }
+
     func testCommitServiceDryRun() async throws {
         let request = try FixtureLoader.decode(CommitRequest.self, from: "playfair-roman-commit-request.json")
         let service = CommitService()

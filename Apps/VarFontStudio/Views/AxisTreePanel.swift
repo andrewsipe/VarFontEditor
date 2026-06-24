@@ -1,9 +1,15 @@
 import SwiftUI
 import VarFontCore
 
+private enum StopEditField: Equatable {
+    case value
+    case name
+}
+
 struct AxisTreePanel: View {
     @EnvironmentObject private var editor: EditorViewModel
     @State private var expandedAxes: Set<String> = []
+    @State private var editingStop: (id: String, field: StopEditField)?
 
     var body: some View {
         List {
@@ -26,7 +32,8 @@ struct AxisTreePanel: View {
                 }
             }
         }
-        .onChange(of: editor.selectedFontID) { _ in
+        .onChange(of: editor.selectedFontID) {
+            editingStop = nil
             resetExpansion()
         }
         .onAppear {
@@ -46,7 +53,7 @@ struct AxisTreePanel: View {
                     Text(gridFormulaText(plan))
                         .font(.body.monospacedDigit())
                 }
-                LabeledContent("Generated") {
+                LabeledContent("Generated instances") {
                     Text("\(plan.formula.totalGenerated)")
                         .monospacedDigit()
                 }
@@ -69,53 +76,73 @@ struct AxisTreePanel: View {
     private var axesSection: some View {
         Section {
             if let font = editor.selectedFont {
-                ForEach(font.axes) { axis in
-                    let pinned = axis.role != .instance
-                    DisclosureGroup(
-                        isExpanded: expansionBinding(for: axis.tag),
-                        content: {
-                            axisDetail(axis)
-                        },
-                        label: {
-                            AxisTreeAxisHeader(axis: axis)
-                        }
-                    )
-                    .foregroundStyle(pinned ? .secondary : .primary)
-                    .opacity(pinned ? 0.72 : 1)
+                ForEach(Array(font.axes.enumerated()), id: \.element.id) { index, axis in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 8)
+                    }
+
+                    axisBlock(axis)
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func axisBlock(_ axis: AxisDefinition) -> some View {
+        let isInstanceAxis = axis.role == .instance
+        let isExpanded = expandedAxes.contains(axis.tag)
+
+        VStack(alignment: .leading, spacing: 0) {
+            AxisTreeAxisHeader(
+                axis: axis,
+                isExpanded: isExpanded,
+                isInstanceAxis: instanceAxisBinding(for: axis.tag),
+                onToggleExpansion: { toggleExpansion(for: axis.tag) }
+            )
+
+            if isExpanded {
+                axisDetail(axis)
+                    .padding(.top, 6)
+                    .opacity(isInstanceAxis ? 1 : 0.4)
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8))
     }
 
     // MARK: - Axis detail
 
     @ViewBuilder
     private func axisDetail(_ axis: AxisDefinition) -> some View {
-        let pinned = axis.role != .instance
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle(isOn: statOnlyBinding(for: axis.tag)) {
-                Text("STAT only")
-            }
-            .toggleStyle(.checkbox)
-            .help(
-                "Exclude this axis from the instance grid. STAT stop names remain editable; "
-                    + "every generated instance uses this axis's default value."
-            )
-
+        VStack(alignment: .leading, spacing: 4) {
             if axis.values.isEmpty {
                 Text("No STAT stops on this axis")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
+                AxisStopTableHeader(showElidable: axis.values.count > 1)
+
                 ForEach(axis.values) { stop in
                     AxisTreeStopRow(
-                        axis: axis,
+                        axisTag: axis.tag,
                         stop: stop,
-                        dimmed: pinned,
                         isSelected: editor.selectedAxisStopID == stop.id,
-                        onSelect: { editor.selectedAxisStopID = stop.id },
-                        name: stopNameBinding(axisTag: axis.tag, stopID: stop.id),
-                        elidable: stopElidableBinding(axisTag: axis.tag, stopID: stop.id)
+                        editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
+                        showElidable: axis.values.count > 1,
+                        isElidable: stop.elidable,
+                        onSelect: {
+                            editingStop = nil
+                            editor.selectedAxisStopID = stop.id
+                        },
+                        onBeginEdit: { field in
+                            editor.selectedAxisStopID = stop.id
+                            editingStop = (stop.id, field)
+                        },
+                        onEndEdit: { editingStop = nil },
+                        onRemove: { editor.removeAxisStop(axisTag: axis.tag, stopID: stop.id) },
+                        onCommitValue: { editor.updateAxisStopValue(axisTag: axis.tag, stopID: stop.id, value: $0) },
+                        onCommitName: { editor.updateAxisStopName(axisTag: axis.tag, stopID: stop.id, name: $0) },
+                        onToggleElidable: { editor.toggleAxisStopElidable(axisTag: axis.tag, stopID: stop.id) }
                     )
                 }
             }
@@ -123,62 +150,45 @@ struct AxisTreePanel: View {
             if axis.role == .instance {
                 Button {
                     editor.addAxisStop(axisTag: axis.tag)
+                    if let newID = editor.selectedAxisStopID {
+                        editingStop = (newID, .name)
+                    }
                 } label: {
                     Label("Add Stop", systemImage: "plus")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, AxisBlockLayout.valueColumnLeading)
+                        .padding(.vertical, 5)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 5)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                                .foregroundStyle(.tertiary)
+                        }
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
         }
         .padding(.vertical, 4)
-        .foregroundStyle(pinned ? .secondary : .primary)
     }
 
     // MARK: - Bindings
 
-    private func expansionBinding(for tag: String) -> Binding<Bool> {
-        Binding(
-            get: { expandedAxes.contains(tag) },
-            set: { expanded in
-                if expanded {
-                    expandedAxes.insert(tag)
-                } else {
-                    expandedAxes.remove(tag)
-                }
-            }
-        )
+    private func toggleExpansion(for tag: String) {
+        if expandedAxes.contains(tag) {
+            expandedAxes.remove(tag)
+        } else {
+            expandedAxes.insert(tag)
+        }
     }
 
-    private func statOnlyBinding(for tag: String) -> Binding<Bool> {
+    private func instanceAxisBinding(for tag: String) -> Binding<Bool> {
         Binding(
             get: {
-                editor.selectedFont?.axes.first(where: { $0.tag == tag })?.role != .instance
+                editor.selectedFont?.axes.first(where: { $0.tag == tag })?.role == .instance
             },
-            set: { editor.setAxisStatOnly(tag: tag, statOnly: $0) }
-        )
-    }
-
-    private func stopNameBinding(axisTag: String, stopID: String) -> Binding<String> {
-        Binding(
-            get: {
-                editor.selectedFont?
-                    .axes.first(where: { $0.tag == axisTag })?
-                    .values.first(where: { $0.id == stopID })?
-                    .name ?? ""
-            },
-            set: { editor.updateAxisStopName(axisTag: axisTag, stopID: stopID, name: $0) }
-        )
-    }
-
-    private func stopElidableBinding(axisTag: String, stopID: String) -> Binding<Bool> {
-        Binding(
-            get: {
-                editor.selectedFont?
-                    .axes.first(where: { $0.tag == axisTag })?
-                    .values.first(where: { $0.id == stopID })?
-                    .elidable ?? false
-            },
-            set: { editor.updateAxisStopElidable(axisTag: axisTag, stopID: stopID, elidable: $0) }
+            set: { editor.setAxisInstanceGridEnabled(tag: tag, enabled: $0) }
         )
     }
 
@@ -202,46 +212,67 @@ struct AxisTreePanel: View {
 
 private struct AxisTreeAxisHeader: View {
     let axis: AxisDefinition
+    let isExpanded: Bool
+    @Binding var isInstanceAxis: Bool
+    let onToggleExpansion: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(axis.tag)
-                .font(.caption.monospaced())
-                .foregroundStyle(roleColor)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(roleColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+            Button(action: onToggleExpansion) {
+                HStack(spacing: AxisBlockLayout.tagNameSpacing) {
+                    AxisTreeTagPill(text: axis.tag)
+                        .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(axis.displayName ?? axis.tag)
-                    .font(.body)
-                if let range = axisRangeText {
-                    Text(range)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 4) {
+                            Text(axis.displayName ?? axis.tag)
+                                .font(.body)
+                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        if let range = axisRangeText {
+                            Text(range)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                                .help("fvar minimum · default · maximum")
+                        }
+                    }
                 }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
             Spacer(minLength: 4)
 
-            if axis.role != .instance {
-                Text("Pinned")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            Toggle("Instance axis", isOn: $isInstanceAxis)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+                .help(
+                    "When on, stops on this axis generate named instances. "
+                        + "When off, the axis stays at its default value for every instance."
+                )
+                .accessibilityLabel("Instance axis")
 
-            Text("\(axis.values.count)")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(.quaternary, in: Capsule())
+            stopCountBadge
         }
     }
 
-    private var roleColor: Color {
-        axis.role == .instance ? .accentColor : .secondary
+    private var stopCountBadge: some View {
+        Text("\(isInstanceAxis ? axis.values.count : 0)")
+            .font(.system(size: 11, weight: .medium))
+            .monospacedDigit()
+            .foregroundStyle(isInstanceAxis ? .secondary : .tertiary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(.quaternary.opacity(isInstanceAxis ? 1 : 0.6), in: Capsule())
+            .help(
+                isInstanceAxis
+                    ? "\(axis.values.count) stops in the instance grid formula"
+                    : "Not in the instance grid (contributes ×0)"
+            )
     }
 
     private var axisRangeText: String? {
@@ -255,46 +286,341 @@ private struct AxisTreeAxisHeader: View {
     }
 }
 
+// MARK: - Axis block layout
+
+/// Shared horizontal metrics so the header badge/name line up with stop rows.
+private enum AxisBlockLayout {
+    /// Fixed slot for the axis tag pill — matches typical four-letter tags (`wdth`, `wght`, …).
+    static let tagColumnWidth: CGFloat = 34
+    static let tagNameSpacing: CGFloat = 8
+    static let rowHorizontalPadding: CGFloat = 6
+
+    /// Left edge of the semantic name and Value column (from the axis block edge).
+    static var valueColumnLeading: CGFloat {
+        tagColumnWidth + tagNameSpacing
+    }
+
+    /// Width for right-aligned axis values (up to ~5 monospaced digits).
+    static let valueColumnWidth: CGFloat = 40
+    static let nameGap: CGFloat = 12
+    static let elidableWidth: CGFloat = 52
+
+    /// Gutter between the badge (highlight left edge) and the Value column.
+    static var removeGutterWidth: CGFloat {
+        valueColumnLeading - rowHorizontalPadding
+    }
+
+    static let removeButtonSize: CGFloat = 13
+
+    /// Horizontal center of the leading-aligned tag pill (intrinsic width, not the full tag column slot).
+    static func tagBadgeCenterX(for tag: String) -> CGFloat {
+        AxisTreeTagPill.layoutWidth(for: tag) / 2
+    }
+
+    /// Leading offset for a fixed-size remove control inside the row gutter.
+    static func removeButtonLeadingOffset(for tag: String) -> CGFloat {
+        tagBadgeCenterX(for: tag) - rowHorizontalPadding - removeButtonSize / 2
+    }
+}
+
+private struct AxisStopTableHeader: View {
+    let showElidable: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.clear
+                .frame(width: AxisBlockLayout.removeGutterWidth)
+
+            Text("Value")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            Text("Name")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, AxisBlockLayout.nameGap)
+
+            if showElidable {
+                Text("Elidable")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: AxisBlockLayout.elidableWidth, alignment: .center)
+                    .help("Omit this stop from the composed style name when it is the default choice")
+            }
+        }
+        .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
+        .padding(.bottom, 2)
+    }
+}
+
 // MARK: - Stop row
 
 private struct AxisTreeStopRow: View {
-    let axis: AxisDefinition
+    let axisTag: String
     let stop: AxisValue
-    var dimmed: Bool = false
     let isSelected: Bool
+    let editingField: StopEditField?
+    let showElidable: Bool
+    let isElidable: Bool
     let onSelect: () -> Void
-    @Binding var name: String
-    @Binding var elidable: Bool
+    let onBeginEdit: (StopEditField) -> Void
+    let onEndEdit: () -> Void
+    let onRemove: () -> Void
+    let onCommitValue: (Double) -> Void
+    let onCommitName: (String) -> Void
+    let onToggleElidable: () -> Void
+
+    @State private var isHovered = false
+    @State private var editingValue = ""
+    @State private var editingName = ""
+    @State private var confirmRemove = false
+    @State private var selectTask: Task<Void, Never>?
+    @FocusState private var focusedField: StopEditField?
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(AxisTreeFormatting.value(stop.value))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 44, alignment: .trailing)
+        HStack(alignment: .center, spacing: 0) {
+            removeGutter
 
-            TextField("Name", text: $name)
-                .textFieldStyle(.plain)
-                .font(.body)
+            valueColumn
+                .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            nameColumn
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, AxisBlockLayout.nameGap)
 
             if stop.statFormat == 3 {
-                Text("Linked")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                AxisTreeTagPill(text: "Linked", compact: true)
+                    .padding(.leading, 6)
             }
 
-            Toggle("Elide", isOn: $elidable)
-                .toggleStyle(.checkbox)
-                .controlSize(.small)
-                .help("Omit this stop from the composed style name when it is the default choice")
+            if showElidable {
+                ElidableColumn(isOn: isElidable, action: onToggleElidable)
+                    .frame(width: AxisBlockLayout.elidableWidth)
+            }
         }
-        .padding(.vertical, 3)
-        .padding(.horizontal, 6)
-        .background(isSelected ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
-        .contentShape(Rectangle())
-        .onTapGesture { onSelect() }
-        .opacity(dimmed ? 0.85 : 1)
+        .padding(.vertical, 2)
+        .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
+        .background {
+            rowBackground
+                .padding(.leading, -AxisBlockLayout.rowHorizontalPadding)
+        }
+        .onHover { isHovered = $0 }
+        .onAppear { syncDrafts() }
+        .onChange(of: stop.value) { _, _ in syncDrafts() }
+        .onChange(of: stop.name) { _, _ in syncDrafts() }
+        .onChange(of: editingField) { _, field in
+            syncDrafts()
+            focusedField = field
+        }
+        .onChange(of: focusedField) { _, field in
+            if field == nil, editingField != nil {
+                commitCurrentEdit()
+                onEndEdit()
+            }
+        }
+        .alert("Remove Stop?", isPresented: $confirmRemove) {
+            Button("Remove", role: .destructive, action: onRemove)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Remove “\(stop.name)” at \(AxisTreeFormatting.value(stop.value))?")
+        }
     }
+
+    @ViewBuilder
+    private var removeGutter: some View {
+        ZStack(alignment: .topLeading) {
+            Color.clear
+                .frame(
+                    width: AxisBlockLayout.removeGutterWidth,
+                    height: AxisBlockLayout.removeButtonSize
+                )
+
+            if isHovered {
+                Button {
+                    confirmRemove = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: AxisBlockLayout.removeButtonSize))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .frame(
+                    width: AxisBlockLayout.removeButtonSize,
+                    height: AxisBlockLayout.removeButtonSize
+                )
+                .offset(x: AxisBlockLayout.removeButtonLeadingOffset(for: axisTag))
+                .help("Remove stop")
+            }
+        }
+        .frame(width: AxisBlockLayout.removeGutterWidth)
+    }
+
+    @ViewBuilder
+    private var valueColumn: some View {
+        if editingField == .value {
+            TextField("Value", text: $editingValue)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color.orange.opacity(0.85))
+                .multilineTextAlignment(.trailing)
+                .focused($focusedField, equals: .value)
+                .onSubmit(commitValue)
+        } else {
+            Text(AxisTreeFormatting.value(stop.value))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color.orange.opacity(0.85))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .contentShape(Rectangle())
+                .gesture(clickGesture(for: .value))
+        }
+    }
+
+    @ViewBuilder
+    private var nameColumn: some View {
+        if editingField == .name {
+            TextField("Name", text: $editingName)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($focusedField, equals: .name)
+                .onSubmit(commitName)
+        } else {
+            Text(stop.name)
+                .font(.system(size: 13))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .gesture(clickGesture(for: .name))
+        }
+    }
+
+    private var rowBackground: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(
+                isSelected
+                    ? Color.accentColor.opacity(0.15)
+                    : (isHovered ? Color.primary.opacity(0.05) : Color.clear)
+            )
+    }
+
+    private func clickGesture(for field: StopEditField) -> some Gesture {
+        TapGesture(count: 2)
+            .onEnded {
+                selectTask?.cancel()
+                onBeginEdit(field)
+            }
+            .simultaneously(with:
+                TapGesture(count: 1)
+                    .onEnded {
+                        selectTask?.cancel()
+                        selectTask = Task {
+                            try? await Task.sleep(nanoseconds: 220_000_000)
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run { onSelect() }
+                        }
+                    }
+            )
+    }
+
+    private func syncDrafts() {
+        editingValue = AxisTreeFormatting.value(stop.value)
+        editingName = stop.name
+    }
+
+    private func commitCurrentEdit() {
+        switch editingField {
+        case .value:
+            commitValue()
+        case .name:
+            commitName()
+        case nil:
+            break
+        }
+    }
+
+    private func commitValue() {
+        let trimmed = editingValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed) else {
+            syncDrafts()
+            return
+        }
+        onCommitValue(value)
+    }
+
+    private func commitName() {
+        let trimmed = editingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            syncDrafts()
+            return
+        }
+        onCommitName(trimmed)
+    }
+}
+
+private struct ElidableColumn: View {
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        ZStack {
+            ElidableDot(isOn: isOn)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            TapGesture().onEnded { action() }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Elidable")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityAction { action() }
+        .help(isOn ? "Clear elidable stop" : "Mark as elidable stop")
+    }
+}
+
+private struct ElidableDot: View {
+    let isOn: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1)
+                .frame(width: 14, height: 14)
+            if isOn {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct AxisTreeTagPill: View {
+    let text: String
+    var compact: Bool = false
+
+    private static let horizontalPadding: CGFloat = 5
+    private static let monospacedCharWidth: CGFloat = 5.5
+
+    static func layoutWidth(for text: String) -> CGFloat {
+        CGFloat(text.count) * monospacedCharWidth + horizontalPadding * 2
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .padding(.horizontal, Self.horizontalPadding)
+            .padding(.vertical, 2)
+            .foregroundStyle(AxisTreeStyle.tagForeground)
+            .background(AxisTreeStyle.tagBackground, in: RoundedRectangle(cornerRadius: compact ? 3 : 3))
+    }
+}
+
+private enum AxisTreeStyle {
+    static let tagForeground = Color.teal
+    static let tagBackground = Color.teal.opacity(0.15)
 }
 
 private enum AxisTreeFormatting {

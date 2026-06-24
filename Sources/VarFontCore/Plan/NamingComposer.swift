@@ -20,7 +20,7 @@ public enum NamingComposer {
         for tag in naming.order {
             guard let value = coords[tag] else { continue }
             guard let axis = axisByTag[tag] else { continue }
-            guard let stop = axis.values.first(where: { $0.value == value }) else { continue }
+            guard let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) else { continue }
 
             let elided = stop.elidable
             chain.append(Link(tag: tag, name: stop.name, elided: elided))

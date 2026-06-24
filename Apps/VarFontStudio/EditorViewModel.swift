@@ -18,6 +18,13 @@ final class EditorViewModel: ObservableObject {
 
     @Published private(set) var canSave = false
 
+    private var debouncedPlanTask: Task<Void, Never>?
+    private var undoStack: [ProjectDocument] = []
+    private var redoStack: [ProjectDocument] = []
+
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+
     var selectedFont: FontDocument? {
         guard let project, let selectedFontID else { return nil }
         return project.fonts.first { $0.id == selectedFontID }
@@ -88,6 +95,8 @@ final class EditorViewModel: ObservableObject {
             project = imported
             selectedFontID = imported.fonts.first?.id
             selectedInstanceKey = nil
+            selectedAxisStopID = nil
+            clearUndoHistory()
             regeneratePlan()
             statusMessage = "Opened \(url.lastPathComponent)"
             canSave = false
@@ -151,8 +160,12 @@ final class EditorViewModel: ObservableObject {
         regeneratePlan()
     }
 
+    func setAxisInstanceGridEnabled(tag: String, enabled: Bool) {
+        updateAxisRole(tag: tag, role: enabled ? .instance : .statOnly)
+    }
+
     func setAxisStatOnly(tag: String, statOnly: Bool) {
-        updateAxisRole(tag: tag, role: statOnly ? .statOnly : .instance)
+        setAxisInstanceGridEnabled(tag: tag, enabled: !statOnly)
     }
 
     func axisParticipatesInInstanceGrid(tag: String) -> Bool {
@@ -188,13 +201,78 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
+    func updateAxisStopValue(axisTag: String, stopID: String, value: Double) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            let axis = font.axes[axisIndex]
+            var clamped = value
+            if let min = axis.min { clamped = max(clamped, min) }
+            if let max = axis.max { clamped = min(clamped, max) }
+            font.axes[axisIndex].values[stopIndex].value = clamped
+            font.axes[axisIndex].values.sort { $0.value < $1.value }
+        }
+    }
+
+    func toggleAxisStopElidable(axisTag: String, stopID: String) {
+        guard let axis = selectedFont?.axes.first(where: { $0.tag == axisTag }),
+              let stop = axis.values.first(where: { $0.id == stopID }) else { return }
+        updateAxisStopElidable(axisTag: axisTag, stopID: stopID, elidable: !stop.elidable)
+    }
+
+    func undo() {
+        guard let current = project, let previous = undoStack.popLast() else { return }
+        redoStack.append(current)
+        project = previous
+        if let fontID = selectedFontID,
+           project?.fonts.contains(where: { $0.id == fontID }) != true {
+            selectedFontID = project?.fonts.first?.id
+        }
+        canSave = project?.fonts.contains(where: \.dirty) ?? false
+        regeneratePlan()
+    }
+
+    func redo() {
+        guard let current = project, let next = redoStack.popLast() else { return }
+        undoStack.append(current)
+        project = next
+        canSave = next.fonts.contains(where: \.dirty)
+        regeneratePlan()
+    }
+
+    private func clearUndoHistory() {
+        undoStack.removeAll()
+        redoStack.removeAll()
+    }
+
+    private func pushUndoSnapshot() {
+        guard let project else { return }
+        undoStack.append(project)
+        if undoStack.count > 100 {
+            undoStack = Array(undoStack.suffix(100))
+        }
+        redoStack.removeAll()
+    }
+
+    func removeAxisStop(axisTag: String, stopID: String) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
+            font.axes[axisIndex].values.removeAll { $0.id == stopID }
+        }
+        if selectedAxisStopID == stopID {
+            selectedAxisStopID = nil
+        }
+    }
+
     func addAxisStop(axisTag: String) {
+        var addedStopID: String?
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
             let axis = font.axes[axisIndex]
             let value = suggestedNewStopValue(for: axis)
+            let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
             let stop = AxisValue(
-                id: "\(axisTag)-\(UUID().uuidString.prefix(8))",
+                id: stopID,
                 value: value,
                 name: "New Stop",
                 elidable: false,
@@ -202,8 +280,9 @@ final class EditorViewModel: ObservableObject {
             )
             font.axes[axisIndex].values.append(stop)
             font.axes[axisIndex].values.sort { $0.value < $1.value }
+            addedStopID = stopID
         }
-        selectedAxisStopID = nil
+        selectedAxisStopID = addedStopID
     }
 
     private func suggestedNewStopValue(for axis: AxisDefinition) -> Double {
@@ -219,16 +298,37 @@ final class EditorViewModel: ObservableObject {
         return axis.default ?? 0
     }
 
-    private func mutateSelectedFont(_ mutate: (inout FontDocument) -> Void) {
+    private func mutateSelectedFont(
+        recordUndo: Bool = true,
+        debouncePlan: Bool = false,
+        _ mutate: (inout FontDocument) -> Void
+    ) {
         guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
             return
+        }
+        if recordUndo {
+            pushUndoSnapshot()
         }
         mutate(&project.fonts[fontIndex])
         project.fonts[fontIndex].dirty = true
         project.modified = Date()
         self.project = project
         canSave = true
-        regeneratePlan()
+        if debouncePlan {
+            scheduleDebouncedPlanRegeneration()
+        } else {
+            debouncedPlanTask?.cancel()
+            regeneratePlan()
+        }
+    }
+
+    private func scheduleDebouncedPlanRegeneration() {
+        debouncedPlanTask?.cancel()
+        debouncedPlanTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            regeneratePlan()
+        }
     }
 
     func saveCopy() {

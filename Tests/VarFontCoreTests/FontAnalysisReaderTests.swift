@@ -36,6 +36,9 @@ final class FontAnalysisReaderTests: XCTestCase {
         let analysis = try FontAnalysisReader.analyze(url: URL(fileURLWithPath: path))
         XCTAssertEqual(analysis.instancesExistingMeta?.total, 252)
         XCTAssertTrue(analysis.inferred.gridAxisTags.contains("wght"))
+        XCTAssertEqual(analysis.inferred.namingOrderSuggested.prefix(3), ["opsz", "wdth", "wght"])
+        XCTAssertFalse(analysis.nameAudit.used.isEmpty)
+        XCTAssertGreaterThan(analysis.nameAudit.freeStart, 256)
         XCTAssertTrue(analysis.readiness.writable)
     }
 }
