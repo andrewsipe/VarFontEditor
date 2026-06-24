@@ -1,0 +1,71 @@
+# Root directory
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Package.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/SCHEMA.md
+
+# Apps/VarFontStudio/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/EditorViewModel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudioApp.swift
+
+# Apps/VarFontStudio/Assets.xcassets/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Assets.xcassets/Contents.json
+
+# Apps/VarFontStudio/VarFontStudio.xcodeproj/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudio.xcodeproj/project.pbxproj
+
+# Apps/VarFontStudio/VarFontStudio.xcodeproj/xcshareddata/xcschemes/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudio.xcodeproj/xcshareddata/xcschemes/VarFontStudio.xcscheme
+
+# Apps/VarFontStudio/Views/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/AxisTreePanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/FontFileTabs.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InspectorPanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InstanceListPanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/MainEditorView.swift
+
+# Sources/VarFontCore/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/JSONCoding.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/SchemaModels.swift
+
+# Sources/VarFontCore/Commit/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Commit/CommitService.swift
+
+# Sources/VarFontCore/Import/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Import/ProjectImporter.swift
+
+# Sources/VarFontCore/Plan/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstanceKeyBuilder.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstancePlanner.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/NamingComposer.swift
+
+# Sources/VarFontCore/Read/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/FontAnalysisReader.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/FvarParser.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/OpenTypeBinary.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/OpenTypeNameTable.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/StatParser.swift
+
+# Tests/VarFontCoreTests/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FixtureLoader.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FontAnalysisReaderTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstanceKeyBuilderTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstancePlannerTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontImportPlanTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ProjectImporterTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/SchemaDecodeTests.swift
+
+# VarFontStudio.xcworkspace/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/VarFontStudio.xcworkspace/contents.xcworkspacedata
+
+# fixtures/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/README.md
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/generate_analysis_fixtures.py
+
+# fixtures/examples/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/commit-result-success.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-family-project.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-italic-analysis.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-roman-analysis.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-roman-commit-request.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-roman-instance-plan.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/roboto-flex-analysis.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/roboto-flex-project-snippet.json
