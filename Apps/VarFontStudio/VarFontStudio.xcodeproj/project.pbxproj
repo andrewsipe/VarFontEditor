@@ -14,6 +14,7 @@
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
 		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
+		B2000010 /* StudioDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000009 /* StudioDesign.swift */; };
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
 		B2000009 /* VarFontCore in Frameworks */ = {isa = PBXBuildFile; productRef = P2000001 /* VarFontCore */; };
 /* End PBXBuildFile section */
@@ -27,6 +28,7 @@
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
+		F2000009 /* StudioDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDesign.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -69,6 +71,7 @@
 				F2000005 /* AxisTreePanel.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
+				F2000009 /* StudioDesign.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -155,6 +158,7 @@
 				B2000005 /* AxisTreePanel.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
+				B2000010 /* StudioDesign.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

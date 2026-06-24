@@ -48,13 +48,13 @@ struct InstanceListPanel: View {
                                 instanceRow(instance)
                             }
                         } header: {
-                            sectionHeader(group)
+                            StudioGroupHeader(label: group.label, count: group.instances.count)
                         }
                     }
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.horizontal, StudioSpacing.listInset)
+            .padding(.vertical, StudioSpacing.panelVertical)
         }
         .transaction { $0.animation = nil }
     }
@@ -71,96 +71,68 @@ struct InstanceListPanel: View {
     }
 
     private var filterBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                TextField("Search names or coordinates", text: $editor.searchText)
-                    .textFieldStyle(.roundedBorder)
+        StudioCompactToolbar {
+            VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    TextField("Search names or coordinates", text: $editor.searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(StudioTypography.caption)
+                        .controlSize(.small)
 
-                Picker("Show", selection: $editor.instanceFilter) {
-                    ForEach(InstanceFilter.allCases) { filter in
-                        Text(filter.label).tag(filter)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
-
-                Button("All") {
-                    editor.setFilteredInstancesIncluded(true)
-                }
-                .disabled(editor.filteredInstances.isEmpty)
-
-                Button("None") {
-                    editor.setFilteredInstancesIncluded(false)
-                }
-                .disabled(editor.filteredInstances.isEmpty)
-            }
-
-            HStack(spacing: 8) {
-                if let label = display.axisStopFilterLabel {
-                    HStack(spacing: 4) {
-                        Label(label, systemImage: "line.3.horizontal.decrease")
-                            .font(.caption)
-                        Button {
-                            editor.clearAxisStopFilter()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    Picker("Show", selection: $editor.instanceFilter) {
+                        ForEach(InstanceFilter.allCases) { filter in
+                            Text(filter.label).tag(filter)
                         }
-                        .buttonStyle(.plain)
-                        .help("Clear axis stop filter")
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.quaternary, in: Capsule())
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .fixedSize()
+
+                    Button("All") {
+                        editor.setFilteredInstancesIncluded(true)
+                    }
+                    .studioCompactControl()
+                    .disabled(editor.filteredInstances.isEmpty)
+
+                    Button("None") {
+                        editor.setFilteredInstancesIncluded(false)
+                    }
+                    .studioCompactControl()
+                    .disabled(editor.filteredInstances.isEmpty)
                 }
 
-                if let summary = display.summary {
-                    Text(summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                HStack(spacing: StudioSpacing.controlGap) {
+                    if let label = display.axisStopFilterLabel {
+                        StudioFilterChip(icon: "line.3.horizontal.decrease", label: label) {
+                            Button {
+                                editor.clearAxisStopFilter()
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(StudioTypography.meta)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear axis stop filter")
+                        }
+                    }
 
-                Spacer(minLength: 0)
+                    if let summary = display.summary {
+                        Text(summary)
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
 
-                if editor.selectedFont?.dirty == true {
-                    Text("Edited")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+
+                    if editor.selectedFont?.dirty == true {
+                        Text("Edited")
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-    }
-
-    private func sectionHeader(_ group: InstanceGroup) -> some View {
-        HStack(spacing: 6) {
-            Text(group.label)
-            Text("·")
-                .foregroundStyle(.tertiary)
-            Text("\(group.instances.count)")
-                .foregroundStyle(.secondary)
-        }
-        .font(.caption.weight(.semibold))
-        .textCase(nil)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.background)
-                .padding(.horizontal, -8)
-        }
-        .background {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.quaternary.opacity(0.5))
-                .padding(.horizontal, -8)
-        }
-        .padding(.top, 6)
-        .padding(.bottom, 2)
-        .zIndex(1)
     }
 
     private var emptyListMessage: String {
@@ -185,86 +157,43 @@ private struct InstanceRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 7) {
-            InstanceIncludeCheckbox(isOn: isIncluded) {
+        HStack(spacing: StudioSpacing.rowGap + 1) {
+            StudioIncludeCheckbox(isOn: isIncluded) {
                 onIncludedChange(!isIncluded)
             }
 
             Text(instance.composedName)
-                .font(.system(size: 12, weight: .medium))
+                .font(StudioTypography.bodyMedium)
                 .foregroundStyle(isIncluded ? .primary : .secondary)
                 .strikethrough(!isIncluded, color: .secondary)
                 .lineLimit(1)
 
             if instance.duplicate {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.caption2)
+                    .font(StudioTypography.meta)
                     .foregroundStyle(.orange)
                     .help("Duplicate composed name")
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: StudioSpacing.controlGap)
 
             Text(coordsCaption)
-                .font(.system(size: 10, design: .monospaced))
+                .font(StudioTypography.monoMeta)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
                 .frame(maxWidth: 140, alignment: .trailing)
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 5)
+        .studioRowInsets()
         .opacity(isIncluded ? 1 : 0.45)
-        .background(rowBackground)
-        .contentShape(RoundedRectangle(cornerRadius: 4))
+        .background(
+            StudioRowBackground(
+                isSelected: isSelected,
+                isHovered: isHovered,
+                isWarning: instance.duplicate
+            )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         .onTapGesture(perform: onSelect)
         .onHover { isHovered = $0 }
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(rowFill)
-            .overlay {
-                if isSelected && !instance.duplicate {
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
-                }
-            }
-    }
-
-    private var rowFill: Color {
-        if instance.duplicate {
-            return Color.orange.opacity(isHovered ? 0.18 : 0.12)
-        }
-        if isSelected {
-            return Color.accentColor.opacity(0.14)
-        }
-        if isHovered {
-            return Color.primary.opacity(0.06)
-        }
-        return Color.clear
-    }
-}
-
-private struct InstanceIncludeCheckbox: View {
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(Color.secondary.opacity(isOn ? 0.55 : 0.35), lineWidth: 1)
-                    .frame(width: 13, height: 13)
-                if isOn {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 16, height: 16)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(isOn ? "Exclude from export" : "Include in export")
     }
 }

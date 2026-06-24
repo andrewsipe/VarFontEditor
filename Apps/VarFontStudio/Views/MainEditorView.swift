@@ -52,17 +52,17 @@ struct MainEditorView: View {
     }
 
     private var statusBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: StudioSpacing.controlGap) {
             if let message = editor.statusMessage {
                 Text(message)
-                    .font(.caption)
+                    .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
+        .padding(.vertical, 4)
         .background(.bar)
     }
 
@@ -71,15 +71,15 @@ struct MainEditorView: View {
             Color.black.opacity(0.12)
                 .ignoresSafeArea()
 
-            VStack(spacing: 14) {
+            VStack(spacing: StudioSpacing.controlGap + 2) {
                 Label("VarFont Studio", systemImage: "textformat.size")
-                    .font(.title2)
+                    .font(StudioTypography.emphasis)
                 ProgressView()
-                    .controlSize(.regular)
+                    .controlSize(.small)
             }
-            .padding(.horizontal, 36)
-            .padding(.vertical, 28)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 28)
+            .padding(.vertical, 20)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .transition(.opacity)
     }
@@ -130,18 +130,18 @@ private struct FontFileDropTargetModifier: ViewModifier {
                 .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [10, 6]))
                 .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
 
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 Image(systemName: "arrow.down.doc.fill")
-                    .font(.title)
+                    .font(StudioTypography.emphasis)
                     .foregroundStyle(.tint)
                 Text(editor.project == nil ? "Drop to open font" : "Drop to add font")
-                    .font(.headline)
+                    .font(StudioTypography.bodyMedium)
                 Text("TTF, OTF, WOFF, WOFF2")
-                    .font(.caption)
+                    .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(32)
+        .padding(24)
         .allowsHitTesting(false)
     }
 }

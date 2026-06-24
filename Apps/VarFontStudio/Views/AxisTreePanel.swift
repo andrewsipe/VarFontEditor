@@ -27,7 +27,7 @@ struct AxisTreePanel: View {
             ToolbarItem(placement: .automatic) {
                 if let font = editor.selectedFont {
                     Text("\(font.axes.count) axes")
-                        .font(.caption)
+                        .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -49,15 +49,23 @@ struct AxisTreePanel: View {
     private var gridSummarySection: some View {
         if let plan = editor.instancePlan, !plan.formula.parts.isEmpty {
             Section {
-                LabeledContent("Instance grid") {
-                    Text(gridFormulaText(plan))
-                        .font(.body.monospacedDigit())
-                }
-                LabeledContent("Generated instances") {
-                    Text("\(plan.formula.totalGenerated)")
-                        .monospacedDigit()
+                VStack(alignment: .leading, spacing: 4) {
+                    studioSummaryRow("Instance grid", value: gridFormulaText(plan))
+                    studioSummaryRow("Generated", value: "\(plan.formula.totalGenerated)", monospaced: true)
                 }
             }
+        }
+    }
+
+    private func studioSummaryRow(_ label: String, value: String, monospaced: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(monospaced ? StudioTypography.monoMeta : StudioTypography.caption)
+                .foregroundStyle(.primary)
         }
     }
 
@@ -65,7 +73,7 @@ struct AxisTreePanel: View {
         Section {
             ForEach(Array(editor.axisPlanWarnings.enumerated()), id: \.offset) { _, warning in
                 Label(warning.message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
+                    .font(StudioTypography.meta)
                     .foregroundStyle(.orange)
             }
         } header: {
@@ -220,20 +228,20 @@ private struct AxisTreeAxisHeader: View {
         HStack(spacing: 8) {
             Button(action: onToggleExpansion) {
                 HStack(spacing: AxisBlockLayout.tagNameSpacing) {
-                    AxisTreeTagPill(text: axis.tag)
+                    StudioTagPill(text: axis.tag)
                         .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
 
                     VStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 4) {
                             Text(axis.displayName ?? axis.tag)
-                                .font(.body)
+                                .font(StudioTypography.body)
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
                         if let range = axisRangeText {
                             Text(range)
-                                .font(.caption2)
+                                .font(StudioTypography.meta)
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                                 .help("fvar minimum · default · maximum")
@@ -262,7 +270,7 @@ private struct AxisTreeAxisHeader: View {
 
     private var stopCountBadge: some View {
         Text("\(isInstanceAxis ? axis.values.count : 0)")
-            .font(.system(size: 11, weight: .medium))
+            .font(StudioTypography.meta.weight(.medium))
             .monospacedDigit()
             .foregroundStyle(isInstanceAxis ? .secondary : .tertiary)
             .padding(.horizontal, 7)
@@ -277,10 +285,10 @@ private struct AxisTreeAxisHeader: View {
 
     private var axisRangeText: String? {
         guard let min = axis.min, let max = axis.max else { return nil }
-        let minText = AxisTreeFormatting.value(min)
-        let maxText = AxisTreeFormatting.value(max)
+        let minText = StudioFormatting.axisValue(min)
+        let maxText = StudioFormatting.axisValue(max)
         if let defaultValue = axis.default {
-            return "\(minText) – \(AxisTreeFormatting.value(defaultValue)) – \(maxText)"
+            return "\(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
         }
         return "\(minText) – \(maxText)"
     }
@@ -310,11 +318,11 @@ private enum AxisBlockLayout {
         valueColumnLeading - rowHorizontalPadding
     }
 
-    static let removeButtonSize: CGFloat = 13
+    static let removeButtonSize: CGFloat = StudioIncludeCheckbox.size
 
     /// Horizontal center of the leading-aligned tag pill (intrinsic width, not the full tag column slot).
     static func tagBadgeCenterX(for tag: String) -> CGFloat {
-        AxisTreeTagPill.layoutWidth(for: tag) / 2
+        StudioTagPill.layoutWidth(for: tag) / 2
     }
 
     /// Leading offset for a fixed-size remove control inside the row gutter.
@@ -332,19 +340,19 @@ private struct AxisStopTableHeader: View {
                 .frame(width: AxisBlockLayout.removeGutterWidth)
 
             Text("Value")
-                .font(.system(size: 10, weight: .medium))
+                .font(StudioTypography.columnLabel)
                 .foregroundStyle(.tertiary)
                 .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
 
             Text("Name")
-                .font(.system(size: 10, weight: .medium))
+                .font(StudioTypography.columnLabel)
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, AxisBlockLayout.nameGap)
 
             if showElidable {
                 Text("Elidable")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(StudioTypography.columnLabel)
                     .foregroundStyle(.tertiary)
                     .frame(width: AxisBlockLayout.elidableWidth, alignment: .center)
                     .help("Omit this stop from the composed style name when it is the default choice")
@@ -391,7 +399,7 @@ private struct AxisTreeStopRow: View {
                 .padding(.leading, AxisBlockLayout.nameGap)
 
             if stop.statFormat == 3 {
-                AxisTreeTagPill(text: "Linked", compact: true)
+                StudioTagPill(text: "Linked", compact: true)
                     .padding(.leading, 6)
             }
 
@@ -403,7 +411,7 @@ private struct AxisTreeStopRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
         .background {
-            rowBackground
+            StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
                 .padding(.leading, -AxisBlockLayout.rowHorizontalPadding)
         }
         .onHover { isHovered = $0 }
@@ -424,7 +432,7 @@ private struct AxisTreeStopRow: View {
             Button("Remove", role: .destructive, action: onRemove)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Remove “\(stop.name)” at \(AxisTreeFormatting.value(stop.value))?")
+            Text("Remove “\(stop.name)” at \(StudioFormatting.axisValue(stop.value))?")
         }
     }
 
@@ -462,15 +470,15 @@ private struct AxisTreeStopRow: View {
         if editingField == .value {
             TextField("Value", text: $editingValue)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.orange.opacity(0.85))
+                .font(StudioTypography.monoValue)
+                .foregroundStyle(StudioColors.axisValue)
                 .multilineTextAlignment(.trailing)
                 .focused($focusedField, equals: .value)
                 .onSubmit(commitValue)
         } else {
-            Text(AxisTreeFormatting.value(stop.value))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.orange.opacity(0.85))
+            Text(StudioFormatting.axisValue(stop.value))
+                .font(StudioTypography.monoValue)
+                .foregroundStyle(StudioColors.axisValue)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .contentShape(Rectangle())
                 .gesture(clickGesture(for: .value))
@@ -482,26 +490,17 @@ private struct AxisTreeStopRow: View {
         if editingField == .name {
             TextField("Name", text: $editingName)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
+                .font(StudioTypography.body)
                 .focused($focusedField, equals: .name)
                 .onSubmit(commitName)
         } else {
             Text(stop.name)
-                .font(.system(size: 13))
+                .font(StudioTypography.body)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .gesture(clickGesture(for: .name))
         }
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: 6)
-            .fill(
-                isSelected
-                    ? Color.accentColor.opacity(0.15)
-                    : (isHovered ? Color.primary.opacity(0.05) : Color.clear)
-            )
     }
 
     private func clickGesture(for field: StopEditField) -> some Gesture {
@@ -524,7 +523,7 @@ private struct AxisTreeStopRow: View {
     }
 
     private func syncDrafts() {
-        editingValue = AxisTreeFormatting.value(stop.value)
+        editingValue = StudioFormatting.axisValue(stop.value)
         editingName = stop.name
     }
 
@@ -594,43 +593,5 @@ private struct ElidableDot: View {
             }
         }
         .allowsHitTesting(false)
-    }
-}
-
-private struct AxisTreeTagPill: View {
-    let text: String
-    var compact: Bool = false
-
-    private static let horizontalPadding: CGFloat = 5
-    private static let monospacedCharWidth: CGFloat = 5.5
-
-    static func layoutWidth(for text: String) -> CGFloat {
-        CGFloat(text.count) * monospacedCharWidth + horizontalPadding * 2
-    }
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .padding(.horizontal, Self.horizontalPadding)
-            .padding(.vertical, 2)
-            .foregroundStyle(AxisTreeStyle.tagForeground)
-            .background(AxisTreeStyle.tagBackground, in: RoundedRectangle(cornerRadius: compact ? 3 : 3))
-    }
-}
-
-private enum AxisTreeStyle {
-    static let tagForeground = Color.teal
-    static let tagBackground = Color.teal.opacity(0.15)
-}
-
-private enum AxisTreeFormatting {
-    static func value(_ value: Double) -> String {
-        if value.rounded() == value {
-            return String(Int(value))
-        }
-        var text = String(value)
-        while text.last == "0" { text.removeLast() }
-        if text.last == "." { text.removeLast() }
-        return text
     }
 }

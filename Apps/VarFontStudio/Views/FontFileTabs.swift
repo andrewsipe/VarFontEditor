@@ -15,9 +15,11 @@ struct FontFileTabs: View {
                 }
             }
             .pickerStyle(.segmented)
+            .controlSize(.small)
             .labelsHidden()
-            .padding(.horizontal)
-            .padding(.top, 8)
+            .font(StudioTypography.caption)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.top, StudioSpacing.panelVertical)
         }
     }
 
