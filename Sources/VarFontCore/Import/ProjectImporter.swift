@@ -19,6 +19,7 @@ public enum ProjectImporter {
       familyLabel: familyLabel,
       naming: NamingPolicy(
         order: analysis.inferred.namingOrderSuggested,
+        inferredOrder: analysis.inferred.namingOrderSuggested,
         elidedFallback: analysis.nameAudit.elidedFallbackName ?? "Regular"
       ),
       template: ProjectTemplate(syncRoles: true, axes: []),
@@ -43,6 +44,7 @@ public enum ProjectImporter {
         default: axis.default,
         max: axis.max,
         role: axis.roleInferred,
+        roleInferred: axis.roleInferred,
         values: axis.valuesExisting.map { stop in
           AxisValue(
             id: "\(axis.tag)-\(UUID().uuidString.prefix(8))",

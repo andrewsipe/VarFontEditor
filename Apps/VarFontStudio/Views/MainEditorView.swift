@@ -4,35 +4,178 @@ import VarFontCore
 struct MainEditorView: View {
     @EnvironmentObject private var editor: EditorViewModel
     @State private var columnVisibility = NavigationSplitViewVisibility.all
+    @State private var isDropTargeted = false
+    @State private var activeDropZone: WorkspaceDropZone = .none
+    @State private var openProjectMenuID: String?
 
     var body: some View {
-        editorChrome
-            .overlay {
-                if editor.isBusy {
-                    loadingOverlay
+        GeometryReader { geometry in
+            editorChrome
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .contentShape(Rectangle())
+                .onDrop(
+                    of: EditorViewModel.fontDropTypes,
+                    delegate: WorkspaceDropDelegate(
+                        isTargeted: $isDropTargeted,
+                        activeZone: $activeDropZone,
+                        dropHeight: geometry.size.height,
+                        isEmptyWorkspace: !editor.hasOpenProjects,
+                        isBusy: editor.isBusy,
+                        onDropURLs: { urls, disposition in
+                            Task {
+                                await editor.importDroppedFonts(urls, disposition: disposition)
+                            }
+                        }
+                    )
+                )
+                .overlay {
+                    if editor.isBusy {
+                        loadingOverlay
+                    }
                 }
+                .overlay {
+                    if isDropTargeted, !editor.isBusy {
+                        WorkspaceDropOverlay(
+                            isEmptyWorkspace: !editor.hasOpenProjects,
+                            activeZone: activeDropZone
+                        )
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.15), value: isDropTargeted)
+                .onChange(of: editor.isBusy) { _, busy in
+                    if busy {
+                        isDropTargeted = false
+                        activeDropZone = .none
+                    }
+                }
+        }
+        .sheet(isPresented: pendingDropBinding) {
+            ProjectPickerSheet()
+                .environmentObject(editor)
+        }
+        .confirmationDialog(
+            "Remove font?",
+            isPresented: removeFontConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                editor.confirmRemoveFontAction()
             }
-            .fontFileDropTarget()
+            Button("Cancel", role: .cancel) {
+                editor.confirmRemoveFont = nil
+            }
+        } message: {
+            Text("This file has unsaved changes.")
+        }
+        .confirmationDialog(
+            "Remove project?",
+            isPresented: closeProjectConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                editor.confirmCloseProjectAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmCloseProjectID = nil
+            }
+        } message: {
+            Text("One or more files in this project have unsaved changes.")
+        }
+    }
+
+    private var pendingDropBinding: Binding<Bool> {
+        Binding(
+            get: { editor.pendingDropURLs != nil },
+            set: { if !$0 { editor.cancelPendingDrop() } }
+        )
+    }
+
+    private var removeFontConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmRemoveFont != nil },
+            set: { if !$0 { editor.confirmRemoveFont = nil } }
+        )
+    }
+
+    private var closeProjectConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmCloseProjectID != nil },
+            set: { if !$0 { editor.confirmCloseProjectID = nil } }
+        )
     }
 
     private var editorChrome: some View {
         VStack(spacing: 0) {
-            NavigationSplitView(columnVisibility: $columnVisibility) {
-                AxisTreePanel()
-                    .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
-            } content: {
-                InstanceListPanel()
-                    .navigationSplitViewColumnWidth(min: 320, ideal: 420)
-            } detail: {
-                InspectorPanel()
-                    .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
+            ProjectToolbar(openMenuProjectID: $openProjectMenuID)
+                .environmentObject(editor)
+
+            ProjectFileSubBar()
+                .environmentObject(editor)
+
+            Group {
+                if editor.hasOpenProjects {
+                    NavigationSplitView(columnVisibility: $columnVisibility) {
+                        AxisTreePanel()
+                            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
+                    } content: {
+                        InstanceListPanel()
+                            .navigationSplitViewColumnWidth(min: 320, ideal: 420)
+                    } detail: {
+                        InspectorPanel()
+                            .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
+                    }
+                } else if !isDropTargeted {
+                    EmptyWorkspaceView()
+                } else {
+                    Color.clear
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(editor.project?.familyLabel ?? "VarFont Studio")
+            .navigationTitle(activeNavigationTitle)
             .toolbar { toolbarItems }
 
-            editorFooter
+            if editor.hasOpenProjects {
+                editorFooter
+            }
         }
+        .overlayPreferenceValue(ProjectTabAnchorKey.self) { anchors in
+            GeometryReader { geometry in
+                ZStack(alignment: .topLeading) {
+                    if openProjectMenuID != nil {
+                        Color.black.opacity(0.001)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .contentShape(Rectangle())
+                            .onTapGesture { openProjectMenuID = nil }
+                    }
+
+                    if let openID = openProjectMenuID,
+                       let openProject = editor.openProjects.first(where: { $0.id == openID }),
+                       let anchor = anchors[openID] {
+                        let tabRect = geometry[anchor]
+                        ProjectDropdownMenu(
+                            openProject: openProject,
+                            onDismiss: { openProjectMenuID = nil }
+                        )
+                        .environmentObject(editor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 360, alignment: .leading)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                        .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
+                        .offset(x: tabRect.minX, y: tabRect.maxY + 4)
+                    }
+                }
+            }
+        }
+    }
+
+    private var activeNavigationTitle: String {
+        if let id = editor.activeProjectID,
+           let openProject = editor.openProjects.first(where: { $0.id == id }) {
+            return editor.projectTabLabel(for: openProject)
+        }
+        return "VarFont Studio"
     }
 
     /// Bottom chrome: naming-order chain + status row.
@@ -52,7 +195,7 @@ struct MainEditorView: View {
             Button("Open…", systemImage: "folder") {
                 editor.presentOpenPanel()
             }
-            .help("Open a variable font file")
+            .help("New project — open a variable font")
         }
 
         ToolbarItem {
@@ -66,6 +209,21 @@ struct MainEditorView: View {
 
     private var statusBar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
+            if let id = editor.activeProjectID,
+               let openProject = editor.openProjects.first(where: { $0.id == id }) {
+                Text(editor.projectTabLabel(for: openProject))
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
+            if let font = editor.selectedFont {
+                Text(editor.fontBasename(for: font))
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
             if let message = editor.statusMessage {
                 Text(message)
                     .font(StudioTypography.meta)
@@ -94,72 +252,6 @@ struct MainEditorView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .transition(.opacity)
-    }
-}
-
-// MARK: - Drag and drop
-
-private struct FontFileDropTargetModifier: ViewModifier {
-    @EnvironmentObject private var editor: EditorViewModel
-    @State private var isDropTargeted = false
-
-    func body(content: Content) -> some View {
-        content
-            .onDrop(of: EditorViewModel.fontDropTypes, isTargeted: $isDropTargeted) { providers in
-                guard !editor.isBusy else { return false }
-                Task {
-                    var urls: [URL] = []
-                    for provider in providers {
-                        if let url = await loadDroppedURL(from: provider) {
-                            urls.append(url)
-                        }
-                    }
-                    guard !urls.isEmpty else { return }
-                    await editor.importDroppedFonts(urls)
-                }
-                return true
-            }
-            .overlay {
-                if isDropTargeted, !editor.isBusy {
-                    dropOverlay
-                        .transition(.opacity)
-                }
-            }
-            .animation(.easeOut(duration: 0.15), value: isDropTargeted)
-    }
-
-    private func loadDroppedURL(from provider: NSItemProvider) async -> URL? {
-        await withCheckedContinuation { continuation in
-            _ = provider.loadObject(ofClass: URL.self) { object, _ in
-                continuation.resume(returning: object)
-            }
-        }
-    }
-
-    private var dropOverlay: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [10, 6]))
-                .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-
-            VStack(spacing: 8) {
-                Image(systemName: "arrow.down.doc.fill")
-                    .font(StudioTypography.emphasis)
-                    .foregroundStyle(.tint)
-                Text(editor.project == nil ? "Drop to open font" : "Drop to add font")
-                    .font(StudioTypography.bodyMedium)
-                Text("TTF, OTF, WOFF, WOFF2")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(24)
         .allowsHitTesting(false)
-    }
-}
-
-private extension View {
-    func fontFileDropTarget() -> some View {
-        modifier(FontFileDropTargetModifier())
     }
 }

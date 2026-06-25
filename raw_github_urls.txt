@@ -20,8 +20,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/AxisTreePanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/FontFileTabs.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InspectorPanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InstanceInclusionCommands.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InstanceListPanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/MainEditorView.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/NamingOrderChainFooter.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/StudioDesign.swift
 
 # Sources/VarFontCore/

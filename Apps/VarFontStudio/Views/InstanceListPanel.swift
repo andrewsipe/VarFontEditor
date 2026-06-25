@@ -11,7 +11,6 @@ struct InstanceListPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FontFileTabs()
             filterBar
 
             if editor.selectedFont == nil {

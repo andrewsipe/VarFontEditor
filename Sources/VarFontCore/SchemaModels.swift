@@ -66,6 +66,8 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
     public var `default`: Double?
     public var max: Double?
     public var role: AxisRole
+    /// Role inferred at import; used by Restore in the naming chain footer.
+    public var roleInferred: AxisRole?
     public var values: [AxisValue]
 
     public var id: String { tag }
@@ -73,7 +75,9 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case tag
         case displayName = "display_name"
-        case min, `default`, max, role, values
+        case min, `default`, max, role
+        case roleInferred = "role_inferred"
+        case values
     }
 
     public init(
@@ -83,6 +87,7 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         default: Double? = nil,
         max: Double? = nil,
         role: AxisRole = .instance,
+        roleInferred: AxisRole? = nil,
         values: [AxisValue] = []
     ) {
         self.tag = tag
@@ -91,22 +96,46 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         self.default = `default`
         self.max = max
         self.role = role
+        self.roleInferred = roleInferred
         self.values = values
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        tag = try c.decode(String.self, forKey: .tag)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
+        min = try c.decodeIfPresent(Double.self, forKey: .min)
+        `default` = try c.decodeIfPresent(Double.self, forKey: .default)
+        max = try c.decodeIfPresent(Double.self, forKey: .max)
+        role = try c.decodeIfPresent(AxisRole.self, forKey: .role) ?? .instance
+        roleInferred = try c.decodeIfPresent(AxisRole.self, forKey: .roleInferred)
+        values = try c.decodeIfPresent([AxisValue].self, forKey: .values) ?? []
     }
 }
 
 public struct NamingPolicy: Codable, Equatable, Sendable {
     public var order: [String]
+    /// STAT-inferred order captured at import; used by Restore in the naming chain footer.
+    public var inferredOrder: [String]?
     public var elidedFallback: String
 
     enum CodingKeys: String, CodingKey {
         case order
+        case inferredOrder = "inferred_order"
         case elidedFallback = "elided_fallback"
     }
 
-    public init(order: [String], elidedFallback: String = "Regular") {
+    public init(order: [String], inferredOrder: [String]? = nil, elidedFallback: String = "Regular") {
         self.order = order
+        self.inferredOrder = inferredOrder
         self.elidedFallback = elidedFallback
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        order = try c.decode([String].self, forKey: .order)
+        inferredOrder = try c.decodeIfPresent([String].self, forKey: .inferredOrder)
+        elidedFallback = try c.decodeIfPresent(String.self, forKey: .elidedFallback) ?? "Regular"
     }
 }
 
@@ -316,6 +345,8 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
     public var created: Date?
     public var modified: Date?
     public var familyLabel: String
+    /// User-visible project tab label; falls back to familyLabel then first filename.
+    public var displayName: String?
     public var naming: NamingPolicy
     public var template: ProjectTemplate
     public var fonts: [FontDocument]
@@ -324,7 +355,40 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         case schemaVersion = "schema_version"
         case created, modified
         case familyLabel = "family_label"
+        case displayName = "display_name"
         case naming, template, fonts
+    }
+
+    public init(
+        schemaVersion: Int,
+        created: Date? = nil,
+        modified: Date? = nil,
+        familyLabel: String,
+        displayName: String? = nil,
+        naming: NamingPolicy,
+        template: ProjectTemplate,
+        fonts: [FontDocument]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.created = created
+        self.modified = modified
+        self.familyLabel = familyLabel
+        self.displayName = displayName
+        self.naming = naming
+        self.template = template
+        self.fonts = fonts
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        created = try c.decodeIfPresent(Date.self, forKey: .created)
+        modified = try c.decodeIfPresent(Date.self, forKey: .modified)
+        familyLabel = try c.decode(String.self, forKey: .familyLabel)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
+        naming = try c.decode(NamingPolicy.self, forKey: .naming)
+        template = try c.decode(ProjectTemplate.self, forKey: .template)
+        fonts = try c.decode([FontDocument].self, forKey: .fonts)
     }
 }
 

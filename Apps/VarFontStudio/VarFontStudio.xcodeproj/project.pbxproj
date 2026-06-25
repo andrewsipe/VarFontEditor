@@ -10,8 +10,13 @@
 		B2000001 /* VarFontStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000001 /* VarFontStudioApp.swift */; };
 		B2000002 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000002 /* EditorViewModel.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
-		B2000004 /* FontFileTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000004 /* FontFileTabs.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
+		B2000013 /* OpenProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* OpenProject.swift */; };
+		B2000014 /* ProjectToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000013 /* ProjectToolbar.swift */; };
+		B2000015 /* ProjectDropdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000014 /* ProjectDropdownMenu.swift */; };
+		B2000016 /* ProjectFileSubBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000015 /* ProjectFileSubBar.swift */; };
+		B2000017 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000016 /* ProjectPickerSheet.swift */; };
+		B2000018 /* WorkspaceDropOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000017 /* WorkspaceDropOverlay.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
 		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
@@ -26,8 +31,13 @@
 		F2000001 /* VarFontStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontStudioApp.swift; sourceTree = "<group>"; };
 		F2000002 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
-		F2000004 /* FontFileTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontFileTabs.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
+		F2000012 /* OpenProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenProject.swift; sourceTree = "<group>"; };
+		F2000013 /* ProjectToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectToolbar.swift; sourceTree = "<group>"; };
+		F2000014 /* ProjectDropdownMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDropdownMenu.swift; sourceTree = "<group>"; };
+		F2000015 /* ProjectFileSubBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileSubBar.swift; sourceTree = "<group>"; };
+		F2000016 /* ProjectPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerSheet.swift; sourceTree = "<group>"; };
+		F2000017 /* WorkspaceDropOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDropOverlay.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -53,6 +63,7 @@
 			children = (
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000002 /* EditorViewModel.swift */,
+				F2000012 /* OpenProject.swift */,
 				G2000005 /* Views */,
 				F2000008 /* Assets.xcassets */,
 				G2000003 /* Products */,
@@ -71,7 +82,11 @@
 			isa = PBXGroup;
 			children = (
 				F2000003 /* MainEditorView.swift */,
-				F2000004 /* FontFileTabs.swift */,
+				F2000013 /* ProjectToolbar.swift */,
+				F2000014 /* ProjectDropdownMenu.swift */,
+				F2000015 /* ProjectFileSubBar.swift */,
+				F2000016 /* ProjectPickerSheet.swift */,
+				F2000017 /* WorkspaceDropOverlay.swift */,
 				F2000005 /* AxisTreePanel.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
@@ -159,8 +174,13 @@
 			files = (
 				B2000001 /* VarFontStudioApp.swift in Sources */,
 				B2000002 /* EditorViewModel.swift in Sources */,
+				B2000013 /* OpenProject.swift in Sources */,
 				B2000003 /* MainEditorView.swift in Sources */,
-				B2000004 /* FontFileTabs.swift in Sources */,
+				B2000014 /* ProjectToolbar.swift in Sources */,
+				B2000015 /* ProjectDropdownMenu.swift in Sources */,
+				B2000016 /* ProjectFileSubBar.swift in Sources */,
+				B2000017 /* ProjectPickerSheet.swift in Sources */,
+				B2000018 /* WorkspaceDropOverlay.swift in Sources */,
 				B2000005 /* AxisTreePanel.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,

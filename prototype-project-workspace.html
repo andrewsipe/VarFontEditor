@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VarFont Studio — Project dropdown tabs (Option B layout)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:#f5f0e8; --sf:#ede7da; --s2:#e4ded2; --s3:#cec7b8;
+      --input-bg:#fffcf7; --bd:#cfc8ba; --bd-dk:#b8b0a0;
+      --tx:#2b2926; --mu:#5a5449; --label:#3e3930;
+      --pr:#6b50a0; --pr-dk:#513c82; --on-pr:#f5f0e8;
+      --tint-pr:rgba(107,80,160,.10); --tint-pr-b:rgba(107,80,160,.28);
+      --te:#5b9ba4; --te-dk:#3f7880; --tint-te:rgba(91,155,164,.12); --tint-te-b:rgba(91,155,164,.35);
+      --am:#b86a1a; --tint-am:rgba(184,106,26,.10); --tint-am-b:rgba(184,106,26,.30);
+      --er-dk:#a44a2e; --tint-er:rgba(201,96,64,.10); --tint-er-b:rgba(201,96,64,.28);
+      --gn-dk:#32634a; --tint-gn:rgba(78,138,108,.10); --tint-gn-b:rgba(78,138,108,.28);
+      --nb:rgba(107,80,160,.08); --nbl:rgba(107,80,160,.35);
+      --r-ctrl:4px; --r-card:6px;
+      --ui:'IBM Plex Sans',system-ui,sans-serif;
+      --mo:'IBM Plex Mono',ui-monospace,monospace;
+      --tree-w:258px; --insp-w:288px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:var(--ui);font-size:13px;color:var(--tx);background:#ddd6c8;line-height:1.45}
+
+    .shell{display:flex;flex-direction:column;height:100vh;min-height:720px;padding:10px;gap:10px}
+    .controls{
+      flex-shrink:0;background:var(--tx);color:#e8e2d8;border-radius:var(--r-card);
+      padding:12px 14px;display:grid;gap:10px;box-shadow:0 8px 28px rgba(43,41,38,.22);
+    }
+    .controls h1{font-size:13px;font-weight:600}
+    .controls h1 span{font-size:11px;font-weight:400;color:#a8a095;font-family:var(--mo);margin-left:8px}
+    .ctrl-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a8a095;margin-bottom:5px}
+    .ctrl-row{display:flex;flex-wrap:wrap;gap:5px}
+    .ctrl-btn{font:inherit;font-size:11px;padding:5px 10px;border-radius:var(--r-ctrl);
+      border:1px solid #4a4640;background:#3a3632;color:#d8d2c8;cursor:pointer}
+    .ctrl-btn:hover{border-color:#8a6ec0;color:#fff}
+    .ctrl-btn.active{background:var(--pr);border-color:#8a6ec0;color:var(--on-pr)}
+    .note{font-size:11px;color:#c4bdb0;line-height:1.55;padding:8px 10px;
+      background:rgba(255,255,255,.05);border-radius:var(--r-ctrl);border-left:3px solid #8a6ec0}
+    .note strong{color:#ede7da}
+
+    .frame{flex:1;min-height:0;border-radius:var(--r-card);overflow:hidden;
+      box-shadow:0 12px 40px rgba(43,41,38,.18);border:1px solid var(--bd-dk);
+      position:relative;background:var(--bg);display:flex;flex-direction:column}
+    .app{display:flex;flex-direction:column;height:100%;min-height:0}
+
+    /* ── Toolbar: project dropdown tabs + add only ── */
+    .topbar{
+      display:flex;align-items:center;gap:6px;padding:0 12px;height:44px;
+      background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;min-width:0;
+    }
+    .logo svg{color:var(--pr);display:block}
+    .divider-v{width:1px;height:22px;background:var(--bd);flex-shrink:0}
+    .project-tabs{display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;flex-shrink:1}
+    .project-tabs::-webkit-scrollbar{height:3px}
+
+    .proj-dropdown-wrap{position:relative;flex-shrink:0}
+    .proj-tab{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:5px 10px;font:inherit;font-size:11px;font-weight:600;
+      border:1px solid var(--bd);border-radius:var(--r-ctrl);
+      background:var(--input-bg);color:var(--tx);cursor:pointer;white-space:nowrap;
+      max-width:200px;
+    }
+    .proj-tab:hover{border-color:var(--pr)}
+    .proj-tab.active-project{background:var(--tint-pr);border-color:var(--tint-pr-b);color:var(--pr-dk)}
+    .proj-tab.open{box-shadow:0 0 0 2px var(--tint-pr-b)}
+    .proj-tab .label{overflow:hidden;text-overflow:ellipsis}
+    .proj-tab .badge{font-size:9px;font-family:var(--mo);font-weight:400;
+      padding:1px 5px;border-radius:999px;background:var(--s2);color:var(--mu);flex-shrink:0}
+    .proj-tab.active-project .badge{background:rgba(107,80,160,.15);color:var(--pr-dk)}
+    .proj-tab .chev{font-size:8px;color:var(--mu);flex-shrink:0}
+
+    .proj-add{
+      width:28px;height:28px;flex-shrink:0;border:1px dashed var(--bd);
+      border-radius:var(--r-ctrl);background:transparent;color:var(--mu);
+      cursor:pointer;font-size:16px;line-height:1;
+    }
+    .proj-add:hover{border-color:var(--pr);color:var(--pr)}
+
+    .sp{flex:1;min-width:8px}
+    .pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;
+      border:1px solid var(--bd);color:var(--mu);background:var(--bg);flex-shrink:0}
+    .pill strong{color:var(--tx)}
+    .tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+      border:1px solid var(--bd);border-radius:var(--r-ctrl);background:var(--input-bg);
+      cursor:pointer;color:var(--mu);flex-shrink:0;font-size:13px}
+
+    /* Project container dropdown — Option B layout, one project per tab */
+    .proj-menu{
+      position:absolute;top:calc(100% + 4px);left:0;z-index:70;
+      width:min(400px,calc(100vw - 80px));background:var(--input-bg);
+      border:1px solid var(--bd);border-radius:var(--r-card);
+      box-shadow:0 14px 40px rgba(43,41,38,.2);padding:4px;
+    }
+    .pm-project-card{
+      margin:4px 4px 6px;padding:8px 10px;
+      background:var(--tint-pr);border:1px solid var(--tint-pr-b);
+      border-radius:var(--r-ctrl);
+    }
+    .pm-project-name{
+      display:flex;align-items:center;gap:6px;
+      font-size:13px;font-weight:600;color:var(--tx);
+    }
+    .pm-project-name .edit{
+      font-size:10px;color:var(--mu);border:none;background:transparent;cursor:pointer;padding:0;
+    }
+    .pm-project-name .edit:hover{color:var(--pr)}
+    .pm-project-summary{font-size:10px;color:var(--mu);margin-top:4px;line-height:1.45}
+    .pm-project-summary strong{color:var(--pr-dk)}
+    .pm-head{padding:2px 10px 4px;font-size:9px;font-weight:700;
+      letter-spacing:.07em;text-transform:uppercase;color:var(--mu)}
+    .pm-file{
+      display:flex;align-items:flex-start;gap:8px;width:100%;
+      padding:8px 10px;border:none;background:transparent;
+      font:inherit;text-align:left;cursor:pointer;border-radius:var(--r-ctrl);
+    }
+    .pm-file:hover{background:var(--s2)}
+    .pm-file.active{background:var(--tint-pr)}
+    .pm-file-body{flex:1;min-width:0}
+    .pm-file-title{font-size:12px;font-weight:600;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pm-file-path{font-size:10px;color:var(--mu);font-family:var(--mo);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+    .pm-file-meta{font-size:10px;color:var(--mu);margin-top:2px}
+    .pm-remove{font-size:10px;padding:2px 7px;border:1px solid var(--bd);
+      border-radius:var(--r-inp);background:var(--bg);color:var(--mu);cursor:pointer;flex-shrink:0;margin-top:2px}
+    .pm-remove:hover{color:var(--er-dk);border-color:var(--tint-er-b)}
+    .pm-foot{border-top:1px solid var(--bd);margin-top:4px;padding:6px;display:flex;flex-direction:column;gap:6px}
+    .pm-foot-row{display:flex;gap:6px}
+    .pm-act.danger{color:var(--er-dk);border-color:var(--tint-er-b)}
+    .pm-act.danger:hover{background:var(--tint-er);border-color:var(--er-dk)}
+    .pm-act{flex:1;font:inherit;font-size:11px;padding:6px 8px;border:1px solid var(--bd);
+      border-radius:var(--r-ctrl);background:var(--bg);cursor:pointer;color:var(--mu)}
+    .pm-act:hover{border-color:var(--pr);color:var(--pr)}
+    .pm-act.primary{background:var(--pr);color:var(--on-pr);border-color:var(--pr-dk)}
+    .pm-act.primary:hover{background:var(--pr-dk)}
+
+  .ctx-bar{display:flex;align-items:center;gap:10px;padding:0 12px;height:30px;
+      background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0;font-size:11px;color:var(--mu)}
+    .ctx-bar strong{color:var(--tx)}
+
+    /* Tier 2: file switcher placements */
+    .file-switch-bar{
+      display:flex;align-items:center;gap:6px;padding:5px 10px;
+      border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0;min-width:0;
+    }
+    .file-switch-label{font-size:9px;font-weight:700;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--mu);flex-shrink:0}
+    .file-scroll{display:flex;gap:4px;overflow-x:auto;flex:1;min-width:0}
+    .file-chip{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+      padding:3px 10px;font-size:11px;font-weight:500;border:1px solid var(--bd);
+      border-radius:999px;background:var(--bg);color:var(--mu);cursor:pointer}
+    .file-chip.active{background:var(--tint-pr);border-color:var(--tint-pr-b);color:var(--pr-dk)}
+
+    .source-panel{padding:6px 8px;border-bottom:1px solid var(--bd);background:var(--s2)}
+    .source-panel .sp-head{font-size:9px;font-weight:700;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--label);padding:2px 4px 6px}
+    .source-item{display:flex;align-items:center;gap:6px;padding:5px 6px;
+      border-radius:var(--r-ctrl);cursor:pointer;font-size:11px;border:1px solid transparent}
+    .source-item:hover{background:var(--sf)}
+    .source-item.active{background:var(--tint-pr);border-color:var(--tint-pr-b)}
+
+    .panels{display:flex;flex:1;min-height:0}
+    .panel{display:flex;flex-direction:column;min-height:0}
+    .panel+.panel{border-left:1px solid var(--bd)}
+    .panel-head{display:flex;align-items:center;padding:0 10px;height:32px;flex-shrink:0;
+      background:var(--s2);border-bottom:1px solid var(--bd);
+      font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--label)}
+    .panel-head span{margin-left:auto;font-size:10px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--mu)}
+    .panel-body{flex:1;overflow:auto}
+    .axis-tree{width:var(--tree-w);flex-shrink:0;background:var(--sf)}
+    .instances-panel{flex:1;min-width:0;background:var(--bg)}
+    .inspector{width:var(--insp-w);flex-shrink:0;background:var(--sf)}
+    .inst-row{display:flex;gap:7px;padding:5px 7px;margin:1px 6px;border-radius:var(--r-ctrl);font-size:12px}
+    .inst-row:hover{background:var(--s2)}
+    .inst-name{flex:1;font-weight:500}
+    .inst-coords{font-family:var(--mo);font-size:9px;color:var(--mu)}
+    .axis-line{padding:6px 8px;margin:6px;font-size:11px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r-ctrl)}
+    .insp-empty{padding:28px 14px;text-align:center;color:var(--mu);font-size:12px}
+
+    .chain-footer{flex-shrink:0;border-top:1px solid var(--bd);background:var(--sf)}
+    .chain-head{padding:0 12px;height:26px;display:flex;align-items:center;
+      border-bottom:1px solid var(--bd);font-size:10px;font-weight:700;
+      letter-spacing:.07em;text-transform:uppercase;color:var(--label)}
+    .chain-head span{margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mu);font-size:10px}
+    .chain-body{padding:6px 12px;font-size:11px;color:var(--mu)}
+    .status{padding:4px 12px;font-size:10px;color:var(--mu);border-top:1px solid var(--bd);background:var(--s2)}
+
+    /* Drop zones */
+    .drop-full{flex:1;display:flex;align-items:center;justify-content:center;padding:32px}
+    .drop-single{
+      width:min(480px,90%);padding:48px 40px;text-align:center;
+      border:2px dashed var(--bd-dk);border-radius:var(--r-card);background:var(--sf);
+    }
+    .drop-single strong{display:block;font-size:16px;color:var(--tx);margin-bottom:8px}
+    .drop-single p{font-size:12px;color:var(--mu);line-height:1.6}
+
+    .drop-split{flex:1;display:flex;flex-direction:column;min-height:0}
+    .drop-half{
+      flex:1;display:flex;align-items:center;justify-content:center;padding:24px;
+      border-bottom:1px solid var(--bd);position:relative;transition:background .12s;
+    }
+    .drop-half:last-child{border-bottom:none}
+    .drop-half.add-zone{background:var(--tint-te)}
+    .drop-half.add-zone .drop-half-inner{border-color:var(--te);background:var(--input-bg)}
+    .drop-half.add-zone .tag{color:var(--te-dk)}
+    .drop-half.new-zone{background:var(--tint-pr)}
+    .drop-half.new-zone .drop-half-inner{border-color:var(--pr);background:var(--input-bg)}
+    .drop-half.new-zone .tag{color:var(--pr-dk)}
+    .drop-half h3{font-size:14px;margin-bottom:6px}
+    .drop-half p{font-size:11px;color:var(--mu);line-height:1.55}
+    .drop-half .tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--pr-dk);margin-bottom:8px;display:block}
+    .proj-pick{
+      margin-top:12px;padding:8px;border:1px solid var(--tint-pr-b);
+      border-radius:var(--r-ctrl);background:var(--tint-pr);font-size:11px;text-align:left;
+    }
+    .proj-pick label{display:block;font-size:9px;font-weight:700;color:var(--mu);margin-bottom:4px}
+    .proj-pick select{width:100%;font:inherit;font-size:11px;padding:4px 6px;
+      border:1px solid var(--bd);border-radius:var(--r-inp);background:var(--input-bg)}
+
+    .overlay-hint{
+      position:absolute;top:8px;left:12px;right:12px;
+      font-size:10px;color:var(--mu);text-align:center;pointer-events:none;
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="controls">
+    <h1>Agreed design <span>project tabs · file sub-bar · split drop</span></h1>
+    <div>
+      <div class="ctrl-label">Scenario</div>
+      <div class="ctrl-row" id="scenarioBtns"></div>
+    </div>
+    <div>
+      <div class="ctrl-label">Tab label (toolbar button text)</div>
+      <div class="ctrl-row" id="tabLabelBtns"></div>
+    </div>
+    <div>
+      <div class="ctrl-label">File switcher placement (within active project)</div>
+      <div class="ctrl-row" id="fileSwitchBtns"></div>
+    </div>
+    <div class="note" id="scenarioNote"></div>
+  </div>
+  <div class="frame" id="frame"><div class="app" id="app"></div></div>
+</div>
+<script>
+(() => {
+  const FILE = {
+    playfairRoman: { id:'fr', label:'PlayfairRomanVF', short:'Roman', ext:'woff2', axes:3, inst:252 },
+    playfairItalic: { id:'fi', label:'PlayfairItalicVF', short:'Italic', ext:'woff2', axes:3, inst:252 },
+    robotoFlex: { id:'rb', label:'RobotoFlex-VariableFont_GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght', short:'RobotoFlex', ext:'ttf', axes:13, inst:9 },
+  };
+
+  const PROJECT_DEFS = {
+    playfair: {
+      id:'p-playfair',
+      familyLabel:'Playfair Display VF',
+      label:'Playfair VF',
+      customLabel:'My Playfair batch',
+      genericLabel:'Project 1',
+      files:['playfairRoman','playfairItalic'],
+      naming:'opsz → wdth → wght',
+    },
+    roboto: {
+      id:'p-roboto',
+      familyLabel:'Roboto Flex',
+      label:'Roboto Flex',
+      customLabel:'Roboto work',
+      genericLabel:'Project 2',
+      files:['robotoFlex'],
+      naming:'opsz → wdth → wght → slnt',
+    },
+  };
+
+  const TAB_LABEL_MODES = {
+    family: { label:'Family name', note:'Default: extracted family from first import (familyLabel). Best for roman+italic batches.' },
+    filename: { label:'First filename', note:'Tab shows basename of first file in project (e.g. PlayfairRomanVF). Clear when one file per project.' },
+    generic: { label:'Generic ID', note:'Project 1, Project 2 — neutral when comparing unrelated fonts.' },
+    custom: { label:'User custom', note:'Renamed by user; pencil in dropdown edits display name only.' },
+  };
+
+  const SCENARIOS = {
+    empty: {
+      label:'Empty · single drop zone',
+      projects: [],
+      note:'One drop zone fills the window. Drop anywhere → creates first project + loads font. No toolbar project tabs until a project exists.',
+      dropMode: 'single',
+    },
+    oneProject: {
+      label:'1 project · 2 files',
+      projects:['playfair'],
+      activeProject:'p-playfair',
+      activeFile:'playfairRoman',
+      openDropdown:'p-playfair',
+      note:'One dropdown tab opens THIS project only (not a workspace mega-menu). Option B layout: project card with file count + naming, then full file rows with path and Remove.',
+      dropMode: 'app',
+    },
+    twoProjects: {
+      label:'★ 2 projects (default)',
+      projects:['playfair','roboto'],
+      activeProject:'p-playfair',
+      activeFile:'playfairRoman',
+      openDropdown:null,
+      note:'AGREED: Project dropdown tabs in toolbar + FILE sub-bar below. Dropdown file click ≡ sub-bar click. Actions: Add font, Remove file, Remove project, Reveal in Finder.',
+      dropMode: 'app',
+    },
+    splitDrop: {
+      label:'2nd file · split drop zone',
+      projects:['playfair'],
+      activeProject:'p-playfair',
+      activeFile:'playfairRoman',
+      openDropdown:null,
+      note:'TOP = teal · add to existing project (pick target after drop). BOTTOM = violet · new project tab.',
+      dropMode: 'split',
+      splitTarget: 'add',
+    },
+    splitNew: {
+      label:'Split drop · new project',
+      projects:['playfair'],
+      activeProject:'p-playfair',
+      activeFile:'playfairRoman',
+      note:'BOTTOM violet zone — drop starts a new project (new toolbar tab).',
+      dropMode: 'split',
+      splitTarget: 'new',
+    },
+  };
+
+  const FILE_SWITCH = {
+    instances: { label:'Instances tab bar', note:'Scroll chips under Instances header (your screenshot 2).' },
+    subbar: { label:'★ Below toolbar', note:'AGREED default — FILE sub-bar with basename chips; syncs with project dropdown selection.' },
+    axisTree: { label:'Axis tree sources', note:'Compact file list at top of left sidebar.' },
+    inspector: { label:'Above inspector', note:'Source list above inspector panel.' },
+  };
+
+  const state = {
+    scenario: 'twoProjects',
+    tabLabel: 'family',
+    fileSwitch: 'subbar',
+    openDropdown: null,
+    activeProject: null,
+    activeFile: null,
+  };
+
+  function tabLabelFor(proj, mode, index) {
+    switch (mode) {
+      case 'filename': return FILE[proj.files[0]].label.length > 20
+        ? FILE[proj.files[0]].label.slice(0, 18) + '…' : FILE[proj.files[0]].label;
+      case 'generic': return proj.genericLabel;
+      case 'custom': return proj.customLabel;
+      default: return proj.label;
+    }
+  }
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function pathFor(f) { return `~/Downloads/${f.label}.${f.ext}`; }
+
+  function getProjects(scenario) {
+    return scenario.projects.map(k => PROJECT_DEFS[k]);
+  }
+
+  function getActive(scenario) {
+    const projs = getProjects(scenario);
+    const ap = state.activeProject || scenario.activeProject || projs[0]?.id;
+    const proj = projs.find(p => p.id === ap) || projs[0];
+    const fk = state.activeFile || scenario.activeFile || proj?.files[0];
+    return { projs, proj, file: FILE[fk], fileKey: fk };
+  }
+
+  function renderFileChips(proj, fileKey) {
+    return proj.files.map(fk => {
+      const f = FILE[fk];
+      const name = f.label.length > 24 ? f.label.slice(0, 22) + '…' : f.label;
+      return `<button class="file-chip ${fk===fileKey?'active':''}" data-file="${fk}">${esc(name)}</button>`;
+    }).join('');
+  }
+
+  function renderFileSwitcher(proj, fileKey, placement) {
+    if (placement !== 'subbar' && proj.files.length <= 1) return '';
+    if (placement === 'subbar') {
+      return `<div class="file-switch-bar">
+        <span class="file-switch-label">File</span>
+        <div class="file-scroll">${renderFileChips(proj, fileKey)}</div>
+      </div>`;
+    }
+    if (placement === 'axisTree') {
+      return `<div class="source-panel">
+        <div class="sp-head">Files in project</div>
+        ${proj.files.map(fk => `<div class="source-item ${fk===fileKey?'active':''}" data-file="${fk}">${esc(FILE[fk].short)}</div>`).join('')}
+      </div>`;
+    }
+    if (placement === 'inspector') {
+      return `<div class="source-panel" style="border-bottom:none;border-top:1px solid var(--bd)">
+        <div class="sp-head">Source file</div>
+        ${proj.files.map(fk => `<div class="source-item ${fk===fileKey?'active':''}" data-file="${fk}">${esc(FILE[fk].short)}</div>`).join('')}
+      </div>`;
+    }
+    return `<div class="file-switch-bar" style="border-bottom:1px solid var(--bd)">
+      <span class="file-switch-label">Files</span>
+      <div class="file-scroll">${renderFileChips(proj, fileKey)}</div>
+    </div>`;
+  }
+
+  function renderProjectDropdown(proj, fileKey) {
+    return `<div class="proj-menu" data-stop>
+      <div class="pm-head">Open fonts · ${proj.files.length}</div>
+      ${proj.files.map(fk => {
+        const f = FILE[fk];
+        return `<button class="pm-file ${fk===fileKey?'active':''}" data-file="${fk}">
+          <div class="pm-file-body">
+            <div class="pm-file-title">${esc(f.label)}</div>
+            <div class="pm-file-path">${esc(pathFor(f))}</div>
+            <div class="pm-file-meta">${f.axes} axes · ${f.inst} instances · ${esc(proj.familyLabel)}</div>
+          </div>
+          <span class="pm-remove" data-remove-file="${fk}">Remove</span>
+        </button>`;
+      }).join('')}
+      <div class="pm-foot">
+        <div class="pm-foot-row">
+          <button class="pm-act">Reveal in Finder</button>
+          <button class="pm-act primary">Add font…</button>
+        </div>
+        <button class="pm-act danger" style="width:100%" data-remove-project>Remove project</button>
+      </div>
+    </div>`;
+  }
+
+  function renderProjectTabs(projs, proj, fileKey) {
+    const openId = state.openDropdown ?? SCENARIOS[state.scenario].openDropdown;
+    return `
+      <div class="project-tabs">
+        ${projs.map((p, i) => {
+          const isActive = p.id === proj.id;
+          const isOpen = openId === p.id;
+          const tabText = tabLabelFor(p, state.tabLabel, i);
+          return `<div class="proj-dropdown-wrap">
+            <button class="proj-tab ${isActive?'active-project':''} ${isOpen?'open':''}" data-proj="${p.id}" data-toggle-dd>
+              <span class="label">${esc(tabText)}</span>
+              <span class="badge">${p.files.length}</span>
+              <span class="chev">▼</span>
+            </button>
+            ${isOpen ? renderProjectDropdown(p, isActive ? fileKey : p.files[0]) : ''}
+          </div>`;
+        }).join('')}
+        <button class="proj-add" title="New project">+</button>
+      </div>`;
+  }
+
+  function renderDropSingle() {
+    return `<div class="drop-full">
+      <div class="drop-single">
+        <strong>Drop a variable font anywhere</strong>
+        <p>Creates your first project and loads the file.<br>TTF · OTF · WOFF · WOFF2</p>
+      </div>
+    </div>`;
+  }
+
+  function renderDropSplit(scenario) {
+    const projs = getProjects(scenario);
+    const targetAdd = scenario.splitTarget === 'add';
+    return `<div class="overlay-hint">Drop a second font — teal = add to project · violet = new project</div>
+      <div class="drop-split">
+        <div class="drop-half add-zone ${targetAdd?'targeted':''}">
+          <div class="drop-half-inner">
+            <span class="tag">Teal · add to existing project</span>
+            <h3>Add to project</h3>
+            <p>Drop here, then choose which project receives the file.</p>
+            ${targetAdd ? `<div class="proj-pick">
+              <label>After drop — select project</label>
+              <select>${projs.map(p => `<option>${esc(p.label)} (${p.files.length} files)</option>`).join('')}</select>
+            </div>` : ''}
+          </div>
+        </div>
+        <div class="drop-half new-zone ${!targetAdd?'targeted':''}">
+          <div class="drop-half-inner">
+            <span class="tag">Violet · new project</span>
+            <h3>New project</h3>
+            <p>Drop here for a separate project — new tab in the toolbar.</p>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderApp(scenario) {
+    const { projs, proj, file, fileKey } = getActive(scenario);
+    const fs = state.fileSwitch;
+    const instances = ['Micro SemiCond SemiLight','Micro Normal Medium','Minuscule SemiCond Bold'];
+
+    return `
+      <header class="topbar">
+        <div class="logo"><svg width="14" height="14" viewBox="0 0 17 17" fill="none">
+          <rect x=".75" y=".75" width="15.5" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M4 13L6.5 4.5L8.5 9.5L10 7L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg></div>
+        <div class="divider-v"></div>
+        ${renderProjectTabs(projs, proj, fileKey)}
+        <div class="sp"></div>
+        <span class="pill"><strong>${file.inst}</strong> inst.</span>
+        <button class="tb-icon">📁</button>
+        <button class="tb-icon">⬇</button>
+      </header>
+      ${fs === 'subbar' ? renderFileSwitcher(proj, fileKey, 'subbar') : ''}
+      <div class="ctx-bar">
+        <span>Project <strong>${esc(proj.label)}</strong> · ${proj.files.length} file${proj.files.length!==1?'s':''}</span>
+        <div class="divider-v"></div>
+        <span>Grid 12 × 3 × 7 = <strong style="color:var(--pr)">${file.inst}</strong></span>
+      </div>
+      <div class="panels">
+        <aside class="panel axis-tree">
+          <div class="panel-head">Axis tree</div>
+          ${fs === 'axisTree' ? renderFileSwitcher(proj, fileKey, 'axisTree') : ''}
+          <div class="panel-body">
+            ${['opsz','wdth','wght'].map(t => `<div class="axis-line"><strong>${t}</strong> axis</div>`).join('')}
+          </div>
+        </aside>
+        <section class="panel instances-panel">
+          <div class="panel-head">Instances <span>${instances.length} shown</span></div>
+          ${fs === 'instances' ? renderFileSwitcher(proj, fileKey, 'instances') : ''}
+          <div class="panel-body">
+            ${instances.map((n,i) => `<div class="inst-row"><input type="checkbox" checked />
+              <span class="inst-name">${esc(n)}</span>
+              <span class="inst-coords">opsz=${5+i} wdth=88…</span></div>`).join('')}
+          </div>
+        </section>
+        <aside class="panel inspector">
+          <div class="panel-head">Inspector</div>
+          ${fs === 'inspector' ? renderFileSwitcher(proj, fileKey, 'inspector') : ''}
+          <div class="insp-empty">Select an instance…</div>
+        </aside>
+      </div>
+      <div class="chain-footer">
+        <div class="chain-head">Naming order <span>project · ${esc(proj.naming)}</span></div>
+        <div class="chain-body">Shared across all files in ${esc(proj.label)}</div>
+        <div class="status">${esc(file.label)}.${file.ext}</div>
+      </div>`;
+  }
+
+  function render() {
+    const scenario = SCENARIOS[state.scenario];
+
+    document.getElementById('scenarioBtns').innerHTML = Object.entries(SCENARIOS).map(([k,s]) =>
+      `<button class="ctrl-btn ${state.scenario===k?'active':''}" data-s="${k}">${esc(s.label)}</button>`
+    ).join('');
+    document.getElementById('tabLabelBtns').innerHTML = Object.entries(TAB_LABEL_MODES).map(([k,s]) =>
+      `<button class="ctrl-btn ${state.tabLabel===k?'active':''}" data-tl="${k}">${esc(s.label)}</button>`
+    ).join('');
+    document.getElementById('fileSwitchBtns').innerHTML = Object.entries(FILE_SWITCH).map(([k,s]) =>
+      `<button class="ctrl-btn ${state.fileSwitch===k?'active':''}" data-fs="${k}">${esc(s.label)}</button>`
+    ).join('');
+    document.getElementById('scenarioNote').innerHTML = `<strong>${esc(scenario.label)}</strong> — ${esc(scenario.note)}${
+      scenario.dropMode === 'app'
+        ? '<br><br><strong>Tab label:</strong> ' + esc(TAB_LABEL_MODES[state.tabLabel].note)
+          + '<br><strong>File switcher:</strong> ' + esc(FILE_SWITCH[state.fileSwitch].note)
+        : ''
+    }`;
+
+    const app = document.getElementById('app');
+    if (scenario.dropMode === 'single') {
+      app.innerHTML = renderDropSingle();
+    } else if (scenario.dropMode === 'split') {
+      app.innerHTML = renderDropSplit(scenario);
+    } else {
+      app.innerHTML = renderApp(scenario);
+    }
+
+    document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+      state.scenario = b.dataset.s;
+      state.openDropdown = SCENARIOS[state.scenario].openDropdown ?? null;
+      state.activeProject = null;
+      state.activeFile = null;
+      render();
+    });
+    document.querySelectorAll('[data-tl]').forEach(b => b.onclick = () => {
+      state.tabLabel = b.dataset.tl;
+      render();
+    });
+    document.querySelectorAll('[data-fs]').forEach(b => b.onclick = () => {
+      state.fileSwitch = b.dataset.fs;
+      render();
+    });
+
+    document.querySelectorAll('[data-toggle-dd]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = btn.dataset.proj;
+        state.activeProject = id;
+        state.openDropdown = state.openDropdown === id ? null : id;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-proj]').forEach(el => {
+      if (el.dataset.toggleDd) return;
+      el.addEventListener('click', () => {
+        state.activeProject = el.dataset.proj;
+        state.openDropdown = null;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-file]').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.closest('[data-remove-file],[data-remove-project]')) return;
+        state.activeFile = el.dataset.file;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-remove-file]').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        alert('Remove file from project (confirm if dirty)');
+      });
+    });
+    document.querySelectorAll('[data-remove-project]').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        alert('Remove entire project from workspace (confirm if any file dirty)');
+      });
+    });
+
+    document.addEventListener('click', () => {
+      if (state.openDropdown) { state.openDropdown = null; render(); }
+    }, { once: true });
+    document.querySelector('[data-stop]')?.addEventListener('click', e => e.stopPropagation());
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

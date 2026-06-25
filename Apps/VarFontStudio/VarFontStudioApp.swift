@@ -26,7 +26,7 @@ struct VarFontStudioApp: App {
                     editor.presentAddFontPanel()
                 }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
-                .disabled(editor.project == nil)
+                .disabled(!editor.hasOpenProjects)
             }
 
             CommandGroup(after: .saveItem) {

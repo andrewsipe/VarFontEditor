@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VarFont Studio — Multi-file UI options</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:       #f5f0e8;
+      --sf:       #ede7da;
+      --s2:       #e4ded2;
+      --s3:       #cec7b8;
+      --input-bg: #fffcf7;
+      --bd:       #cfc8ba;
+      --bd-dk:    #b8b0a0;
+      --tx:       #2b2926;
+      --mu:       #5a5449;
+      --label:    #3e3930;
+      --pr:       #6b50a0;
+      --pr-dk:    #513c82;
+      --pr-lt:    #8a6ec0;
+      --on-pr:    #f5f0e8;
+      --tint-pr:  rgba(107,80,160,.10);
+      --tint-pr-b:rgba(107,80,160,.28);
+      --te:       #5b9ba4;
+      --te-dk:    #3f7880;
+      --tint-te:  rgba(91,155,164,.12);
+      --tint-te-b:rgba(91,155,164,.30);
+      --am:       #b86a1a;
+      --am-dk:    #8a4e10;
+      --tint-am:  rgba(184,106,26,.10);
+      --tint-am-b:rgba(184,106,26,.30);
+      --er:       #c96040;
+      --er-dk:    #a44a2e;
+      --tint-er:  rgba(201,96,64,.10);
+      --tint-er-b:rgba(201,96,64,.28);
+      --gn:       #4e8a6c;
+      --gn-dk:    #32634a;
+      --tint-gn:  rgba(78,138,108,.10);
+      --tint-gn-b:rgba(78,138,108,.28);
+      --nb:  rgba(107,80,160,.08);
+      --nbl: rgba(107,80,160,.35);
+      --r-inp:  3px;
+      --r-ctrl: 4px;
+      --r-card: 6px;
+      --ui: 'IBM Plex Sans', system-ui, sans-serif;
+      --mo: 'IBM Plex Mono', ui-monospace, monospace;
+      --tree-w: 272px;
+      --insp-w: 300px;
+      --chain-h: 52px;
+      --proto-h: 118px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--ui);
+      font-size: 13px;
+      color: var(--tx);
+      background: #ddd6c8;
+      line-height: 1.45;
+    }
+
+    /* ── Prototype controls ─────────────────────────────────────── */
+    .proto-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      min-height: 720px;
+      padding: 10px;
+      gap: 10px;
+    }
+    .proto-controls {
+      flex-shrink: 0;
+      background: var(--tx);
+      color: #e8e2d8;
+      border-radius: var(--r-card);
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 20px;
+      box-shadow: 0 8px 28px rgba(43,41,38,.22);
+    }
+    .proto-controls h1 {
+      grid-column: 1 / -1;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .02em;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .proto-controls h1 span {
+      font-size: 11px;
+      font-weight: 400;
+      color: #a8a095;
+      font-family: var(--mo);
+    }
+    .ctrl-group label {
+      display: block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #a8a095;
+      margin-bottom: 6px;
+    }
+    .ctrl-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .ctrl-btn {
+      font: inherit;
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: var(--r-ctrl);
+      border: 1px solid #4a4640;
+      background: #3a3632;
+      color: #d8d2c8;
+      cursor: pointer;
+      transition: background .1s, border-color .1s, color .1s;
+    }
+    .ctrl-btn:hover { border-color: var(--pr-lt); color: #fff; }
+    .ctrl-btn.active {
+      background: var(--pr);
+      border-color: var(--pr-lt);
+      color: var(--on-pr);
+    }
+    .ctrl-btn.warn.active { background: var(--am); border-color: #d4883a; }
+    .proto-note {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: #c4bdb0;
+      line-height: 1.55;
+      padding: 8px 10px;
+      background: rgba(255,255,255,.05);
+      border-radius: var(--r-ctrl);
+      border-left: 3px solid var(--pr-lt);
+    }
+    .proto-note strong { color: #ede7da; }
+
+    /* ── App frame ──────────────────────────────────────────────── */
+    .app-frame {
+      flex: 1;
+      min-height: 0;
+      border-radius: var(--r-card);
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(43,41,38,.18);
+      border: 1px solid var(--bd-dk);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .app { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg); }
+
+    /* ── Shared chrome (from v2a) ───────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px; height: 42px;
+      background: var(--sf); border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 7px;
+      font-weight: 600; font-size: 13px; color: var(--tx);
+      flex-shrink: 0;
+    }
+    .logo svg { color: var(--pr); flex-shrink: 0; }
+    .divider-v { width: 1px; height: 20px; background: var(--bd); flex-shrink: 0; }
+    .sp { flex: 1; min-width: 8px; }
+
+    /* Option B: toolbar file menu */
+    .file-menu-wrap { position: relative; flex-shrink: 0; }
+    .file-menu-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px 4px 8px;
+      font: inherit; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      background: var(--input-bg); color: var(--tx);
+      cursor: pointer; max-width: 220px;
+    }
+    .file-menu-btn:hover { border-color: var(--pr); }
+    .file-menu-btn .fname {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 160px;
+    }
+    .file-menu-btn .chev { font-size: 9px; color: var(--mu); }
+    .file-menu-btn .count {
+      font-size: 9px; font-family: var(--mo);
+      padding: 1px 5px; border-radius: 999px;
+      background: var(--s2); color: var(--mu);
+    }
+    .file-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0;
+      min-width: 320px; max-width: 420px;
+      background: var(--input-bg); border: 1px solid var(--bd);
+      border-radius: var(--r-card);
+      box-shadow: 0 10px 32px rgba(43,41,38,.16);
+      z-index: 50; padding: 4px;
+    }
+    .file-dropdown-head {
+      padding: 6px 10px 4px;
+      font-size: 9px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--mu);
+    }
+    .file-dropdown-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      width: 100%; padding: 8px 10px;
+      border: none; background: transparent;
+      font: inherit; text-align: left; cursor: pointer;
+      border-radius: var(--r-ctrl);
+    }
+    .file-dropdown-item:hover { background: var(--s2); }
+    .file-dropdown-item.active { background: var(--tint-pr); }
+    .file-dropdown-item .meta { flex: 1; min-width: 0; }
+    .file-dropdown-item .title {
+      font-size: 12px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .file-dropdown-item .path {
+      font-size: 10px; color: var(--mu); font-family: var(--mo);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-top: 1px;
+    }
+    .file-dropdown-item .stats {
+      font-size: 10px; color: var(--mu); margin-top: 2px;
+    }
+    .file-dropdown-item .remove {
+      font-size: 10px; color: var(--mu); padding: 2px 6px;
+      border: 1px solid var(--bd); border-radius: var(--r-inp);
+      background: var(--bg); cursor: pointer; flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .file-dropdown-item .remove:hover { color: var(--er-dk); border-color: var(--er); }
+    .file-dropdown-foot {
+      border-top: 1px solid var(--bd); margin-top: 4px; padding: 6px;
+      display: flex; gap: 6px;
+    }
+    .dd-action {
+      flex: 1; font: inherit; font-size: 11px;
+      padding: 5px 8px; border: 1px solid var(--bd);
+      border-radius: var(--r-ctrl); background: var(--bg);
+      cursor: pointer; color: var(--mu);
+    }
+    .dd-action:hover { border-color: var(--pr); color: var(--pr); }
+    .dd-action.primary { background: var(--pr); color: var(--on-pr); border-color: var(--pr-dk); }
+
+    /* Option A: broken segmented tabs */
+    .seg-tabs {
+      display: flex; align-items: stretch;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      overflow: hidden; flex-shrink: 0;
+      max-width: 100%;
+    }
+    .seg-tab {
+      flex: 1 0 auto;
+      padding: 4px 10px; font-size: 11px; font-weight: 500;
+      border-right: 1px solid var(--bd);
+      background: var(--bg); color: var(--mu);
+      cursor: pointer; white-space: nowrap;
+      min-width: 0;
+    }
+    .seg-tab:last-child { border-right: none; }
+    .seg-tab.active { background: var(--tint-pr); color: var(--pr-dk); }
+    .seg-tab.dup { opacity: .7; }
+
+    /* Option A fix: scroll chips */
+    .scroll-tabs {
+      display: flex; gap: 4px; overflow-x: auto;
+      max-width: 100%; padding-bottom: 2px;
+      flex-shrink: 1; min-width: 0;
+    }
+    .scroll-tab {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; font-size: 11px; font-weight: 500;
+      border: 1px solid var(--bd); border-radius: 999px;
+      background: var(--bg); color: var(--mu);
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .scroll-tab.active { background: var(--tint-pr); border-color: var(--tint-pr-b); color: var(--pr-dk); }
+    .scroll-tab .x {
+      font-size: 12px; line-height: 1; opacity: .5;
+      margin-left: 2px;
+    }
+    .scroll-tab .x:hover { opacity: 1; color: var(--er-dk); }
+
+    .toolbar-icon {
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      background: var(--input-bg); cursor: pointer; color: var(--mu);
+      font-size: 14px; flex-shrink: 0;
+    }
+    .toolbar-icon:hover { border-color: var(--pr); color: var(--pr); }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 999px; font-size: 11px;
+      border: 1px solid var(--bd); color: var(--mu); background: var(--bg);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .pill strong { color: var(--tx); font-weight: 600; }
+    .pill.ok { background: var(--tint-gn); border-color: var(--tint-gn-b); color: var(--gn-dk); }
+    .pill.warn { background: var(--tint-am); border-color: var(--tint-am-b); color: var(--am-dk); }
+    .pill.err { background: var(--tint-er); border-color: var(--tint-er-b); color: var(--er-dk); }
+
+    .ctx-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px; height: 34px;
+      background: var(--s2); border-bottom: 1px solid var(--bd);
+      flex-shrink: 0; font-size: 11px;
+    }
+    .ctx-label { color: var(--mu); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .ctx-formula { font-family: var(--mo); font-size: 11px; }
+    .ctx-formula .op { color: var(--am); }
+    .ctx-formula .total { color: var(--pr); font-weight: 600; }
+    .ctx-file {
+      font-size: 11px; color: var(--mu);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 280px;
+    }
+    .ctx-file strong { color: var(--tx); font-weight: 600; }
+
+    .panels { display: flex; flex: 1; min-height: 0; }
+    .panel { display: flex; flex-direction: column; min-height: 0; }
+    .panel + .panel { border-left: 1px solid var(--bd); }
+    .panel-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 10px; height: 32px; flex-shrink: 0;
+      background: var(--s2); border-bottom: 1px solid var(--bd);
+      font-size: 10px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--label);
+    }
+    .panel-head-sub {
+      margin-left: auto; font-size: 10px; font-weight: 500;
+      text-transform: none; letter-spacing: 0; color: var(--mu);
+    }
+    .panel-body { flex: 1; overflow: auto; }
+
+    /* Option C: sources in sidebar */
+    .axis-tree { width: var(--tree-w); flex-shrink: 0; background: var(--sf); }
+    .sources-section {
+      border-bottom: 1px solid var(--bd);
+      background: var(--s2);
+      flex-shrink: 0;
+    }
+    .sources-head {
+      display: flex; align-items: center;
+      padding: 6px 10px 4px;
+      font-size: 9px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--label);
+    }
+    .sources-head button {
+      margin-left: auto; font: inherit; font-size: 10px;
+      border: none; background: transparent; color: var(--mu); cursor: pointer;
+    }
+    .sources-head button:hover { color: var(--pr); }
+    .source-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; margin: 0 4px 4px;
+      border-radius: var(--r-ctrl); cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .source-row:hover { background: var(--sf); }
+    .source-row.active { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+    .source-row.static-file { opacity: .65; }
+    .source-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--gn); flex-shrink: 0;
+    }
+    .source-dot.dirty { background: var(--am); }
+    .source-dot.static { background: var(--mu); }
+    .source-info { flex: 1; min-width: 0; }
+    .source-name {
+      font-size: 11px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .source-meta { font-size: 9px; color: var(--mu); margin-top: 1px; }
+    .source-remove {
+      font-size: 14px; color: var(--mu); opacity: 0;
+      padding: 0 2px; line-height: 1;
+    }
+    .source-row:hover .source-remove { opacity: .6; }
+    .source-remove:hover { opacity: 1 !important; color: var(--er-dk); }
+    .family-group-label {
+      font-size: 9px; color: var(--mu); padding: 8px 10px 2px;
+      font-weight: 600; letter-spacing: .04em;
+    }
+
+    .axis-body { padding: 6px; }
+    .axis-mini {
+      padding: 6px 8px; margin-bottom: 4px;
+      background: var(--bg); border: 1px solid var(--bd);
+      border-radius: var(--r-ctrl); font-size: 11px;
+    }
+    .axis-mini .tag {
+      font-family: var(--mo); font-size: 9px;
+      padding: 1px 4px; background: var(--tint-te);
+      border: 1px solid var(--tint-te-b); color: var(--te-dk);
+      border-radius: 2px; margin-right: 4px;
+    }
+
+    /* Instances */
+    .instances-panel { flex: 1; background: var(--bg); min-width: 0; }
+    .inst-file-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-bottom: 1px solid var(--bd);
+      background: var(--sf); flex-shrink: 0; min-width: 0;
+    }
+    .inst-file-bar-label {
+      font-size: 10px; color: var(--mu); flex-shrink: 0;
+    }
+    .inst-toolbar {
+      display: flex; gap: 6px; align-items: center;
+      padding: 6px 8px; border-bottom: 1px solid var(--bd);
+      background: var(--sf); flex-shrink: 0;
+    }
+    .inst-search {
+      flex: 1; min-width: 80px; font: inherit; font-size: 12px;
+      padding: 4px 8px; border: 1px solid var(--bd);
+      border-radius: var(--r-ctrl); background: var(--input-bg);
+    }
+    .inst-btn {
+      font: inherit; font-size: 11px; padding: 4px 8px;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      background: var(--input-bg); cursor: pointer; color: var(--mu);
+      flex-shrink: 0;
+    }
+    .inst-list-body { padding: 4px 6px; }
+    .inst-group-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--label); padding: 4px 6px; margin: 8px 0 2px;
+      background: var(--s2); border-radius: var(--r-ctrl);
+    }
+    .inst-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 7px; margin: 1px 0;
+      border-radius: var(--r-ctrl); cursor: pointer;
+      border: 1px solid transparent; font-size: 12px;
+    }
+    .inst-row:hover { background: var(--s2); }
+    .inst-row.selected { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+    .inst-chk { accent-color: var(--pr); }
+    .inst-name { flex: 1; font-weight: 500; }
+    .inst-coords {
+      font-family: var(--mo); font-size: 9px; color: var(--mu);
+      max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .empty-state {
+      padding: 40px 24px; text-align: center; color: var(--mu);
+      font-size: 12px; line-height: 1.7;
+    }
+    .empty-state .icon { font-size: 28px; opacity: .35; margin-bottom: 10px; }
+    .empty-state h3 { font-size: 14px; color: var(--tx); margin-bottom: 6px; }
+    .empty-state .actions { margin-top: 14px; display: flex; gap: 8px; justify-content: center; }
+    .empty-btn {
+      font: inherit; font-size: 11px; padding: 5px 12px;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      background: var(--input-bg); cursor: pointer;
+    }
+    .empty-btn.primary { background: var(--pr); color: var(--on-pr); border-color: var(--pr-dk); }
+    .empty-btn.danger { color: var(--er-dk); border-color: var(--tint-er-b); }
+
+    .alert-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; font-size: 11px; margin: 6px 8px;
+      border-radius: var(--r-ctrl);
+    }
+    .alert-bar.warn { background: var(--tint-am); color: var(--am-dk); border: 1px solid var(--tint-am-b); }
+    .alert-bar.err { background: var(--tint-er); color: var(--er-dk); border: 1px solid var(--tint-er-b); }
+
+    /* Inspector */
+    .inspector { width: var(--insp-w); flex-shrink: 0; background: var(--sf); }
+    .insp-empty {
+      padding: 32px 16px; text-align: center;
+      color: var(--mu); font-size: 12px; line-height: 1.7;
+    }
+
+    /* Chain footer */
+    .chain-footer {
+      flex-shrink: 0; border-top: 1px solid var(--bd); background: var(--sf);
+    }
+    .chain-footer-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px; height: 28px;
+      border-bottom: 1px solid var(--bd);
+      font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--label);
+    }
+    .chain-footer-body {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; height: var(--chain-h); overflow-x: auto;
+    }
+    .chain-chip {
+      font-size: 11px; padding: 4px 9px; flex-shrink: 0;
+      background: var(--tint-pr); border: 1px solid var(--tint-pr-b);
+      border-radius: var(--r-ctrl); color: var(--pr-dk);
+    }
+    .chain-arrow { color: var(--mu); font-size: 10px; }
+    .chain-preview {
+      margin-left: auto; font-size: 12px; font-weight: 600;
+      padding: 3px 10px; background: var(--nb);
+      border-left: 2px solid var(--nbl); border-radius: 0 var(--r-ctrl) var(--r-ctrl) 0;
+      white-space: nowrap;
+    }
+    .status-bar {
+      padding: 4px 14px; font-size: 10px; color: var(--mu);
+      border-top: 1px solid var(--bd); background: var(--s2);
+    }
+
+    /* Option D: sheet overlay */
+    .sheet-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(43,41,38,.35);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 48px; z-index: 100;
+    }
+    .sheet {
+      width: min(480px, 92%);
+      background: var(--input-bg);
+      border: 1px solid var(--bd);
+      border-radius: var(--r-card);
+      box-shadow: 0 20px 60px rgba(43,41,38,.25);
+      overflow: hidden;
+    }
+    .sheet-head {
+      display: flex; align-items: center;
+      padding: 12px 14px; border-bottom: 1px solid var(--bd);
+      background: var(--sf);
+    }
+    .sheet-head h2 { font-size: 14px; font-weight: 600; }
+    .sheet-head .close {
+      margin-left: auto; font-size: 18px; border: none;
+      background: transparent; cursor: pointer; color: var(--mu);
+    }
+    .sheet-body { padding: 8px; max-height: 340px; overflow-y: auto; }
+    .sheet-file {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px; border-radius: var(--r-ctrl);
+      border: 1px solid var(--bd); margin-bottom: 6px;
+      background: var(--bg);
+    }
+    .sheet-file.active { border-color: var(--tint-pr-b); background: var(--tint-pr); }
+    .sheet-file .path { font-family: var(--mo); font-size: 10px; color: var(--mu); word-break: break-all; }
+    .sheet-file .warn-tag {
+      font-size: 9px; padding: 1px 5px; border-radius: 2px;
+      background: var(--tint-am); color: var(--am-dk); margin-top: 4px; display: inline-block;
+    }
+    .sheet-foot {
+      padding: 10px 14px; border-top: 1px solid var(--bd);
+      display: flex; gap: 8px; justify-content: flex-end;
+      background: var(--sf);
+    }
+
+    /* Option E: gate banner */
+    .gate-banner {
+      margin: 6px 8px; padding: 8px 10px;
+      background: var(--tint-am); border: 1px solid var(--tint-am-b);
+      border-radius: var(--r-ctrl); font-size: 11px; color: var(--am-dk);
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+
+    /* Option F: multi-window hint */
+    .multi-window-hint {
+      position: absolute; top: 50px; right: 14px;
+      width: 200px; padding: 10px;
+      background: var(--input-bg); border: 1px solid var(--bd);
+      border-radius: var(--r-card);
+      box-shadow: 0 8px 24px rgba(43,41,38,.15);
+      font-size: 11px; color: var(--mu); z-index: 20;
+    }
+    .multi-window-hint strong { display: block; color: var(--tx); margin-bottom: 4px; }
+    .fake-dock {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 6px; z-index: 20;
+    }
+    .fake-window {
+      width: 36px; height: 24px; border-radius: 4px 4px 0 0;
+      border: 1px solid var(--bd-dk); background: var(--sf);
+      box-shadow: 0 -2px 8px rgba(43,41,38,.12);
+      cursor: pointer; position: relative;
+    }
+    .fake-window.active { border-color: var(--pr); background: var(--tint-pr); }
+    .fake-window::after {
+      content: ''; position: absolute; bottom: 3px; left: 50%;
+      transform: translateX(-50%); width: 20px; height: 2px;
+      background: var(--bd); border-radius: 1px;
+    }
+
+    .layout-broken .instances-panel { min-width: 520px; }
+    .layout-broken .axis-tree { width: 180px; }
+    .layout-broken .inspector { width: 200px; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="proto-shell">
+  <div class="proto-controls">
+    <h1>Multi-file UI options <span>companion to prototype-axis-tree-ui-v2a.html</span></h1>
+
+    <div class="ctrl-group">
+      <label>UI option</label>
+      <div class="ctrl-row" id="optionBtns"></div>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Scenario</label>
+      <div class="ctrl-row" id="scenarioBtns"></div>
+    </div>
+
+    <div class="proto-note" id="optionNote"></div>
+  </div>
+
+  <div class="app-frame" id="appFrame">
+    <div class="app" id="app"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const FONT_DEFS = {
+    playfairRoman: {
+      id: 'f-roman', basename: 'PlayfairRomanVF', ext: 'woff2',
+      family: 'Playfair Display VF', style: 'Roman', badge: 'roman',
+      axes: 3, instances: 252, formula: '12 × 3 × 7', variable: true, dirty: false,
+      naming: ['opsz', 'wdth', 'wght'],
+      preview: 'Micro SemiCond SemiLight',
+    },
+    playfairItalic: {
+      id: 'f-italic', basename: 'PlayfairItalicVF', ext: 'woff2',
+      family: 'Playfair Display VF', style: 'Italic', badge: 'italic',
+      axes: 3, instances: 252, formula: '12 × 3 × 7', variable: true, dirty: false,
+      naming: ['opsz', 'wdth', 'wght'],
+      preview: 'Micro SemiCond SemiLight Italic',
+    },
+    robotoFlex: {
+      id: 'f-roboto', basename: 'RobotoFlex-VariableFont_GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght', ext: 'ttf',
+      family: 'Roboto Flex', style: 'VF', badge: '13 axes',
+      axes: 13, instances: 9, formula: '9 static', variable: true, dirty: true,
+      naming: ['opsz', 'wdth', 'wght', 'slnt'],
+      preview: 'Thin',
+    },
+    alightSlab: {
+      id: 'f-static', basename: 'AlightSlab-Regular', ext: 'otf',
+      family: 'Alight Slab', style: 'Regular', badge: 'static',
+      axes: 0, instances: 0, formula: '—', variable: false, dirty: false,
+      naming: [], preview: '—',
+    },
+  };
+
+  const SCENARIOS = {
+    single: {
+      label: '1 file',
+      fonts: ['playfairRoman'],
+      active: 'playfairRoman',
+      note: 'Current app: filename only in status footer — no active-file indicator in main chrome.',
+    },
+    pair: {
+      label: '2 files (family)',
+      fonts: ['playfairRoman', 'playfairItalic'],
+      active: 'playfairRoman',
+      note: 'Intended use case: Roman + Italic sharing project naming. Tab bar appears at 2+ files.',
+    },
+    chaos: {
+      label: '3 files + long name',
+      fonts: ['playfairRoman', 'playfairItalic', 'robotoFlex'],
+      active: 'robotoFlex',
+      note: 'Segmented picker expands Instances column; sidebars get crushed. This is the layout bug you hit.',
+      broken: true,
+    },
+    static: {
+      label: 'Static font added',
+      fonts: ['playfairRoman', 'playfairItalic', 'robotoFlex', 'alightSlab'],
+      active: 'alightSlab',
+      note: 'Static font accepted with no instances. No guidance to remove it.',
+    },
+    duplicates: {
+      label: '16× same file',
+      fonts: Array(16).fill('playfairRoman').map((k, i) => k + ':' + i),
+      active: 'playfairRoman:0',
+      note: 'No duplicate guard — same file can be added repeatedly with identical tabs.',
+      dupKeys: true,
+    },
+  };
+
+  const OPTIONS = {
+    current: {
+      label: 'Current',
+      short: 'Segmented tabs in Instances (2+ files only)',
+      pros: 'Minimal code; familiar tab metaphor.',
+      cons: 'Hidden with 1 file; breaks on long names; no remove; lives in wrong panel.',
+    },
+    a: {
+      label: 'A · Scroll tabs',
+      short: 'Scrollable chip tabs in Instances panel',
+      pros: 'Small fix; truncated labels + horizontal scroll + per-tab close.',
+      cons: 'Still in Instances column; doesn\'t scale past ~8 files gracefully.',
+    },
+    b: {
+      label: 'B · Toolbar menu',
+      short: 'File picker in window toolbar (always visible)',
+      pros: 'macOS-native; handles long names; Instances stays clean; scales well.',
+      cons: 'One extra click to switch; less glanceable than tabs.',
+      recommended: true,
+    },
+    c: {
+      label: 'C · Sidebar sources',
+      short: 'Font list at top of Axis Tree',
+      pros: 'Scales to many files; room for metadata, family grouping, remove.',
+      cons: 'Left panel already dense; competes with axis editing.',
+    },
+    d: {
+      label: 'D · Fonts sheet',
+      short: '“Fonts (N)” opens a management sheet',
+      pros: 'Clean main UI; rich validation UX; good for infrequent switching.',
+      cons: 'Extra click every switch; sheet can feel heavy.',
+    },
+    e: {
+      label: 'E · Family gate',
+      short: 'Restrict adds to same-family VFs',
+      pros: 'Matches schema intent; prevents Roboto+Playfair piles.',
+      cons: 'Less flexible; needs clear “new project” path.',
+    },
+    f: {
+      label: 'F · One window / font',
+      short: 'Each open creates or focuses its own window',
+      pros: 'Very macOS-native; zero in-app tab fighting.',
+      cons: 'Family batch editing harder; bigger architecture shift.',
+    },
+  };
+
+  const state = {
+    option: 'b',
+    scenario: 'chaos',
+    activeId: null,
+    menuOpen: false,
+    sheetOpen: false,
+    selectedInstance: 0,
+  };
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  }
+
+  function resolveFonts(scenario) {
+    if (!scenario.dupKeys) {
+      return scenario.fonts.map(key => ({ key, def: FONT_DEFS[key] }));
+    }
+    return scenario.fonts.map((key, i) => {
+      const baseKey = key.split(':')[0];
+      const def = { ...FONT_DEFS[baseKey], id: `f-dup-${i}`, basename: `PlayfairRomanVF`, dupIndex: i + 1 };
+      return { key: `dup-${i}`, def };
+    });
+  }
+
+  function getActiveFont() {
+    const scenario = SCENARIOS[state.scenario];
+    const fonts = resolveFonts(scenario);
+    if (scenario.dupKeys) {
+      const idx = state.activeId ? parseInt(state.activeId.replace('dup-', ''), 10) : 0;
+      return fonts[idx] || fonts[0];
+    }
+    const activeKey = state.activeId || scenario.active;
+    return fonts.find(f => f.key === activeKey) || fonts[0];
+  }
+
+  function shortLabel(def, max = 22) {
+    const name = def.basename;
+    return name.length > max ? name.slice(0, max - 1) + '…' : name;
+  }
+
+  function fullPath(def) {
+    return `~/Downloads/${def.basename}.${def.ext}`;
+  }
+
+  function mockInstances(font) {
+    if (!font.def.variable || font.def.instances === 0) return [];
+    const samples = font.def.id.includes('roboto') || font.def.basename.includes('Roboto')
+      ? ['Thin','ExtraLight','Light','Regular','Medium','SemiBold','Bold','ExtraBold','Black']
+      : ['Micro SemiCond SemiLight','Micro Normal Medium','Minuscule SemiCond Bold','Miniature Normal Regular'];
+    return samples.map((name, i) => ({
+      name,
+      coords: font.def.axes >= 3 ? `opsz=${5+i} wdth=88 wght=${360+i*40}…` : `wght=${300+i*50}`,
+      key: `inst-${i}`,
+    }));
+  }
+
+  function renderOptionNote() {
+    const opt = OPTIONS[state.option];
+    const scen = SCENARIOS[state.scenario];
+    document.getElementById('optionNote').innerHTML = `
+      <strong>${esc(opt.label)}</strong> — ${esc(opt.short)}
+      <br>${opt.recommended ? '<span style="color:#b8d4a8">★ Recommended starting point</span><br>' : ''}
+      <span style="color:#a8a095">+</span> ${esc(opt.pros)}
+      <br><span style="color:#a8a095">−</span> ${esc(opt.cons)}
+      <br><br><span style="color:#8a8478">Scenario:</span> ${esc(scen.note)}
+    `;
+  }
+
+  function renderControls() {
+    document.getElementById('optionBtns').innerHTML = Object.entries(OPTIONS).map(([k, o]) =>
+      `<button class="ctrl-btn ${k === state.option ? 'active' : ''} ${o.recommended ? '' : ''}" data-opt="${k}">${esc(o.label)}</button>`
+    ).join('');
+    document.getElementById('scenarioBtns').innerHTML = Object.entries(SCENARIOS).map(([k, s]) =>
+      `<button class="ctrl-btn ${k === state.scenario ? 'active' : ''} ${k === 'chaos' || k === 'duplicates' ? 'warn' : ''}" data-scen="${k}">${esc(s.label)}</button>`
+    ).join('');
+
+    document.querySelectorAll('[data-opt]').forEach(btn => btn.addEventListener('click', () => {
+      state.option = btn.dataset.opt;
+      state.menuOpen = state.option === 'b';
+      state.sheetOpen = state.option === 'd';
+      state.activeId = null;
+      render();
+    }));
+    document.querySelectorAll('[data-scen]').forEach(btn => btn.addEventListener('click', () => {
+      state.scenario = btn.dataset.scen;
+      state.activeId = null;
+      render();
+    }));
+  }
+
+  function renderTopbar(fonts, active) {
+    const scen = SCENARIOS[state.scenario];
+    const count = fonts.length;
+    const opt = state.option;
+
+    let fileChrome = '';
+    if (opt === 'current' && count > 1) {
+      fileChrome = `<div class="seg-tabs">${fonts.map(f => `
+        <div class="seg-tab ${f.key === active.key ? 'active' : ''}" data-font="${esc(f.key)}">${esc(f.def.basename)}</div>
+      `).join('')}</div>`;
+    } else if (opt === 'a' && count > 1) {
+      fileChrome = `<div class="scroll-tabs">${fonts.map(f => `
+        <div class="scroll-tab ${f.key === active.key ? 'active' : ''}" data-font="${esc(f.key)}">
+          ${esc(shortLabel(f.def, 18))}
+          <span class="x" data-remove="${esc(f.key)}" title="Remove">×</span>
+        </div>
+      `).join('')}</div>`;
+    } else if (opt === 'b') {
+      fileChrome = `
+        <div class="file-menu-wrap">
+          <button class="file-menu-btn" id="fileMenuBtn">
+            <span class="fname">${esc(shortLabel(active.def, 20))}</span>
+            ${count > 1 ? `<span class="count">${count}</span>` : ''}
+            <span class="chev">▼</span>
+          </button>
+          ${state.menuOpen ? renderFileDropdown(fonts, active) : ''}
+        </div>`;
+    } else if (opt === 'd') {
+      fileChrome = `
+        <button class="file-menu-btn" id="openSheetBtn">
+          Fonts (${count}) <span class="chev">▾</span>
+        </button>`;
+    } else if (opt === 'e' && count === 1) {
+      fileChrome = `<span class="pill ok">${esc(shortLabel(active.def, 24))}</span>`;
+    } else if (opt === 'f') {
+      fileChrome = `<span class="pill">${esc(shortLabel(active.def, 24))}</span>`;
+    } else if (count === 1 && (opt === 'current' || opt === 'c')) {
+      fileChrome = `<span class="ctx-file" style="max-width:none">No file indicator</span>`;
+    }
+
+    return `
+      <header class="topbar">
+        <div class="logo">
+          <svg width="15" height="15" viewBox="0 0 17 17" fill="none">
+            <rect x=".75" y=".75" width="15.5" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4 13L6.5 4.5L8.5 9.5L10 7L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          VarFont Studio
+        </div>
+        <div class="divider-v"></div>
+        ${fileChrome}
+        <div class="sp"></div>
+        <span class="pill ok"><strong>${active.def.instances}</strong> instances</span>
+        ${active.def.dirty ? '<span class="pill warn">unsaved</span>' : ''}
+        <button class="toolbar-icon" title="Open font">📁</button>
+        <button class="toolbar-icon" title="Save copy">⬇</button>
+      </header>`;
+  }
+
+  function renderFileDropdown(fonts, active) {
+    return `
+      <div class="file-dropdown" id="fileDropdown">
+        <div class="file-dropdown-head">Open fonts · ${fonts.length}</div>
+        ${fonts.map(f => `
+          <button class="file-dropdown-item ${f.key === active.key ? 'active' : ''}" data-font="${esc(f.key)}">
+            <div class="meta">
+              <div class="title">${esc(f.def.basename)}${f.def.dupIndex ? ` (#${f.def.dupIndex})` : ''}</div>
+              <div class="path">${esc(fullPath(f.def))}</div>
+              <div class="stats">${f.def.axes} axes · ${f.def.instances} instances · ${esc(f.def.family)}</div>
+              ${!f.def.variable ? '<div class="stats" style="color:var(--er-dk)">Not a variable font</div>' : ''}
+            </div>
+            <span class="remove" data-remove="${esc(f.key)}">Remove</span>
+          </button>
+        `).join('')}
+        <div class="file-dropdown-foot">
+          <button class="dd-action">Reveal in Finder</button>
+          <button class="dd-action primary">Add font…</button>
+        </div>
+      </div>`;
+  }
+
+  function renderCtxBar(active) {
+  const showFile = ['b', 'c', 'e'].includes(state.option) || state.scenario === 'single';
+    return `
+      <div class="ctx-bar">
+        <span class="ctx-label">Grid</span>
+        <span class="ctx-formula">${active.def.formula.replace(/×/g,'<span class="op"> × </span>').replace('=','<span class="op"> = </span>')}</span>
+        ${showFile ? `<div class="divider-v"></div><span class="ctx-file"><strong>${esc(shortLabel(active.def, 28))}</strong> · ${active.def.axes} axes</span>` : ''}
+        ${state.option === 'e' ? '<div class="sp"></div><span class="pill warn">Family project</span>' : '<div class="sp"></div>'}
+      </div>`;
+  }
+
+  function renderSources(fonts, active) {
+    const families = {};
+    fonts.forEach(f => {
+      if (!families[f.def.family]) families[f.def.family] = [];
+      families[f.def.family].push(f);
+    });
+
+    return `
+      <div class="sources-section">
+        <div class="sources-head">
+          Sources
+          <button title="Add font to project">+ Add</button>
+        </div>
+        ${Object.entries(families).map(([family, items]) => `
+          ${Object.keys(families).length > 1 ? `<div class="family-group-label">${esc(family)}</div>` : ''}
+          ${items.map(f => `
+            <div class="source-row ${f.key === active.key ? 'active' : ''} ${!f.def.variable ? 'static-file' : ''}" data-font="${esc(f.key)}">
+              <span class="source-dot ${!f.def.variable ? 'static' : f.def.dirty ? 'dirty' : ''}"></span>
+              <div class="source-info">
+                <div class="source-name">${esc(shortLabel(f.def, 20))}</div>
+                <div class="source-meta">${f.def.axes} axes · ${f.def.instances} inst.</div>
+              </div>
+              <span class="source-remove" data-remove="${esc(f.key)}">×</span>
+            </div>
+          `).join('')}
+        `).join('')}
+      </div>`;
+  }
+
+  function renderAxisTree(fonts, active) {
+    const showSources = state.option === 'c' && fonts.length >= 1;
+    const axes = active.def.variable
+      ? (active.def.axes >= 13
+          ? ['opsz','wdth','wght','slnt','GRAD','XOPQ','YOPQ','XTRA']
+          : ['opsz','wdth','wght'])
+      : [];
+
+    return `
+      <aside class="panel axis-tree">
+        <div class="panel-head">
+          Axis tree
+          <span class="panel-head-sub">${active.def.axes} axes</span>
+        </div>
+        ${showSources ? renderSources(fonts, active) : ''}
+        <div class="panel-body axis-body">
+          ${!active.def.variable ? `
+            <div class="alert-bar err">Static font — no variation axes. Remove from project or open in a different tool.</div>
+          ` : axes.map(tag => `
+            <div class="axis-mini">
+              <span class="tag">${tag}</span>
+              ${tag === 'opsz' ? 'Optical size' : tag === 'wdth' ? 'Width' : tag === 'wght' ? 'Weight' : tag}
+              <span style="float:right;color:var(--mu);font-size:10px">${tag === 'wght' ? '7 stops' : tag === 'opsz' ? '12 stops' : '3 stops'}</span>
+            </div>
+          `).join('')}
+        </div>
+      </aside>`;
+  }
+
+  function renderInstanceFileBar(fonts, active) {
+    const opt = state.option;
+    if (opt === 'current' && fonts.length > 1) {
+      return `
+        <div class="inst-file-bar">
+          <span class="inst-file-bar-label">Font:</span>
+          <div class="seg-tabs" style="flex:1;min-width:0;overflow:hidden">
+            ${fonts.map(f => `
+              <div class="seg-tab ${f.key === active.key ? 'active' : ''} ${f.def.dupIndex ? 'dup' : ''}" data-font="${esc(f.key)}">${esc(f.def.basename)}</div>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+    if (opt === 'a' && fonts.length > 1) {
+      return `
+        <div class="inst-file-bar">
+          <div class="scroll-tabs" style="flex:1">
+            ${fonts.map(f => `
+              <div class="scroll-tab ${f.key === active.key ? 'active' : ''}" data-font="${esc(f.key)}">
+                ${esc(shortLabel(f.def, 16))}<span class="x">×</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+    if (opt === 'e' && fonts.length > 1) {
+      return `<div class="gate-banner">⚠ Roboto Flex is a different family — add blocked in family-only mode. Use <strong>File → New Family Project</strong> instead.</div>`;
+    }
+    return '';
+  }
+
+  function renderInstances(fonts, active) {
+    const instances = mockInstances(active);
+    const empty = instances.length === 0;
+
+    return `
+      <section class="panel instances-panel">
+        <div class="panel-head">
+          Instances
+          ${!empty ? `<span class="panel-head-sub">${instances.length} shown</span>` : ''}
+        </div>
+        ${renderInstanceFileBar(fonts, active)}
+        <div class="inst-toolbar">
+          <input class="inst-search" placeholder="Search names or coordinates" ${empty ? 'disabled' : ''} />
+          <button class="inst-btn">All</button>
+          <button class="inst-btn">Included</button>
+        </div>
+        <div class="panel-body">
+          ${empty ? `
+            <div class="empty-state">
+              <div class="icon">○</div>
+              <h3>${active.def.variable ? 'No Matching Instances' : 'Not a Variable Font'}</h3>
+              <p>${active.def.variable
+                ? 'This font has no generated instances.'
+                : 'AlightSlab-Regular has no fvar axes. It cannot generate instances in VarFont Studio.'}</p>
+              <div class="actions">
+                <button class="empty-btn danger">Remove from project</button>
+                ${!active.def.variable ? '<button class="empty-btn">Open in Finder</button>' : ''}
+              </div>
+            </div>
+          ` : `
+            <div class="inst-list-body">
+              <div class="inst-group-label">Micro · ${Math.min(4, instances.length)}</div>
+              ${instances.map((inst, i) => `
+                <div class="inst-row ${i === state.selectedInstance ? 'selected' : ''}" data-inst="${i}">
+                  <input type="checkbox" class="inst-chk" checked />
+                  <span class="inst-name">${esc(inst.name)}</span>
+                  <span class="inst-coords">${esc(inst.coords)}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      </section>`;
+  }
+
+  function renderInspector() {
+    return `
+      <aside class="panel inspector">
+        <div class="panel-head">Inspector</div>
+        <div class="panel-body">
+          <div class="insp-empty">
+            Select an instance to inspect naming and coordinates.
+          </div>
+        </div>
+      </aside>`;
+  }
+
+  function renderChain(active) {
+    const tags = active.def.naming;
+    return `
+      <div class="chain-footer">
+        <div class="chain-footer-head">
+          Naming order
+          ${state.option === 'e' && SCENARIOS[state.scenario].fonts.length > 1 ? '<span style="margin-left:8px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mu)">(shared project)</span>' : ''}
+        </div>
+        <div class="chain-footer-body">
+          ${tags.length ? tags.map((t, i) => `
+            <span class="chain-chip">${t}</span>
+            ${i < tags.length - 1 ? '<span class="chain-arrow">→</span>' : ''}
+          `).join('') : '<span style="color:var(--mu);font-size:11px">No naming axes</span>'}
+          <span class="chain-preview">${esc(active.def.preview)}</span>
+        </div>
+        <div class="status-bar">${state.scenario === 'single' ? 'Opened PlayfairRomanVF.woff2' : 'Added ' + esc(active.def.basename) + '.' + active.def.ext}</div>
+      </div>`;
+  }
+
+  function renderSheet(fonts, active) {
+    return `
+      <div class="sheet-backdrop" id="sheetBackdrop">
+        <div class="sheet">
+          <div class="sheet-head">
+            <h2>Project fonts</h2>
+            <button class="close" id="closeSheet">×</button>
+          </div>
+          <div class="sheet-body">
+            ${fonts.map(f => `
+              <div class="sheet-file ${f.key === active.key ? 'active' : ''}" data-font="${esc(f.key)}">
+                <div style="flex:1">
+                  <div style="font-weight:600;font-size:12px">${esc(f.def.basename)}${f.def.dupIndex ? ` <span style="color:var(--er-dk)">duplicate #${f.def.dupIndex}</span>` : ''}</div>
+                  <div class="path">${esc(fullPath(f.def))}</div>
+                  <div style="font-size:10px;color:var(--mu);margin-top:4px">${f.def.axes} axes · ${f.def.instances} instances · ${esc(f.def.family)}</div>
+                  ${f.def.dupIndex > 1 ? '<span class="warn-tag">Duplicate path — focus existing?</span>' : ''}
+                  ${!f.def.variable ? '<span class="warn-tag">Static font — cannot instance</span>' : ''}
+                </div>
+                <button class="empty-btn danger" style="font-size:10px;padding:3px 8px">Remove</button>
+              </div>
+            `).join('')}
+          </div>
+          <div class="sheet-foot">
+            <button class="empty-btn">Cancel</button>
+            <button class="empty-btn primary">Add font…</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderMultiWindow(fonts) {
+    return `
+      <div class="multi-window-hint">
+        <strong>Separate windows</strong>
+        Each font gets its own window. macOS dock shows one icon per open file.
+      </div>
+      <div class="fake-dock">
+        ${fonts.slice(0, Math.min(4, fonts.length)).map((f, i) => `
+          <div class="fake-window ${i === 0 ? 'active' : ''}" title="${esc(f.def.basename)}"></div>
+        `).join('')}
+        ${fonts.length > 4 ? `<div class="fake-window" title="+${fonts.length - 4} more"></div>` : ''}
+      </div>`;
+  }
+
+  function render() {
+    renderControls();
+    renderOptionNote();
+
+    const scenario = SCENARIOS[state.scenario];
+    const fonts = resolveFonts(scenario);
+    const active = getActiveFont();
+    const broken = scenario.broken && state.option === 'current';
+
+    document.getElementById('appFrame').classList.toggle('layout-broken', broken);
+
+    document.getElementById('app').innerHTML = `
+      ${renderTopbar(fonts, active)}
+      ${renderCtxBar(active)}
+      <div class="panels">
+        ${renderAxisTree(fonts, active)}
+        ${renderInstances(fonts, active)}
+        ${renderInspector()}
+      </div>
+      ${renderChain(active)}
+      ${state.option === 'd' && state.sheetOpen ? renderSheet(fonts, active) : ''}
+      ${state.option === 'f' ? renderMultiWindow(fonts) : ''}
+    `;
+
+    bindAppEvents(fonts);
+  }
+
+  function bindAppEvents(fonts) {
+    document.getElementById('fileMenuBtn')?.addEventListener('click', () => {
+      state.menuOpen = !state.menuOpen;
+      render();
+    });
+    document.getElementById('openSheetBtn')?.addEventListener('click', () => {
+      state.sheetOpen = true;
+      render();
+    });
+    document.getElementById('closeSheet')?.addEventListener('click', () => {
+      state.sheetOpen = false;
+      render();
+    });
+    document.getElementById('sheetBackdrop')?.addEventListener('click', e => {
+      if (e.target.id === 'sheetBackdrop') { state.sheetOpen = false; render(); }
+    });
+
+    document.querySelectorAll('[data-font]').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.closest('[data-remove]')) return;
+        state.activeId = el.dataset.font;
+        if (state.option === 'b') state.menuOpen = false;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-inst]').forEach(el => {
+      el.addEventListener('click', () => {
+        state.selectedInstance = parseInt(el.dataset.inst, 10);
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-remove]').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        alert('Remove font — would confirm if dirty, then select neighbor tab.');
+      });
+    });
+  }
+
+  state.menuOpen = state.option === 'b';
+  state.sheetOpen = state.option === 'd';
+  render();
+})();
+</script>
+</body>
+</html>

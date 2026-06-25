@@ -45,6 +45,8 @@ enum StudioColors {
     static let warningFillHover = Color.orange.opacity(0.18)
     /// Highlights filtered counts and summary figures in dense lists.
     static let dataHighlight = Color(red: 0.90, green: 0.58, blue: 0.22)
+    static let dropAddExisting = Color.teal
+    static let dropNewProject = Color.accentColor
 }
 
 enum StudioFormatting {

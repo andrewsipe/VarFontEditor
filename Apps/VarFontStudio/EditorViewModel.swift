@@ -40,8 +40,8 @@ struct InstanceListDisplay: Equatable {
 
 @MainActor
 final class EditorViewModel: ObservableObject {
-    @Published var project: ProjectDocument?
-    @Published var selectedFontID: String?
+    @Published var openProjects: [OpenProject] = []
+    @Published var activeProjectID: String?
     @Published var selectedInstanceKey: String?
     @Published var selectedInstanceKeys: Set<String> = []
     @Published var selectedAxisStopID: String?
@@ -51,13 +51,75 @@ final class EditorViewModel: ObservableObject {
     @Published var statusMessage: String?
     @Published var isBusy = false
     @Published private(set) var instanceListDisplay = InstanceListDisplay.empty
-
     @Published private(set) var canSave = false
 
+    /// Confirmation for removing a dirty font file.
+    @Published var confirmRemoveFont: FontRemovalRequest?
+    /// Project workspace tab id pending close confirmation.
+    @Published var confirmCloseProjectID: String?
+    /// After drop on teal zone with multiple projects — pick target.
+    @Published var pendingDropURLs: [URL]?
+    @Published var pendingAddFontProjectID: String?
+
     private var debouncedPlanTask: Task<Void, Never>?
-    private var undoStack: [ProjectDocument] = []
-    private var redoStack: [ProjectDocument] = []
     private var cancellables = Set<AnyCancellable>()
+
+    var hasOpenProjects: Bool { !openProjects.isEmpty }
+
+    var projectHasMultipleFiles: Bool {
+        (project?.fonts.count ?? 0) >= 2
+    }
+
+    /// Active project document (compatibility shim for existing panel code).
+    var project: ProjectDocument? {
+        get { activeOpenProject?.document }
+        set {
+            guard let newValue, let idx = activeProjectIndex else { return }
+            openProjects[idx].document = newValue
+            publishOpenProjects()
+        }
+    }
+
+    var selectedFontID: String? {
+        get { activeOpenProject?.selectedFontID }
+        set {
+            guard let idx = activeProjectIndex else { return }
+            openProjects[idx].selectedFontID = newValue
+            publishOpenProjects()
+        }
+    }
+
+    private var activeProjectIndex: Int? {
+        guard let activeProjectID else { return nil }
+        return openProjects.firstIndex { $0.id == activeProjectID }
+    }
+
+    private var activeOpenProject: OpenProject? {
+        guard let idx = activeProjectIndex else { return nil }
+        return openProjects[idx]
+    }
+
+    private func publishOpenProjects() {
+        openProjects = openProjects
+    }
+
+    private var undoStack: [ProjectDocument] {
+        get { activeOpenProject?.undoStack ?? [] }
+        set {
+            guard let idx = activeProjectIndex else { return }
+            openProjects[idx].undoStack = newValue
+            publishOpenProjects()
+        }
+    }
+
+    private var redoStack: [ProjectDocument] {
+        get { activeOpenProject?.redoStack ?? [] }
+        set {
+            guard let idx = activeProjectIndex else { return }
+            openProjects[idx].redoStack = newValue
+            publishOpenProjects()
+        }
+    }
 
     init() {
         Publishers.CombineLatest4(
@@ -160,8 +222,68 @@ final class EditorViewModel: ObservableObject {
         return Self.mergedNamingOrder(projectOrder: project.naming.order, axisTags: font.axes.map(\.tag))
     }
 
+    var inferredNamingChainOrder: [String] {
+        guard let project, let font = selectedFont else { return [] }
+        let baseline = project.naming.inferredOrder ?? project.naming.order
+        return Self.mergedNamingOrder(projectOrder: baseline, axisTags: font.axes.map(\.tag))
+    }
+
+    var namingChainIsReordered: Bool {
+        !inferredNamingChainOrder.isEmpty && namingChainTags != inferredNamingChainOrder
+    }
+
+    /// True when naming order or axis instance-grid roles differ from import-time inference.
+    var namingDefaultsNeedRestore: Bool {
+        guard let font = selectedFont else { return false }
+        if namingChainIsReordered { return true }
+        return font.axes.contains { axis in
+            guard let inferred = axis.roleInferred else { return false }
+            return axis.role != inferred
+        }
+    }
+
     var namingChainSummary: String {
         namingChainTags.joined(separator: " → ")
+    }
+
+    /// Full naming order filtered to axes that participate in instance naming.
+    var namingChainInstanceTags: [String] {
+        namingChainTags.filter { axisParticipatesInInstanceGrid(tag: $0) }
+    }
+
+    /// Tags shown in the chain footer; STAT-only axes are hidden when requested.
+    func visibleNamingChainTags(hideStatOnly: Bool) -> [String] {
+        hideStatOnly ? namingChainInstanceTags : namingChainTags
+    }
+
+    func namingChainSummary(hideStatOnly: Bool) -> String {
+        visibleNamingChainTags(hideStatOnly: hideStatOnly).joined(separator: " → ")
+    }
+
+    /// Maps a visible-order insertion index to a full-order `insertBeforeIndex` for `moveTag`.
+    /// `visibleInsertBefore` ranges over `0...visibleTags.count`.
+    func namingChainInsertIndex(
+        moving draggedTag: String,
+        visibleInsertBefore: Int,
+        hideStatOnly: Bool
+    ) -> Int {
+        let fullTags = namingChainTags
+        guard hideStatOnly else {
+            return min(max(0, visibleInsertBefore), fullTags.count)
+        }
+
+        let visibleTags = namingChainInstanceTags
+        if visibleInsertBefore >= visibleTags.count {
+            // Append after the last visible axis: land just past it in the full order.
+            if let lastVisible = visibleTags.last,
+               let fullIndex = fullTags.firstIndex(of: lastVisible) {
+                return fullIndex + 1
+            }
+            return fullTags.count
+        }
+
+        let anchorTag = visibleTags[visibleInsertBefore]
+        return fullTags.firstIndex(of: anchorTag) ?? fullTags.count
     }
 
     var namingChainPreviewName: String {
@@ -195,16 +317,62 @@ final class EditorViewModel: ObservableObject {
         regeneratePlan()
     }
 
-    func reorderNamingChain(moving draggedTag: String, before anchorTag: String) {
-        var tags = namingChainTags
-        guard draggedTag != anchorTag,
-              let fromIndex = tags.firstIndex(of: draggedTag),
-              let anchorIndex = tags.firstIndex(of: anchorTag) else { return }
+    func restoreNamingDefaults() {
+        guard var project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }),
+              namingDefaultsNeedRestore else { return }
 
-        tags.remove(at: fromIndex)
-        let insertIndex = fromIndex < anchorIndex ? anchorIndex - 1 : anchorIndex
-        tags.insert(draggedTag, at: insertIndex)
-        setNamingOrder(tags)
+        pushUndoSnapshot()
+
+        let font = project.fonts[fontIndex]
+        project.naming.order = Self.mergedNamingOrder(
+            projectOrder: project.naming.inferredOrder ?? project.naming.order,
+            axisTags: font.axes.map(\.tag)
+        )
+
+        for index in project.fonts[fontIndex].axes.indices {
+            if let inferred = project.fonts[fontIndex].axes[index].roleInferred {
+                project.fonts[fontIndex].axes[index].role = inferred
+            }
+        }
+
+        project.fonts[fontIndex].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    /// Moves `draggedTag` so it sits immediately before the item that occupied
+    /// `insertBeforeIndex` in the original array (slot semantics in the chain footer).
+    static func moveTag(_ tags: [String], moving draggedTag: String, toIndex insertBeforeIndex: Int) -> [String] {
+        guard let fromIndex = tags.firstIndex(of: draggedTag) else { return tags }
+
+        var reordered = tags
+        reordered.remove(at: fromIndex)
+
+        var insertIndex = insertBeforeIndex
+        if fromIndex < insertBeforeIndex {
+            insertIndex -= 1
+        }
+        insertIndex = min(max(0, insertIndex), reordered.count)
+        reordered.insert(draggedTag, at: insertIndex)
+        return reordered
+    }
+
+    /// Inserts `draggedTag` immediately before `anchorTag` (legacy helper).
+    static func reorderTags(_ tags: [String], moving draggedTag: String, before anchorTag: String) -> [String] {
+        guard let anchorIndex = tags.firstIndex(of: anchorTag) else { return tags }
+        return moveTag(tags, moving: draggedTag, toIndex: anchorIndex)
+    }
+
+    func reorderNamingChain(moving draggedTag: String, toIndex targetIndex: Int) {
+        setNamingOrder(Self.moveTag(namingChainTags, moving: draggedTag, toIndex: targetIndex))
+    }
+
+    func reorderNamingChain(moving draggedTag: String, before anchorTag: String) {
+        guard let anchorIndex = namingChainTags.firstIndex(of: anchorTag) else { return }
+        reorderNamingChain(moving: draggedTag, toIndex: anchorIndex)
     }
 
     static func mergedNamingOrder(projectOrder: [String], axisTags: [String]) -> [String] {
@@ -432,7 +600,8 @@ final class EditorViewModel: ObservableObject {
         return instancePlan.warnings.filter { axisCodes.contains($0.code) }
     }
 
-    func presentAddFontPanel() {
+    func presentAddFontPanel(projectID: String? = nil) {
+        pendingAddFontProjectID = projectID ?? activeProjectID
         let panel = NSOpenPanel()
         panel.title = "Add Font to Project"
         panel.canChooseFiles = true
@@ -442,14 +611,15 @@ final class EditorViewModel: ObservableObject {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                await self?.addFont(at: url)
+                await self?.addFont(at: url, toProjectID: self?.pendingAddFontProjectID ?? self?.activeProjectID)
+                self?.pendingAddFontProjectID = nil
             }
         }
     }
 
     func presentOpenPanel() {
         let panel = NSOpenPanel()
-        panel.title = "Open Variable Font"
+        panel.title = "New Project — Open Variable Font"
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -457,18 +627,29 @@ final class EditorViewModel: ObservableObject {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                await self?.openFont(at: url)
+                await self?.createProject(from: url)
             }
         }
     }
 
-    func openFont(at url: URL) async {
+    /// Opens a new project tab with the font at `url`.
+    func createProject(from url: URL) async {
+        if let existing = findFont(normalizedPath: Self.normalizedPath(url)) {
+            activateProject(id: existing.projectID)
+            selectFont(id: existing.fontID)
+            statusMessage = "Already open — \(url.lastPathComponent)"
+            return
+        }
+
         isBusy = true
         defer { isBusy = false }
         do {
-            let imported = try ProjectImporter.openFont(at: url)
-            project = imported
-            selectedFontID = imported.fonts.first?.id
+            let analysis = try FontAnalysisReader.analyze(url: url)
+            try validateVariableFont(analysis)
+            let imported = ProjectImporter.newProject(from: analysis, sourceURL: url)
+            let open = OpenProject(document: imported, selectedFontID: imported.fonts.first?.id)
+            openProjects.append(open)
+            activateProject(id: open.id)
             selectedInstanceKey = nil
             selectedInstanceKeys = []
             selectedAxisStopID = nil
@@ -476,28 +657,66 @@ final class EditorViewModel: ObservableObject {
             regeneratePlan()
             statusMessage = "Opened \(url.lastPathComponent)"
             canSave = false
+        } catch let error as FontImportError {
+            statusMessage = error.localizedDescription
         } catch {
             statusMessage = "Could not open font: \(error.localizedDescription)"
         }
     }
 
-    func addFont(at url: URL) async {
-        guard var project else {
-            await openFont(at: url)
+    func openFont(at url: URL) async {
+        await createProject(from: url)
+    }
+
+    func addFont(at url: URL, toProjectID: String? = nil) async {
+        let targetID = toProjectID ?? activeProjectID
+        if openProjects.isEmpty {
+            await createProject(from: url)
             return
         }
+        guard let targetID,
+              openProjects.contains(where: { $0.id == targetID }) else {
+            statusMessage = "No project selected"
+            return
+        }
+
+        if let existing = findFont(normalizedPath: Self.normalizedPath(url)) {
+            activateProject(id: existing.projectID)
+            selectFont(id: existing.fontID)
+            statusMessage = "Already open — \(url.lastPathComponent)"
+            return
+        }
+
         isBusy = true
         defer { isBusy = false }
         do {
             let analysis = try FontAnalysisReader.analyze(url: url)
-            ProjectImporter.addFont(analysis, sourceURL: url, to: &project)
-            self.project = project
-            selectedFontID = project.fonts.last?.id
+            try validateVariableFont(analysis)
+            guard let idx = openProjects.firstIndex(where: { $0.id == targetID }) else { return }
+            ProjectImporter.addFont(analysis, sourceURL: url, to: &openProjects[idx].document)
+            let newFontID = openProjects[idx].document.fonts.last?.id
+            activateProject(id: targetID)
+            if let newFontID {
+                selectFont(id: newFontID)
+            }
+            publishOpenProjects()
             regeneratePlan()
             statusMessage = "Added \(url.lastPathComponent)"
+        } catch let error as FontImportError {
+            statusMessage = error.localizedDescription
         } catch {
             statusMessage = "Could not add font: \(error.localizedDescription)"
         }
+    }
+
+    func activateProject(id: String) {
+        guard openProjects.contains(where: { $0.id == id }) else { return }
+        activeProjectID = id
+        selectedInstanceKey = nil
+        selectedInstanceKeys = []
+        selectedAxisStopID = nil
+        refreshCanSave()
+        regeneratePlan()
     }
 
     func selectFont(id: String) {
@@ -507,12 +726,241 @@ final class EditorViewModel: ObservableObject {
         regeneratePlan()
     }
 
+    func renameProject(id: String, displayName: String) {
+        guard let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        openProjects[idx].document.displayName = trimmed.isEmpty ? nil : trimmed
+        openProjects[idx].document.modified = Date()
+        publishOpenProjects()
+    }
+
+    func projectTabLabel(for openProject: OpenProject) -> String {
+        if let name = openProject.document.displayName, !name.isEmpty {
+            return name
+        }
+        if !openProject.document.familyLabel.isEmpty {
+            return openProject.document.familyLabel
+        }
+        if let first = openProject.document.fonts.first {
+            return fontBasename(for: first)
+        }
+        return "Project"
+    }
+
+    func fontBasename(for font: FontDocument) -> String {
+        URL(fileURLWithPath: font.sourcePath).deletingPathExtension().lastPathComponent
+    }
+
+    func shortenedPath(_ path: String) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if path.hasPrefix(home) {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
+    }
+
+    func instanceCountLabel(for font: FontDocument) -> String {
+        guard activeProjectID != nil,
+              let project,
+              project.fonts.contains(where: { $0.id == font.id }) else { return "—" }
+        if font.id == selectedFontID, let plan = instancePlan {
+            return "\(plan.formula.totalGenerated)"
+        }
+        return "\(font.axes.filter { $0.role == .instance }.map(\.values.count).reduce(1, *))"
+    }
+
+    func requestRemoveFont(projectID: String, fontID: String) {
+        guard let pIdx = openProjects.firstIndex(where: { $0.id == projectID }),
+              let font = openProjects[pIdx].document.fonts.first(where: { $0.id == fontID }) else { return }
+        if font.dirty {
+            confirmRemoveFont = FontRemovalRequest(projectID: projectID, fontID: fontID)
+        } else {
+            removeFont(id: fontID, fromProjectID: projectID)
+        }
+    }
+
+    func confirmRemoveFontAction() {
+        guard let request = confirmRemoveFont else { return }
+        confirmRemoveFont = nil
+        removeFont(id: request.fontID, fromProjectID: request.projectID)
+    }
+
+    func removeFont(id fontID: String, fromProjectID projectID: String) {
+        guard let pIdx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        openProjects[pIdx].document.fonts.removeAll { $0.id == fontID }
+
+        if openProjects[pIdx].document.fonts.isEmpty {
+            closeProject(id: projectID, force: true)
+            statusMessage = "Project closed — no files remaining"
+            return
+        }
+
+        if openProjects[pIdx].selectedFontID == fontID {
+            openProjects[pIdx].selectedFontID = openProjects[pIdx].document.fonts.first?.id
+        }
+
+        activateProject(id: projectID)
+        publishOpenProjects()
+        refreshCanSave()
+        regeneratePlan()
+        statusMessage = "Removed font from project"
+    }
+
+    func requestCloseProject(id: String) {
+        guard let op = openProjects.first(where: { $0.id == id }) else { return }
+        if op.document.fonts.contains(where: \.dirty) {
+            confirmCloseProjectID = id
+        } else {
+            closeProject(id: id, force: true)
+        }
+    }
+
+    func confirmCloseProjectAction() {
+        guard let id = confirmCloseProjectID else { return }
+        confirmCloseProjectID = nil
+        closeProject(id: id, force: true)
+    }
+
+    func closeProject(id: String, force: Bool) {
+        guard let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
+        if !force, openProjects[idx].document.fonts.contains(where: \.dirty) {
+            confirmCloseProjectID = id
+            return
+        }
+
+        openProjects.remove(at: idx)
+
+        if openProjects.isEmpty {
+            activeProjectID = nil
+            selectedFontID = nil
+            instancePlan = nil
+            instanceListDisplay = .empty
+            canSave = false
+            return
+        }
+
+        if activeProjectID == id {
+            let neighborIndex = min(idx, openProjects.count - 1)
+            activeProjectID = openProjects[neighborIndex].id
+        }
+
+        selectedInstanceKey = nil
+        selectedInstanceKeys = []
+        selectedAxisStopID = nil
+        refreshCanSave()
+        regeneratePlan()
+    }
+
+    func revealActiveFontInFinder() {
+        guard let path = selectedFont?.sourcePath else { return }
+        NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
+    }
+
+    func importDroppedFonts(_ urls: [URL], disposition: FontDropDisposition) async {
+        let valid = urls.filter { Self.isFontFile($0) }
+        guard !valid.isEmpty else {
+            statusMessage = "No supported font files (.ttf, .otf, .woff, .woff2)"
+            return
+        }
+
+        switch disposition {
+        case .createNewProject:
+            for url in valid {
+                await createProject(from: url)
+            }
+        case .addToProject:
+            if openProjects.count == 1, let onlyID = openProjects.first?.id {
+                for url in valid {
+                    await addFont(at: url, toProjectID: onlyID)
+                }
+            } else {
+                pendingDropURLs = valid
+            }
+        }
+    }
+
+    func completePendingDrop(addToProjectID: String) async {
+        guard let urls = pendingDropURLs else { return }
+        pendingDropURLs = nil
+        for url in urls {
+            await addFont(at: url, toProjectID: addToProjectID)
+        }
+    }
+
+    func cancelPendingDrop() {
+        pendingDropURLs = nil
+    }
+
+    func suggestsSameFamily(analysis: FontAnalysis, project: ProjectDocument) -> Bool {
+        let family = analysis.source.familyName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let label = project.familyLabel.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !family.isEmpty, !label.isEmpty else { return false }
+        return label.contains(family) || family.contains(label)
+    }
+
+    func suggestedDropProjectID(for analysis: FontAnalysis) -> String? {
+        guard let activeProjectID,
+              let active = openProjects.first(where: { $0.id == activeProjectID }),
+              suggestsSameFamily(analysis: analysis, project: active.document) else {
+            return openProjects.first?.id
+        }
+        return activeProjectID
+    }
+
+    // MARK: - Import helpers
+
+    enum FontImportError: LocalizedError {
+        case notVariableFont
+
+        var errorDescription: String? {
+            switch self {
+            case .notVariableFont:
+                "Not a variable font — no variation axes found."
+            }
+        }
+    }
+
+    private func validateVariableFont(_ analysis: FontAnalysis) throws {
+        if analysis.axes.isEmpty {
+            throw FontImportError.notVariableFont
+        }
+    }
+
+    private func findFont(normalizedPath: String) -> (projectID: String, fontID: String)? {
+        for op in openProjects {
+            for font in op.document.fonts {
+                if Self.normalizedPath(font.sourcePath) == normalizedPath {
+                    return (op.id, font.id)
+                }
+            }
+        }
+        return nil
+    }
+
+    static func normalizedPath(_ url: URL) -> String {
+        url.standardizedFileURL.path
+    }
+
+    static func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path
+    }
+
+    private func refreshCanSave() {
+        canSave = project?.fonts.contains(where: \.dirty) ?? false
+    }
+
     func regeneratePlan() {
-        guard let project, let selectedFontID else {
+        guard project != nil, selectedFontID != nil else {
+            instancePlan = nil
+            instanceListDisplay = .empty
+            return
+        }
+        backfillMissingInferredAxisRoles()
+        guard let project else {
             instancePlan = nil
             return
         }
-        instancePlan = InstancePlanner.plan(project: project, fontID: selectedFontID)
+        instancePlan = InstancePlanner.plan(project: project, fontID: selectedFontID!)
         if let key = selectedInstanceKey,
            instancePlan?.instances.contains(where: { $0.key == key }) != true {
             selectedInstanceKey = instancePlan?.instances.first?.key
@@ -607,6 +1055,7 @@ final class EditorViewModel: ObservableObject {
             selectedFontID = project?.fonts.first?.id
         }
         canSave = project?.fonts.contains(where: \.dirty) ?? false
+        refreshCanSave()
         regeneratePlan()
     }
 
@@ -700,6 +1149,27 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
+    private func backfillMissingInferredAxisRoles() {
+        guard var project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else { return }
+        guard project.fonts[fontIndex].axes.contains(where: { $0.roleInferred == nil }) else { return }
+
+        let sourceURL = URL(fileURLWithPath: project.fonts[fontIndex].sourcePath)
+        guard let analysis = try? FontAnalysisReader.analyze(url: sourceURL) else { return }
+
+        var changed = false
+        for axisIndex in project.fonts[fontIndex].axes.indices {
+            guard project.fonts[fontIndex].axes[axisIndex].roleInferred == nil else { continue }
+            let tag = project.fonts[fontIndex].axes[axisIndex].tag
+            guard let analyzed = analysis.axes.first(where: { $0.tag == tag }) else { continue }
+            project.fonts[fontIndex].axes[axisIndex].roleInferred = analyzed.roleInferred
+            changed = true
+        }
+        if changed {
+            self.project = project
+        }
+    }
+
     private func scheduleDebouncedPlanRegeneration() {
         debouncedPlanTask?.cancel()
         debouncedPlanTask = Task { @MainActor in
@@ -714,20 +1184,15 @@ final class EditorViewModel: ObservableObject {
     }
 
     func importDroppedFonts(_ urls: [URL]) async {
-        let valid = urls.filter { Self.isFontFile($0) }
-        guard !valid.isEmpty else {
-            statusMessage = "No supported font files (.ttf, .otf, .woff, .woff2)"
+        if openProjects.isEmpty {
+            for url in urls.filter({ Self.isFontFile($0) }) {
+                await createProject(from: url)
+            }
             return
         }
-        if project == nil {
-            await openFont(at: valid[0])
-            for url in valid.dropFirst() {
-                await addFont(at: url)
-            }
-        } else {
-            for url in valid {
-                await addFont(at: url)
-            }
+        // Default legacy path: add to active project (split overlay uses disposition API).
+        for url in urls.filter({ Self.isFontFile($0) }) {
+            await addFont(at: url, toProjectID: activeProjectID)
         }
     }
 
