@@ -5,6 +5,9 @@ import VarFontCore
 struct InstanceListPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
 
+    /// Matches list row checkbox column: list inset + row horizontal padding.
+    private static let checkboxLeading = StudioSpacing.listInset + StudioSpacing.rowHorizontal
+
     private var display: InstanceListDisplay {
         editor.instanceListDisplay
     }
@@ -111,48 +114,59 @@ struct InstanceListPanel: View {
     // MARK: - Filter bar
 
     private var filterBar: some View {
-        HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
-            if let label = display.axisStopFilterLabel {
-                StudioFilterChip(icon: nil, label: label) {
-                    Button {
-                        editor.clearAxisStopFilter()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Row 1: navigation
+            HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
+                if let label = display.axisStopFilterLabel {
+                    StudioFilterChip(icon: nil, label: label) {
+                        Button {
+                            editor.clearAxisStopFilter()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(StudioTypography.meta)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clear axis stop filter")
                     }
-                    .buttonStyle(.plain)
-                    .help("Clear axis stop filter")
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
-                .transition(.opacity.combined(with: .move(edge: .leading)))
+
+                Spacer(minLength: 0)
+
+                searchField
+                    .frame(width: 180)
             }
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.top, StudioSpacing.toolbarVertical)
+            .padding(.bottom, StudioSpacing.rowGap - 1)
+            .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
 
-            StudioIncludeCheckbox(
-                isOn: editor.allVisibleInstancesIncluded,
-                isIndeterminate: editor.hasMixedVisibleInclusion
-            ) {
-                editor.toggleAllVisibleInstancesIncluded()
+            // Row 2: bulk include (checkbox column aligned with list rows)
+            HStack(alignment: .center, spacing: StudioSpacing.rowGap + 1) {
+                StudioIncludeCheckbox(
+                    isOn: editor.allVisibleInstancesIncluded,
+                    isIndeterminate: editor.hasMixedVisibleInclusion
+                ) {
+                    editor.toggleAllVisibleInstancesIncluded()
+                }
+                .disabled(editor.filteredInstances.isEmpty)
+
+                Text("Include all")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
+                    .lineLimit(1)
+
+                Spacer(minLength: StudioSpacing.controlGap)
+
+                showFilterPicker
+                    .frame(width: 180, alignment: .trailing)
             }
-            .disabled(editor.filteredInstances.isEmpty)
+            .padding(.leading, Self.checkboxLeading)
+            .padding(.trailing, StudioSpacing.panelHorizontal)
+            .padding(.bottom, StudioSpacing.toolbarVertical)
+            .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
 
-            Text("Include all")
-                .font(StudioTypography.meta)
-                .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
-                .lineLimit(1)
-
-            Spacer(minLength: StudioSpacing.controlGap)
-
-            searchField
-                .frame(width: 180)
-
-            showFilterPicker
-                .frame(width: 180, alignment: .trailing)
-        }
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
-        .padding(.vertical, StudioSpacing.toolbarVertical)
-        .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
-        .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
-        .overlay(alignment: .bottom) {
             Divider()
         }
     }
