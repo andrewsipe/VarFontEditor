@@ -23,6 +23,8 @@ struct ProjectDropdownMenu: View {
         VStack(alignment: .leading, spacing: 0) {
             projectHeader
 
+            menuSectionDivider
+
             Text("OPEN FONTS · \(openProject.document.fonts.count)")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
@@ -33,47 +35,8 @@ struct ProjectDropdownMenu: View {
             ForEach(openProject.document.fonts) { font in
                 fileRow(font)
             }
-
-            Divider()
-                .padding(.top, 4)
-
-            HStack(spacing: 6) {
-                Button("Reveal in Finder") {
-                    if isActiveProject, editor.selectedFontID == nil {
-                        editor.selectFont(id: openProject.document.fonts.first?.id ?? "")
-                    }
-                    if isActiveProject {
-                        editor.revealActiveFontInFinder()
-                    } else {
-                        editor.activateProject(id: openProject.id)
-                        if let first = openProject.document.fonts.first?.id {
-                            editor.selectFont(id: first)
-                        }
-                        editor.revealActiveFontInFinder()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button("Add font…") {
-                    onDismiss()
-                    editor.presentAddFontPanel(projectID: openProject.id)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
-            .padding(8)
-
-            Button("Remove project") {
-                onDismiss()
-                editor.requestCloseProject(id: openProject.id)
-            }
-            .font(StudioTypography.meta)
-            .foregroundStyle(.red)
-            .buttonStyle(.plain)
-            .padding(.horizontal, 10)
-            .padding(.bottom, 8)
         }
+        .padding(.bottom, 8)
         .frame(width: 360)
         .id(openProject.id)
         .onAppear {
@@ -100,49 +63,183 @@ struct ProjectDropdownMenu: View {
         return editor.projectTabLabel(for: liveProject ?? openProject)
     }
 
+    private var menuSectionDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.22))
+            .frame(height: 1)
+    }
+
     private var projectHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                if isEditingName {
-                    TextField("Project name", text: $editedName)
-                        .textFieldStyle(.roundedBorder)
-                        .font(StudioTypography.bodyMedium)
-                        .focused($nameFieldFocused)
-                        .onSubmit { commitRename() }
+        HStack(alignment: .top, spacing: 8) {
+            if !isEditingName {
+                WorkspaceDraggableContainer(
+                    item: .project(projectID: openProject.id, label: currentDisplayName),
+                    isDragEnabled: editor.canDragProjectForCombine,
+                    helpText: "Drag to another project tab to combine projects"
+                ) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(currentDisplayName)
+                            .font(StudioTypography.bodyMedium)
+                            .fontWeight(.semibold)
+                            .lineLimit(1)
 
-                    Button("Done") { commitRename() }
-                        .controlSize(.small)
-                } else {
-                    Text(currentDisplayName)
-                        .font(StudioTypography.bodyMedium)
-                        .fontWeight(.semibold)
-                        .lineLimit(1)
-
-                    Button {
-                        editedName = currentDisplayName
-                        isEditingName = true
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 10, weight: .semibold))
+                        Text("\(openProject.document.fonts.count) file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
+                            .font(StudioTypography.meta)
                             .foregroundStyle(.secondary)
-                            .padding(6)
-                            .contentShape(Rectangle())
+                            .lineLimit(2)
                     }
-                    .buttonStyle(.plain)
-                    .help("Rename project tab")
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                Spacer(minLength: 0)
-            }
+                projectHeaderActions
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        TextField("Project name", text: $editedName)
+                            .textFieldStyle(.roundedBorder)
+                            .font(StudioTypography.bodyMedium)
+                            .focused($nameFieldFocused)
+                            .onSubmit { commitRename() }
 
-            Text("\(openProject.document.fonts.count) file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
-                .font(StudioTypography.meta)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+                        Button("Done") { commitRename() }
+                            .controlSize(.small)
+                    }
+
+                    Text("\(openProject.document.fonts.count) file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal)
         .padding(.vertical, 8)
         .padding(.top, 6)
+    }
+
+    private var projectHeaderActions: some View {
+        HStack(spacing: 2) {
+            ProjectRowIconButton(systemName: "pencil.circle", help: "Rename project tab") {
+                editedName = currentDisplayName
+                isEditingName = true
+            }
+
+            projectActionsMenu
+        }
+        .padding(.top, 1)
+    }
+
+    private var projectActionsMenu: some View {
+        ProjectRowMenu {
+            Button {
+                onDismiss()
+                editor.presentAddFontPanel(projectID: openProject.id)
+            } label: {
+                Label("Add font…", systemImage: "folder.badge.plus")
+            }
+
+            if editor.openProjects.count > 1 {
+                Button {
+                    onDismiss()
+                    editor.presentCombineProjectsPicker(into: openProject.id)
+                } label: {
+                    Label("Combine with…", systemImage: "arrow.triangle.merge")
+                }
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                onDismiss()
+                editor.requestCloseProject(id: openProject.id)
+            } label: {
+                Label("Remove project", systemImage: "xmark.circle")
+            }
+        }
+    }
+
+    private func fileRow(_ font: FontDocument) -> some View {
+        let isSelected = isActiveProject && editor.selectedFontID == font.id
+        let name = editor.fontBasename(for: font)
+
+        return HStack(alignment: .top, spacing: 8) {
+            WorkspaceDraggableContainer(
+                item: .font(fontID: font.id, fromProjectID: openProject.id, label: name),
+                isDragEnabled: editor.canDragFont(forProjectID: openProject.id),
+                helpText: "Drag to a project tab to move, or to the toolbar to start a new project",
+                onTap: {
+                    editor.activateProject(id: openProject.id)
+                    editor.selectFont(id: font.id)
+                }
+            ) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(StudioTypography.bodyMedium)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text(editor.shortenedPath(font.sourcePath))
+                        .font(StudioTypography.monoMeta)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Text("\(font.axes.count) axes · \(editor.instanceCountLabel(for: font)) instances · \(openProject.document.familyLabel)")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            fileActionsMenu(font)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            isSelected ? StudioColors.selectionFill : Color.clear,
+            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+        )
+    }
+
+    private func fileActionsMenu(_ font: FontDocument) -> some View {
+        ProjectRowMenu {
+            Button {
+                editor.activateProject(id: openProject.id)
+                editor.selectFont(id: font.id)
+                editor.revealFontInFinder(fontID: font.id, projectID: openProject.id)
+            } label: {
+                Label("Reveal in Finder", systemImage: "arrow.up.forward.app")
+            }
+
+            if editor.openProjects.count > 1 {
+                Button {
+                    onDismiss()
+                    editor.presentMoveFontPicker(fontID: font.id, fromProjectID: openProject.id)
+                } label: {
+                    Label("Move to…", systemImage: "arrow.right.circle")
+                }
+            }
+
+            if openProject.document.fonts.count > 1 {
+                Button {
+                    onDismiss()
+                    editor.requestSplitFontToNewProject(fontID: font.id, fromProjectID: openProject.id)
+                } label: {
+                    Label("Move to new project…", systemImage: "arrow.up.right.square")
+                }
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                onDismiss()
+                editor.requestRemoveFont(projectID: openProject.id, fontID: font.id)
+            } label: {
+                Label("Remove", systemImage: "minus.circle")
+            }
+        }
     }
 
     private func commitRename() {
@@ -152,47 +249,41 @@ struct ProjectDropdownMenu: View {
         nameFieldFocused = false
         editedName = currentDisplayName
     }
+}
 
-    private func fileRow(_ font: FontDocument) -> some View {
-        let isSelected = isActiveProject && editor.selectedFontID == font.id
-        return HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(editor.fontBasename(for: font))
-                    .font(StudioTypography.bodyMedium)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+private struct ProjectRowIconButton: View {
+    let systemName: String
+    let help: String
+    let action: () -> Void
 
-                Text(editor.shortenedPath(font.sourcePath))
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Text("\(font.axes.count) axes · \(editor.instanceCountLabel(for: font)) instances · \(openProject.document.familyLabel)")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                editor.activateProject(id: openProject.id)
-                editor.selectFont(id: font.id)
-            }
-
-            Button("Remove") {
-                editor.requestRemoveFont(projectID: openProject.id, fontID: font.id)
-            }
-            .font(StudioTypography.meta)
-            .buttonStyle(.bordered)
-            .controlSize(.mini)
-            .help("Remove file from project")
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(
-            isSelected ? StudioColors.selectionFill : Color.clear,
-            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
-        )
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+private struct ProjectRowMenu<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        Menu {
+            content()
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Actions")
     }
 }

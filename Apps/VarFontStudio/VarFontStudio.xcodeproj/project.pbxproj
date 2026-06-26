@@ -26,6 +26,9 @@
 		B2000012 /* NamingOrderChainFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000011 /* NamingOrderChainFooter.swift */; };
 		B2000019 /* EditorLayoutPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000018 /* EditorLayoutPreferences.swift */; };
 		B2000020 /* StudioPanelSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000019 /* StudioPanelSplitView.swift */; };
+		B2000021 /* ProjectTargetPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000020 /* ProjectTargetPickerSheet.swift */; };
+		B2000022 /* WorkspaceDragSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000021 /* WorkspaceDragSession.swift */; };
+		B2000023 /* InspectorSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000022 /* InspectorSupport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,6 +51,9 @@
 		F2000011 /* NamingOrderChainFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamingOrderChainFooter.swift; sourceTree = "<group>"; };
 		F2000018 /* EditorLayoutPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorLayoutPreferences.swift; sourceTree = "<group>"; };
 		F2000019 /* StudioPanelSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioPanelSplitView.swift; sourceTree = "<group>"; };
+		F2000020 /* ProjectTargetPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTargetPickerSheet.swift; sourceTree = "<group>"; };
+		F2000021 /* WorkspaceDragSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDragSession.swift; sourceTree = "<group>"; };
+		F2000022 /* InspectorSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorSupport.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,8 +73,10 @@
 			children = (
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000002 /* EditorViewModel.swift */,
+				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
 				F2000012 /* OpenProject.swift */,
+				F2000021 /* WorkspaceDragSession.swift */,
 				G2000005 /* Views */,
 				F2000008 /* Assets.xcassets */,
 				G2000003 /* Products */,
@@ -91,6 +99,7 @@
 				F2000014 /* ProjectDropdownMenu.swift */,
 				F2000015 /* ProjectFileSubBar.swift */,
 				F2000016 /* ProjectPickerSheet.swift */,
+				F2000020 /* ProjectTargetPickerSheet.swift */,
 				F2000017 /* WorkspaceDropOverlay.swift */,
 				F2000019 /* StudioPanelSplitView.swift */,
 				F2000005 /* AxisTreePanel.swift */,
@@ -180,13 +189,16 @@
 			files = (
 				B2000001 /* VarFontStudioApp.swift in Sources */,
 				B2000002 /* EditorViewModel.swift in Sources */,
+				B2000023 /* InspectorSupport.swift in Sources */,
 				B2000019 /* EditorLayoutPreferences.swift in Sources */,
 				B2000013 /* OpenProject.swift in Sources */,
+				B2000022 /* WorkspaceDragSession.swift in Sources */,
 				B2000003 /* MainEditorView.swift in Sources */,
 				B2000014 /* ProjectToolbar.swift in Sources */,
 				B2000015 /* ProjectDropdownMenu.swift in Sources */,
 				B2000016 /* ProjectFileSubBar.swift in Sources */,
 				B2000017 /* ProjectPickerSheet.swift in Sources */,
+				B2000021 /* ProjectTargetPickerSheet.swift in Sources */,
 				B2000018 /* WorkspaceDropOverlay.swift in Sources */,
 				B2000020 /* StudioPanelSplitView.swift in Sources */,
 				B2000005 /* AxisTreePanel.swift in Sources */,

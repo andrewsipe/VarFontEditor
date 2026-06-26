@@ -15,16 +15,17 @@ struct WorkspaceDropDelegate: DropDelegate {
     let dropHeight: CGFloat
     let isEmptyWorkspace: Bool
     let isBusy: Bool
+    let isInternalDragActive: () -> Bool
     let onDropURLs: ([URL], FontDropDisposition) -> Void
 
     func dropEntered(info: DropInfo) {
-        guard !isBusy else { return }
+        guard acceptsFileDrop(info) else { return }
         isTargeted = true
         updateZone(for: info)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        guard !isBusy else {
+        guard acceptsFileDrop(info) else {
             return DropProposal(operation: .forbidden)
         }
         updateZone(for: info)
@@ -37,11 +38,11 @@ struct WorkspaceDropDelegate: DropDelegate {
     }
 
     func validateDrop(info: DropInfo) -> Bool {
-        !isBusy
+        acceptsFileDrop(info)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        guard !isBusy else { return false }
+        guard acceptsFileDrop(info) else { return false }
 
         let zone = zone(for: info)
         isTargeted = false
@@ -64,6 +65,13 @@ struct WorkspaceDropDelegate: DropDelegate {
             }
         }
         return true
+    }
+
+    private func acceptsFileDrop(_ info: DropInfo) -> Bool {
+        if isBusy || isInternalDragActive() {
+            return false
+        }
+        return !info.itemProviders(for: EditorViewModel.fontDropTypes).isEmpty
     }
 
     private func zone(for info: DropInfo) -> WorkspaceDropZone {
@@ -154,39 +162,64 @@ struct WorkspaceDropOverlay: View {
                 zone: .addExisting,
                 title: "Add to project",
                 subtitle: "Drop here to add to an existing project",
-                tint: StudioColors.dropAddExisting
+                fill: StudioColors.dropZoneAddFill,
+                border: StudioColors.dropAddExisting
             )
             .frame(maxHeight: .infinity)
+
+            Divider()
 
             dropHalf(
                 zone: .newProject,
                 title: "New project",
                 subtitle: "Drop here to start a separate project",
-                tint: StudioColors.dropNewProject
+                fill: StudioColors.dropZoneNewFill,
+                border: StudioColors.dropNewProject
             )
             .frame(maxHeight: .infinity)
         }
         .background(Color.black.opacity(0.12))
     }
 
-    private func dropHalf(zone: WorkspaceDropZone, title: String, subtitle: String, tint: Color) -> some View {
+    private func dropHalf(
+        zone: WorkspaceDropZone,
+        title: String,
+        subtitle: String,
+        fill: Color,
+        border: Color
+    ) -> some View {
         let targeted = activeZone == zone
         return ZStack {
-            tint.opacity(targeted ? 0.22 : 0.08)
+            fill
+
+            if targeted {
+                border.opacity(0.12)
+            }
 
             VStack(spacing: 6) {
                 Text(title)
                     .font(StudioTypography.emphasis)
+                    .foregroundStyle(targeted ? border : .primary)
                 Text(subtitle)
                     .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding(24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .background {
+                RoundedRectangle(cornerRadius: StudioRadius.row)
+                    .fill(fill)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: StudioRadius.row)
+                            .fill(.thinMaterial)
+                    }
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.row)
-                    .strokeBorder(targeted ? tint : Color.secondary.opacity(0.3), lineWidth: targeted ? 2 : 1)
+                    .strokeBorder(
+                        targeted ? border : border.opacity(0.35),
+                        lineWidth: targeted ? 2 : 1
+                    )
             }
             .padding(20)
         }

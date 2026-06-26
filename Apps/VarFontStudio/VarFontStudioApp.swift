@@ -15,6 +15,7 @@ struct VarFontStudioApp: App {
             MainEditorView()
                 .environmentObject(editor)
                 .environmentObject(layout)
+                .environment(editor.workspaceDrag)
                 .frame(minWidth: 960, minHeight: 620)
         }
         .commands {

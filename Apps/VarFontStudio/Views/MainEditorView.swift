@@ -3,15 +3,31 @@ import VarFontCore
 
 struct MainEditorView: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var isDropTargeted = false
     @State private var activeDropZone: WorkspaceDropZone = .none
     @State private var openProjectMenuID: String?
+    @State private var workspaceOrigin: CGPoint = .zero
+    @State private var projectMenuTabRect: CGRect?
 
     var body: some View {
         GeometryReader { geometry in
             editorChrome
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .contentShape(Rectangle())
+                .onAppear {
+                    workspaceOrigin = geometry.frame(in: .global).origin
+                }
+                .onChange(of: geometry.size) { _, _ in
+                    workspaceOrigin = geometry.frame(in: .global).origin
+                }
+                .overlay {
+                    WorkspaceDragGhostOverlay(workspaceOrigin: workspaceOrigin)
+                        .allowsHitTesting(false)
+                }
+                .overlay {
+                    projectMenuOverlay(screenSize: geometry.size)
+                }
                 .onDrop(
                     of: EditorViewModel.fontDropTypes,
                     delegate: WorkspaceDropDelegate(
@@ -20,6 +36,7 @@ struct MainEditorView: View {
                         dropHeight: geometry.size.height,
                         isEmptyWorkspace: !editor.hasOpenProjects,
                         isBusy: editor.isBusy,
+                        isInternalDragActive: { workspaceDrag.isActive },
                         onDropURLs: { urls, disposition in
                             Task {
                                 await editor.importDroppedFonts(urls, disposition: disposition)
@@ -33,7 +50,7 @@ struct MainEditorView: View {
                     }
                 }
                 .overlay {
-                    if isDropTargeted, !editor.isBusy {
+                    if isDropTargeted, !editor.isBusy, !workspaceDrag.isActive {
                         WorkspaceDropOverlay(
                             isEmptyWorkspace: !editor.hasOpenProjects,
                             activeZone: activeDropZone
@@ -50,8 +67,19 @@ struct MainEditorView: View {
                     }
                 }
         }
+        .onKeyPress(.escape) {
+            if workspaceDrag.isActive {
+                editor.cancelWorkspaceDrag()
+                return .handled
+            }
+            return .ignored
+        }
         .sheet(isPresented: pendingDropBinding) {
             ProjectPickerSheet()
+                .environmentObject(editor)
+        }
+        .sheet(item: projectTargetPickerBinding) { mode in
+            ProjectTargetPickerSheet(mode: mode)
                 .environmentObject(editor)
         }
         .confirmationDialog(
@@ -66,7 +94,9 @@ struct MainEditorView: View {
                 editor.confirmRemoveFont = nil
             }
         } message: {
-            Text("This file has unsaved changes.")
+            if let request = editor.confirmRemoveFont {
+                Text(editor.removeFontConfirmationMessage(for: request))
+            }
         }
         .confirmationDialog(
             "Remove project?",
@@ -80,7 +110,57 @@ struct MainEditorView: View {
                 editor.confirmCloseProjectID = nil
             }
         } message: {
-            Text("One or more files in this project have unsaved changes.")
+            if let projectID = editor.confirmCloseProjectID {
+                Text(editor.closeProjectConfirmationMessage(for: projectID))
+            }
+        }
+        .confirmationDialog(
+            "Move font?",
+            isPresented: moveFontConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Move") {
+                editor.confirmMoveFontAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmMoveFont = nil
+            }
+        } message: {
+            if let request = editor.confirmMoveFont {
+                Text(editor.moveFontConfirmationMessage(for: request))
+            }
+        }
+        .confirmationDialog(
+            "Combine projects?",
+            isPresented: combineProjectsConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Combine", role: .destructive) {
+                editor.confirmCombineProjectsAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmCombineProjects = nil
+            }
+        } message: {
+            if let request = editor.confirmCombineProjects {
+                Text(editor.combineProjectsConfirmationMessage(for: request))
+            }
+        }
+        .confirmationDialog(
+            "Move to new project?",
+            isPresented: splitFontConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Move") {
+                editor.confirmSplitFontAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmSplitFont = nil
+            }
+        } message: {
+            if let request = editor.confirmSplitFont {
+                Text(editor.splitFontConfirmationMessage(for: request))
+            }
         }
     }
 
@@ -88,6 +168,13 @@ struct MainEditorView: View {
         Binding(
             get: { editor.pendingDropURLs != nil },
             set: { if !$0 { editor.cancelPendingDrop() } }
+        )
+    }
+
+    private var projectTargetPickerBinding: Binding<ProjectTargetPickerMode?> {
+        Binding(
+            get: { editor.projectTargetPickerMode },
+            set: { editor.projectTargetPickerMode = $0 }
         )
     }
 
@@ -102,6 +189,27 @@ struct MainEditorView: View {
         Binding(
             get: { editor.confirmCloseProjectID != nil },
             set: { if !$0 { editor.confirmCloseProjectID = nil } }
+        )
+    }
+
+    private var moveFontConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmMoveFont != nil },
+            set: { if !$0 { editor.confirmMoveFont = nil } }
+        )
+    }
+
+    private var combineProjectsConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmCombineProjects != nil },
+            set: { if !$0 { editor.confirmCombineProjects = nil } }
+        )
+    }
+
+    private var splitFontConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmSplitFont != nil },
+            set: { if !$0 { editor.confirmSplitFont = nil } }
         )
     }
 
@@ -130,32 +238,61 @@ struct MainEditorView: View {
         .navigationTitle(activeNavigationTitle)
         .overlayPreferenceValue(ProjectTabAnchorKey.self) { anchors in
             GeometryReader { geometry in
-                ZStack(alignment: .topLeading) {
-                    if openProjectMenuID != nil {
-                        Color.black.opacity(0.001)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .contentShape(Rectangle())
-                            .onTapGesture { openProjectMenuID = nil }
-                    }
-
-                    if let openID = openProjectMenuID,
-                       let openProject = editor.openProjects.first(where: { $0.id == openID }),
-                       let anchor = anchors[openID] {
-                        let tabRect = geometry[anchor]
-                        ProjectDropdownMenu(
-                            openProject: openProject,
-                            onDismiss: { openProjectMenuID = nil }
-                        )
-                        .environmentObject(editor)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(width: 360, alignment: .leading)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
-                        .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
-                        .offset(x: tabRect.minX, y: tabRect.maxY + 4)
-                    }
-                }
+                Color.clear
+                    .preference(
+                        key: ProjectMenuTabRectKey.self,
+                        value: resolvedProjectMenuTabRect(anchors: anchors, geometry: geometry)
+                    )
             }
         }
+        .onPreferenceChange(ProjectMenuTabRectKey.self) { rect in
+            guard !workspaceDrag.isActive else { return }
+            if rect == .zero {
+                if openProjectMenuID == nil {
+                    projectMenuTabRect = nil
+                }
+            } else if rect != projectMenuTabRect {
+                projectMenuTabRect = rect
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func projectMenuOverlay(screenSize: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            if openProjectMenuID != nil, !workspaceDrag.isActive {
+                Color.black.opacity(0.001)
+                    .frame(width: screenSize.width, height: screenSize.height)
+                    .contentShape(Rectangle())
+                    .onTapGesture { openProjectMenuID = nil }
+            }
+
+            if let openID = openProjectMenuID,
+               let tabRect = projectMenuTabRect,
+               let openProject = editor.openProjects.first(where: { $0.id == openID }) {
+                ProjectDropdownMenu(
+                    openProject: openProject,
+                    onDismiss: { openProjectMenuID = nil }
+                )
+                .environmentObject(editor)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 360, alignment: .leading)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
+                .offset(x: tabRect.minX, y: tabRect.maxY + 4)
+                .opacity(workspaceDrag.isActive ? 0 : 1)
+            }
+        }
+    }
+
+    private func resolvedProjectMenuTabRect(
+        anchors: [String: Anchor<CGRect>],
+        geometry: GeometryProxy
+    ) -> CGRect {
+        guard let openID = openProjectMenuID, let anchor = anchors[openID] else {
+            return .zero
+        }
+        return geometry[anchor]
     }
 
     private var projectChrome: some View {
@@ -184,6 +321,7 @@ struct MainEditorView: View {
         VStack(spacing: 0) {
             Divider()
             NamingOrderChainFooter()
+                .padding(.bottom, StudioSpacing.sectionGap - 2)
             Divider()
             statusBar
         }
@@ -210,31 +348,41 @@ struct MainEditorView: View {
 
     private var statusBar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            if let id = editor.activeProjectID,
-               let openProject = editor.openProjects.first(where: { $0.id == id }) {
-                Text(editor.projectTabLabel(for: openProject))
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+            HStack(spacing: StudioSpacing.controlGap) {
+                if let id = editor.activeProjectID,
+                   let openProject = editor.openProjects.first(where: { $0.id == id }) {
+                    Text(editor.projectTabLabel(for: openProject))
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+
+                    if editor.selectedFont != nil {
+                        Text("|")
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                if let font = editor.selectedFont {
+                    Text(editor.fontBasename(for: font))
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(Color.accentColor)
+                        .lineLimit(1)
+                }
             }
 
-            if let font = editor.selectedFont {
-                Text(editor.fontBasename(for: font))
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
+            Spacer(minLength: StudioSpacing.controlGap)
 
             if let message = editor.statusMessage {
                 Text(message)
                     .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .multilineTextAlignment(.trailing)
             }
-            Spacer()
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
-        .padding(.vertical, 4)
+        .padding(.vertical, StudioSpacing.toolbarVertical)
     }
 
     private var loadingOverlay: some View {

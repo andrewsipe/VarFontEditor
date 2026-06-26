@@ -15,22 +15,42 @@ struct AxisTreePanel: View {
         VStack(spacing: 0) {
             StudioPanelHeader(title: "Axis tree") {
                 if let font = editor.selectedFont {
-                    Text("\(font.axes.count) axes")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 3) {
+                        Text("\(font.axes.count)")
+                            .foregroundStyle(StudioColors.computedHighlight)
+                        Text("axes")
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(StudioTypography.meta)
                 }
             }
 
-            List {
-                if editor.selectedFont != nil {
-                    gridSummarySection
-                    if !editor.axisPlanWarnings.isEmpty {
-                        warningsSection
+            ScrollViewReader { scrollProxy in
+                List {
+                    if editor.selectedFont != nil {
+                        gridSummarySection
+                        if !editor.axisPlanWarnings.isEmpty {
+                            warningsSection
+                        }
+                        axesSection
                     }
-                    axesSection
+                }
+                .listStyle(.inset)
+                .onChange(of: editor.inspectorFocusedAxisTag) { _, tag in
+                    if let tag {
+                        expandedAxes.insert(tag)
+                    }
+                }
+                .onChange(of: editor.selectedAxisStopID) { _, stopID in
+                    guard let stopID else { return }
+                    expandAxisContaining(stopID: stopID)
+                    DispatchQueue.main.async {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            scrollProxy.scrollTo(stopID, anchor: .center)
+                        }
+                    }
                 }
             }
-            .listStyle(.inset)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipped()
@@ -51,10 +71,11 @@ struct AxisTreePanel: View {
     private var gridSummarySection: some View {
         if let plan = editor.instancePlan, !plan.formula.parts.isEmpty {
             Section {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                     studioSummaryRow("Instance grid", value: gridFormulaText(plan))
                     studioSummaryRow("Generated", value: "\(plan.formula.totalGenerated)", monospaced: true)
                 }
+                .padding(.bottom, StudioSpacing.rowGap)
             }
         }
     }
@@ -66,8 +87,9 @@ struct AxisTreePanel: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(monospaced ? StudioTypography.monoMeta : StudioTypography.caption)
-                .foregroundStyle(monospaced ? StudioColors.computedHighlight : .primary)
+                .font(monospaced ? StudioTypography.gridSummaryValueMono : StudioTypography.gridSummaryValue)
+                .foregroundStyle(StudioColors.computedHighlight)
+                .monospacedDigit()
         }
     }
 
@@ -127,7 +149,7 @@ struct AxisTreePanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                AxisStopTableHeader(showElidable: axis.values.count > 1)
+                AxisStopTableHeader(showElidable: axis.role == .instance)
 
                 ForEach(axis.values) { stop in
                     AxisTreeStopRow(
@@ -135,7 +157,7 @@ struct AxisTreePanel: View {
                         stop: stop,
                         isSelected: editor.selectedAxisStopID == stop.id,
                         editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
-                        showElidable: axis.values.count > 1,
+                        showElidable: axis.role == .instance,
                         isElidable: stop.elidable,
                         onSelect: {
                             editingStop = nil
@@ -151,6 +173,7 @@ struct AxisTreePanel: View {
                         onCommitName: { editor.updateAxisStopName(axisTag: axis.tag, stopID: stop.id, name: $0) },
                         onToggleElidable: { editor.toggleAxisStopElidable(axisTag: axis.tag, stopID: stop.id) }
                     )
+                    .id(stop.id)
                 }
             }
 
@@ -207,6 +230,14 @@ struct AxisTreePanel: View {
         expandedAxes = Set(
             font.axes.filter { $0.role == .instance || !$0.values.isEmpty }.map(\.tag)
         )
+    }
+
+    private func expandAxisContaining(stopID: String) {
+        guard let font = editor.selectedFont else { return }
+        for axis in font.axes where axis.values.contains(where: { $0.id == stopID }) {
+            expandedAxes.insert(axis.tag)
+            return
+        }
     }
 
     private func gridFormulaText(_ plan: InstancePlan) -> String {
@@ -271,7 +302,7 @@ private struct AxisTreeAxisHeader: View {
         Text("\(isInstanceAxis ? axis.values.count : 0)")
             .font(StudioTypography.meta.weight(.medium))
             .monospacedDigit()
-            .foregroundStyle(isInstanceAxis ? .secondary : .tertiary)
+            .foregroundStyle(isInstanceAxis ? AnyShapeStyle(StudioColors.computedHighlight) : AnyShapeStyle(.tertiary))
             .frame(width: AxisBlockLayout.stopCountBadgeWidth)
             .padding(.vertical, 2)
             .background(.quaternary.opacity(isInstanceAxis ? 1 : 0.6), in: Capsule())

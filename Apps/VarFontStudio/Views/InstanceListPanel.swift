@@ -69,27 +69,40 @@ struct InstanceListPanel: View {
 
     private var instanceList: some View {
         ScrollView {
-            LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
-                ForEach(display.groups) { group in
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                ForEach(Array(display.groups.enumerated()), id: \.element.id) { index, group in
                     if group.label.isEmpty {
                         ForEach(group.instances) { instance in
                             instanceRow(instance)
                         }
                     } else {
                         Section {
-                            ForEach(group.instances) { instance in
-                                instanceRow(instance)
+                            // Nested LazyVStack inside Section inflates section height (phantom inter-section gaps).
+                            VStack(spacing: 1) {
+                                ForEach(group.instances) { instance in
+                                    instanceRow(instance)
+                                }
                             }
+                            .padding(.top, StudioSpacing.groupHeaderBelow)
+                            .padding(.bottom, sectionTrailingGap(after: index))
                         } header: {
-                            StudioGroupHeader(label: group.label, count: group.instances.count)
+                            StudioGroupHeader(
+                                label: group.label,
+                                count: group.instances.count
+                            )
                         }
                     }
                 }
             }
             .padding(.horizontal, StudioSpacing.listInset)
-            .padding(.vertical, StudioSpacing.panelVertical)
+            .padding(.bottom, StudioSpacing.panelVertical)
         }
         .transaction { $0.animation = nil }
+    }
+
+    /// Space after the last row, before the next section header (lives in scroll content, not the pin target).
+    private func sectionTrailingGap(after index: Int) -> CGFloat {
+        index < display.groups.count - 1 ? StudioSpacing.sectionGap : 0
     }
 
     private func instanceRow(_ instance: PlannedInstance) -> some View {
@@ -107,7 +120,10 @@ struct InstanceListPanel: View {
                     ? editor.activeInstanceSelection
                     : [instance.key]
                 editor.setInstancesIncluded(keys: keys, included: included)
-            }
+            },
+            onWarningTap: instance.duplicate ? {
+                editor.revealInspectorWarnings(selecting: instance.key)
+            } : nil
         )
     }
 
@@ -160,7 +176,7 @@ struct InstanceListPanel: View {
                 Spacer(minLength: StudioSpacing.controlGap)
 
                 showFilterPicker
-                    .frame(width: 180, alignment: .trailing)
+                    .frame(width: 220, alignment: .trailing)
             }
             .padding(.leading, Self.checkboxLeading)
             .padding(.trailing, StudioSpacing.panelHorizontal)
@@ -220,6 +236,9 @@ struct InstanceListPanel: View {
     }
 
     private var emptyListTitle: String {
+        if editor.instanceFilter == .duplicates && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
+            return "No Duplicate Instances"
+        }
         if editor.instanceFilter == .excluded && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
             return "No Excluded Instances"
         }
@@ -229,6 +248,9 @@ struct InstanceListPanel: View {
     private var emptyListMessage: String {
         if display.axisStopFilterLabel != nil {
             return "No instances match the selected axis stop. Click the stop again to clear the filter."
+        }
+        if editor.instanceFilter == .duplicates && editor.searchText.isEmpty {
+            return "No instances share a composed style name in this plan."
         }
         if editor.instanceFilter == .excluded && editor.searchText.isEmpty {
             return "No excluded instances — all are included in this export."
@@ -248,6 +270,7 @@ private struct InstanceRowView: View {
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
     let onSetSelectionIncluded: (Bool) -> Void
+    var onWarningTap: (() -> Void)?
 
     @State private var isHovered = false
 
@@ -264,7 +287,9 @@ private struct InstanceRowView: View {
                 .lineLimit(1)
 
             if instance.duplicate {
-                StudioWarningBadge(help: "Duplicate composed name")
+                StudioWarningBadge(help: "Duplicate composed name — show in inspector") {
+                    onWarningTap?()
+                }
             }
 
             Spacer(minLength: StudioSpacing.controlGap)

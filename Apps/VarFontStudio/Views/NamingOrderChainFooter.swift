@@ -35,19 +35,19 @@ struct NamingOrderChainFooter: View {
 
     private var disclosureContent: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
                 chainTrack
 
                 exampleRow
             }
-            .padding(.top, StudioSpacing.rowGap)
-            .padding(.bottom, StudioSpacing.toolbarVertical)
+            .padding(.top, StudioSpacing.controlGap)
+            .padding(.bottom, StudioSpacing.toolbarVertical + 2)
         } label: {
             disclosureLabel
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
-        .padding(.top, StudioSpacing.toolbarVertical)
-        .padding(.bottom, isExpanded ? 0 : StudioSpacing.toolbarVertical)
+        .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
+        .padding(.top, StudioSpacing.toolbarVertical + 2)
+        .padding(.bottom, isExpanded ? StudioSpacing.toolbarVertical + 2 : StudioSpacing.toolbarVertical)
     }
 
     private var disclosureLabel: some View {
@@ -165,8 +165,8 @@ struct NamingOrderChainFooter: View {
                     chainContent
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.vertical, StudioSpacing.toolbarVertical)
         }
         .scrollDisabled(session.isDragging)
         .coordinateSpace(name: coordinateSpace)
@@ -217,7 +217,7 @@ struct NamingOrderChainFooter: View {
                 }
 
                 chainChip(tag: tag)
-                    .background(chipFrameReader(tag: tag))
+                    .overlay(chipFrameReader(tag: tag))
 
                 if index < tags.count - 1 {
                     chainLink(isActive: chainLinkActive(after: tag))
@@ -229,6 +229,7 @@ struct NamingOrderChainFooter: View {
                 placeholderChip
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
         .animation(.easeOut(duration: 0.12), value: session.targetGapIndex)
     }
 
@@ -246,6 +247,7 @@ struct NamingOrderChainFooter: View {
                 value: [tag: proxy.frame(in: .named(coordinateSpace))]
             )
         }
+        .allowsHitTesting(false)
     }
 
     // MARK: - Chips
@@ -261,6 +263,7 @@ struct NamingOrderChainFooter: View {
 
             chainChipBody(tag: tag, inGrid: inGrid)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(
@@ -281,12 +284,15 @@ struct NamingOrderChainFooter: View {
     private func chainChipBody(tag: String, inGrid: Bool) -> some View {
         HStack(spacing: 5) {
             StudioTagPill(text: tag, compact: true)
+                .fixedSize()
 
             Text(editor.axisDisplayName(for: tag))
                 .font(StudioTypography.caption)
                 .foregroundStyle(inGrid ? .primary : .secondary)
                 .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .contentShape(Rectangle())
         .gesture(dragGesture(for: tag))
     }

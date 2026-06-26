@@ -9,42 +9,119 @@ struct ProjectTabAnchorKey: PreferenceKey {
     }
 }
 
+struct ProjectMenuTabRectKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
 struct ProjectToolbar: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @Binding var openMenuProjectID: String?
+
+    private var isSplitHoverTarget: Bool {
+        workspaceDrag.hoveredTarget == .newProject
+    }
 
     var body: some View {
         HStack(spacing: StudioSpacing.controlGap) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     ForEach(editor.openProjects) { openProject in
-                        projectTab(openProject)
+                        ProjectTabChip(
+                            openProject: openProject,
+                            openMenuProjectID: $openMenuProjectID
+                        )
                     }
                 }
                 .padding(.vertical, 2)
             }
+            .scrollDisabled(workspaceDrag.isActive)
 
             Spacer(minLength: 0)
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
         .padding(.vertical, StudioSpacing.toolbarVertical)
-        .background(.bar)
+        .overlay(alignment: .trailing) {
+            Text("New project")
+                .font(StudioTypography.meta)
+                .foregroundStyle(Color.accentColor)
+                .padding(.trailing, StudioSpacing.panelHorizontal + 8)
+                .opacity(isSplitHoverTarget ? 1 : 0)
+                .allowsHitTesting(false)
+        }
+        .background {
+            ZStack {
+                Rectangle().fill(.bar)
+                Rectangle()
+                    .fill(Color.accentColor.opacity(0.08))
+                    .opacity(isSplitHoverTarget ? 1 : 0)
+            }
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: ProjectToolbarZoneFrameKey.self,
+                    value: geometry.frame(in: .global)
+                )
+            }
+        }
+        .onPreferenceChange(ProjectTabFrameKey.self) { frames in
+            guard !workspaceDrag.isActive else { return }
+            editor.workspaceDrag.setTabFrames(frames)
+        }
+        .onPreferenceChange(ProjectToolbarZoneFrameKey.self) { frame in
+            guard !workspaceDrag.isActive else { return }
+            editor.workspaceDrag.setToolbarFrame(frame)
+        }
+    }
+}
+
+private struct ProjectTabChip: View {
+    @EnvironmentObject private var editor: EditorViewModel
+    @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
+    let openProject: OpenProject
+    @Binding var openMenuProjectID: String?
+
+    private var isActive: Bool {
+        editor.activeProjectID == openProject.id
     }
 
-    private func projectTab(_ openProject: OpenProject) -> some View {
-        let isActive = editor.activeProjectID == openProject.id
-        let isOpen = openMenuProjectID == openProject.id
+    private var isOpen: Bool {
+        openMenuProjectID == openProject.id
+    }
 
-        return Button {
-            if isActive && isOpen {
-                openMenuProjectID = nil
-            } else {
-                editor.activateProject(id: openProject.id)
-                openMenuProjectID = openProject.id
+    private var isHoverTarget: Bool {
+        if case let .project(id) = workspaceDrag.hoveredTarget {
+            return id == openProject.id
+        }
+        return false
+    }
+
+    private var tabLabel: String {
+        editor.projectTabLabel(for: openProject)
+    }
+
+    var body: some View {
+        WorkspaceDraggableContainer(
+            item: .project(projectID: openProject.id, label: tabLabel),
+            isDragEnabled: editor.canDragProjectForCombine,
+            helpText: "Drag to another project tab to combine projects",
+            onBegin: { openMenuProjectID = nil },
+            onTap: {
+                if isActive && isOpen {
+                    openMenuProjectID = nil
+                } else {
+                    editor.activateProject(id: openProject.id)
+                    openMenuProjectID = openProject.id
+                }
             }
-        } label: {
+        ) {
             HStack(spacing: 5) {
-                Text(editor.projectTabLabel(for: openProject))
+                Text(tabLabel)
                     .font(StudioTypography.caption)
                     .fontWeight(.semibold)
                     .lineLimit(1)
@@ -62,18 +139,34 @@ struct ProjectToolbar: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(
-                tabFill(isActive: isActive, isOpen: isOpen),
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
-            )
+            .background {
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .fill(tabFill(isActive: isActive, isOpen: isOpen))
+                    .overlay {
+                        if isHoverTarget {
+                            RoundedRectangle(cornerRadius: StudioRadius.chip)
+                                .strokeBorder(Color.accentColor.opacity(0.85), lineWidth: 1.5)
+                        }
+                    }
+            }
         }
-        .buttonStyle(.plain)
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: ProjectTabFrameKey.self,
+                    value: [openProject.id: geometry.frame(in: .global)]
+                )
+            }
+        }
         .anchorPreference(key: ProjectTabAnchorKey.self, value: .bounds) { anchor in
             [openProject.id: anchor]
         }
     }
 
     private func tabFill(isActive: Bool, isOpen: Bool) -> Color {
+        if isHoverTarget {
+            return StudioColors.selectionFill
+        }
         if isActive || isOpen {
             return StudioColors.selectionFill
         }

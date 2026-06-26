@@ -1,4 +1,5 @@
 import SwiftUI
+import VarFontCore
 
 // MARK: - Tokens (Axis Tree is the reference)
 
@@ -9,6 +10,8 @@ enum StudioTypography {
     static let bodyMedium = Font.system(size: 12, weight: .medium)
     static let caption = Font.system(size: 11)
     static let meta = Font.system(size: 10)
+    static let gridSummaryValue = Font.system(size: 9, weight: .medium)
+    static let gridSummaryValueMono = Font.system(size: 9, weight: .medium, design: .monospaced)
     static let tag = Font.system(size: 9, weight: .medium, design: .monospaced)
     static let monoValue = Font.system(size: 11, design: .monospaced)
     static let monoMeta = Font.system(size: 10, design: .monospaced)
@@ -24,6 +27,8 @@ enum StudioSpacing {
     static let controlGap: CGFloat = 8
     static let sectionGap: CGFloat = 10
     static let listInset: CGFloat = 6
+    static let groupHeaderBelow: CGFloat = 3
+    static let instanceRowVertical: CGFloat = 3
     static let toolbarVertical: CGFloat = 6
 }
 
@@ -47,9 +52,12 @@ enum StudioColors {
     static let warningForeground = Color.orange
     /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
     static let computedHighlight = Color.accentColor
-    /// Drop zones: accent intensity distinguishes add vs new project (spatial split is primary).
+    /// Drop zone half fills — always visible during drag (top = add, bottom = new).
+    static let dropZoneAddFill = Color.accentColor.opacity(0.06)
+    static let dropZoneNewFill = Color.green.opacity(0.05)
+    /// Drop zone borders when the cursor is over a half.
     static let dropAddExisting = Color.accentColor
-    static let dropNewProject = Color.accentColor.opacity(0.55)
+    static let dropNewProject = Color.green
 }
 
 enum StudioFormatting {
@@ -156,14 +164,22 @@ struct StudioPanelHeader<Trailing: View>: View {
 struct StudioWarningBadge: View {
     let help: String
     var systemImage: String = "exclamationmark.triangle.fill"
+    var action: (() -> Void)?
 
     var body: some View {
-        Image(systemName: systemImage)
+        let icon = Image(systemName: systemImage)
             .font(StudioTypography.meta)
             .foregroundStyle(StudioColors.warningForeground)
             .padding(3)
             .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
-            .help(help)
+
+        if let action {
+            Button(action: action) { icon }
+                .buttonStyle(.plain)
+                .help(help)
+        } else {
+            icon.help(help)
+        }
     }
 }
 
@@ -257,21 +273,13 @@ struct StudioGroupHeader: View {
         .textCase(nil)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, StudioSpacing.rowHorizontal)
-        .padding(.vertical, StudioSpacing.rowVertical + 2)
+        .padding(.vertical, 5)
+        // Opaque flat band — no padding outside this view; list owns section spacing.
         .background {
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            Rectangle()
                 .fill(.background)
                 .padding(.horizontal, -StudioSpacing.listInset)
         }
-        .background {
-            // Tinted layer over `.background` so headers read on grouped list chrome.
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .fill(.quaternary.opacity(0.5))
-                .padding(.horizontal, -StudioSpacing.listInset)
-        }
-        .padding(.top, StudioSpacing.sectionGap - 4)
-        .padding(.bottom, 2)
-        .zIndex(1)
     }
 }
 
@@ -366,11 +374,427 @@ extension View {
 
     func studioRowInsets() -> some View {
         padding(.horizontal, StudioSpacing.rowHorizontal)
-            .padding(.vertical, StudioSpacing.rowVertical)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
     }
 
     func studioCompactControl() -> some View {
         font(StudioTypography.caption)
             .controlSize(.small)
+    }
+}
+
+// MARK: - Inspector components
+
+struct StudioInspectorConflictBadge: View {
+    let count: Int
+    var action: (() -> Void)?
+
+    var body: some View {
+        let label = Text("\(count) conflict\(count == 1 ? "" : "s")")
+            .font(StudioTypography.meta.weight(.medium))
+            .foregroundStyle(StudioColors.warningForeground)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(StudioColors.warningFill, in: Capsule())
+
+        if let action {
+            Button(action: action) { label }
+                .buttonStyle(.plain)
+                .help("Show conflict details")
+        } else {
+            label
+        }
+    }
+}
+
+struct InspectorWarningsDrawer: View {
+    let instance: PlannedInstance
+    let warnings: [PlanWarning]
+    let conflictCount: Int
+    @Binding var isExpanded: Bool
+    var onShowDuplicates: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if isExpanded {
+                HStack {
+                    StudioSectionLabel(title: "Warnings")
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
+                .frame(height: 32)
+                .background(.bar)
+                .overlay(alignment: .bottom) {
+                    Divider()
+                }
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if instance.duplicate {
+                            duplicateCallout
+                        }
+
+                        ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
+                            if warning.code != "duplicate_composed_name" || !instance.duplicate {
+                                Label(warning.message, systemImage: "exclamationmark.triangle")
+                                    .font(StudioTypography.meta)
+                                    .foregroundStyle(StudioColors.warningForeground)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
+                    .padding(.vertical, StudioSpacing.controlGap)
+                }
+                .frame(maxHeight: 140)
+
+                Divider()
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(StudioColors.warningForeground)
+
+                    Text("\(conflictCount) conflict\(conflictCount == 1 ? "" : "s")")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.primary)
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
+                .padding(.vertical, StudioSpacing.toolbarVertical)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .background(StudioColors.warningFill.opacity(isExpanded ? 0.22 : 0.14))
+        }
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private var duplicateCallout: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Duplicate composed name")
+                .font(StudioTypography.bodyMedium)
+            Text("Another instance shares this style name.")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.secondary)
+            Button("Show duplicates", action: onShowDuplicates)
+                .studioCompactControl()
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+    }
+}
+
+struct StudioComposedNameCallout: View {
+    let name: String
+    var isDuplicate: Bool = false
+
+    var body: some View {
+        Text(name)
+            .font(.system(size: 15, weight: .semibold))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                isDuplicate ? StudioColors.warningFill : StudioColors.selectionFill.opacity(0.35),
+                in: RoundedRectangle(cornerRadius: StudioRadius.row)
+            )
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(isDuplicate ? StudioColors.warningForeground : Color.accentColor)
+                    .frame(width: 3)
+            }
+    }
+}
+
+struct InspectorInstanceNamingChain: View {
+    let links: [NamingChainLink]
+    var onLinkTap: ((String) -> Void)?
+
+    var body: some View {
+        if links.isEmpty {
+            Text("No naming chain entries")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.tertiary)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(Array(links.enumerated()), id: \.offset) { index, link in
+                        if index > 0 {
+                            namingArrow
+                        }
+                        namingSegment(link)
+                    }
+                }
+            }
+        }
+    }
+
+    private var namingArrow: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.3))
+                .frame(width: 8, height: 1.5)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 7, weight: .light))
+                .foregroundStyle(Color.accentColor.opacity(0.5))
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func namingSegment(_ link: NamingChainLink) -> some View {
+        Button {
+            onLinkTap?(link.tag)
+        } label: {
+            HStack(spacing: 5) {
+                StudioTagPill(text: link.tag, compact: true)
+                    .opacity(link.elided ? 0.55 : 1)
+
+                Text(link.name)
+                    .font(StudioTypography.bodyMedium)
+                    .foregroundStyle(link.elided ? .tertiary : .primary)
+                    .strikethrough(link.elided, color: Color.secondary.opacity(0.45))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(
+                link.elided ? Color.secondary.opacity(0.06) : Color.primary.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(onLinkTap == nil)
+        .help(link.elided ? "Elided from composed name" : "Focus this axis stop")
+    }
+}
+
+struct InspectorAxisCoordinatesView: View {
+    let rows: [InspectorAxisCoordRow]
+    var selectedStopID: String?
+    var onRowTap: ((InspectorAxisCoordRow) -> Void)?
+    var onElisionToggle: ((InspectorAxisCoordRow) -> Void)?
+
+    private let badgeWidth: CGFloat = 34
+    private let chainWidth: CGFloat = 12
+    private let valueWidth: CGFloat = 44
+    private let elisionWidth: CGFloat = 52
+
+    private var showsElisionColumn: Bool {
+        rows.contains(where: \.showsElisionToggle)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                axisCoordRow(
+                    row,
+                    isFirst: index == 0,
+                    isLast: index == rows.count - 1,
+                    linkActiveToNext: chainLinkActive(at: index)
+                )
+            }
+        }
+    }
+
+    private func chainLinkActive(at index: Int) -> Bool {
+        guard index + 1 < rows.count else { return false }
+        return rows[index].participatesInNaming && rows[index + 1].participatesInNaming
+    }
+
+    private func axisCoordRow(
+        _ row: InspectorAxisCoordRow,
+        isFirst: Bool,
+        isLast: Bool,
+        linkActiveToNext: Bool
+    ) -> some View {
+        let isSelected = row.stopID == selectedStopID
+
+        return HStack(spacing: StudioSpacing.controlGap) {
+            Button {
+                onRowTap?(row)
+            } label: {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    chainRail(
+                        for: row,
+                        isFirst: isFirst,
+                        isLast: isLast,
+                        linkActiveToNext: linkActiveToNext,
+                        isSelected: isSelected
+                    )
+                    .frame(width: chainWidth)
+
+                    Text(StudioFormatting.axisValue(row.value))
+                        .font(StudioTypography.monoValue)
+                        .foregroundStyle(StudioColors.axisValue)
+                        .opacity(row.participatesInNaming ? 1 : 0.55)
+                        .monospacedDigit()
+                        .frame(width: valueWidth, alignment: .trailing)
+
+                    StudioTagPill(text: row.tag, compact: true)
+                        .opacity(row.participatesInNaming ? 1 : 0.5)
+                        .frame(width: badgeWidth, alignment: .center)
+
+                    Text(row.stopName)
+                        .font(StudioTypography.body)
+                        .foregroundStyle(nameColor(for: row))
+                        .strikethrough(row.isElided, color: Color.secondary.opacity(0.45))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.vertical, 3)
+                .padding(.horizontal, 4)
+                .background {
+                    StudioRowBackground(isSelected: isSelected, isHovered: false)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(onRowTap == nil || row.stopID == nil)
+
+            if showsElisionColumn {
+                Group {
+                    if row.showsElisionToggle {
+                        Toggle("Elidable", isOn: Binding(
+                            get: { row.isElidable },
+                            set: { _ in onElisionToggle?(row) }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .help("Omit this stop from the composed style name when it is the default choice")
+                    }
+                }
+                .frame(width: elisionWidth, alignment: .center)
+            }
+        }
+        .help(row.participatesInNaming
+            ? (row.isElided ? "Elided from composed name — focus axis stop" : "Focus this axis stop")
+            : "STAT-only axis — not in instance naming")
+    }
+
+    private func nameColor(for row: InspectorAxisCoordRow) -> Color {
+        if !row.participatesInNaming { return Color.secondary }
+        if row.isElided { return Color.secondary.opacity(0.55) }
+        return Color.primary
+    }
+
+    @ViewBuilder
+    private func chainRail(
+        for row: InspectorAxisCoordRow,
+        isFirst: Bool,
+        isLast: Bool,
+        linkActiveToNext: Bool,
+        isSelected: Bool
+    ) -> some View {
+        let dotColor: Color = {
+            if isSelected { return .accentColor }
+            if row.participatesInNaming && !row.isElided { return .accentColor.opacity(0.7) }
+            if row.isElided { return .secondary.opacity(0.35) }
+            return .secondary.opacity(0.25)
+        }()
+
+        VStack(spacing: 0) {
+            if !isFirst {
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(width: 1)
+                    .frame(height: 6)
+            }
+
+            Circle()
+                .fill(dotColor)
+                .frame(width: 6, height: 6)
+
+            if !isLast {
+                Rectangle()
+                    .fill(linkActiveToNext ? Color.accentColor.opacity(0.3) : Color.secondary.opacity(0.2))
+                    .frame(width: 1)
+                    .frame(maxHeight: .infinity)
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+}
+
+struct InspectorOpenTypeSourcePill: View {
+    let source: InspectorOpenTypeSource
+
+    var body: some View {
+        Text(source.rawValue)
+            .font(StudioTypography.meta)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: StudioRadius.small))
+    }
+}
+
+struct InspectorOpenTypeTable: View {
+    let rows: [InspectorOpenTypeRow]
+
+    private let tableWidth: CGFloat = 52
+    private let fieldWidth: CGFloat = 108
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: StudioSpacing.controlGap) {
+                Text("Table")
+                    .frame(width: tableWidth, alignment: .leading)
+                Text("Field")
+                    .frame(width: fieldWidth, alignment: .leading)
+                Text("Content")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(StudioTypography.columnLabel)
+            .foregroundStyle(.tertiary)
+            .padding(.bottom, 4)
+
+            ForEach(rows) { row in
+                HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                    Text(row.table)
+                        .font(StudioTypography.monoMeta)
+                        .frame(width: tableWidth, alignment: .leading)
+                    Text(row.field)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: fieldWidth, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(row.content)
+                            .font(row.isDerived ? StudioTypography.caption : StudioTypography.body)
+                            .foregroundStyle(row.isDerived ? .tertiary : .primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if !row.sources.isEmpty {
+                            HStack(spacing: 3) {
+                                ForEach(row.sources, id: \.rawValue) { source in
+                                    InspectorOpenTypeSourcePill(source: source)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.vertical, 4)
+
+                if row.id != rows.last?.id {
+                    Divider()
+                }
+            }
+        }
     }
 }
