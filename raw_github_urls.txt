@@ -12,6 +12,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/EditorViewModel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/InspectorSupport.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/OpenProject.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/SourceFontAccess.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudioApp.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/WorkspaceDragSession.swift
 
@@ -95,9 +96,12 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 
 # Tools/vfcommit/tests/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_diff_export.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_nameid_allocator.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_request_bridge.py
 
 # Tools/vfcommit/tests/__pycache__/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314.pyc
 
 # Tools/vfcommit/vfcommit_lib/
@@ -114,6 +118,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 
 # Tools/vfcommit/vfcommit_lib/__pycache__/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/__init__.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/diff_export.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/engine.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/logging_config.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/name_policies.cpython-314.pyc
