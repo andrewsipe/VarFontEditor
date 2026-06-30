@@ -12,12 +12,16 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/EditorViewModel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/InspectorSupport.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/OpenProject.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/SaveReviewWindowLifecycle.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/SourceFontAccess.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudioApp.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/WorkspaceDragSession.swift
 
 # Apps/VarFontStudio/Assets.xcassets/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Assets.xcassets/Contents.json
+
+# Apps/VarFontStudio/Scripts/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Scripts/verify-ui-tokens.sh
 
 # Apps/VarFontStudio/VarFontStudio.xcodeproj/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudio.xcodeproj/project.pbxproj
@@ -29,6 +33,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/AxisConflictResolverSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/AxisTreePanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/CommitDiffSheet.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/FileClarifiersBar.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InspectorPanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InstanceInclusionCommands.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InstanceListPanel.swift
@@ -53,12 +58,15 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Commit/CommitService.swift
 
 # Sources/VarFontCore/Import/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Import/FileClarifierInference.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Import/PostScriptPrefixInference.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Import/ProjectImporter.swift
 
 # Sources/VarFontCore/Plan/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisConflictBundle.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisConflictBundler.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisCoordinate.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisCoordinateFormat.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopSuggestions.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopValidator.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/ConflictResolver.swift
@@ -77,6 +85,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 
 # Tests/VarFontCoreTests/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisConflictResolverTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisCoordinateFormatTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisNamingWarningTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitDiffBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitRequestBuilderTests.swift
@@ -85,7 +94,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstanceKeyBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstancePlannerTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontImportPlanTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerClarifierTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/PostScriptPrefixInferenceTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ProjectImporterTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/SchemaDecodeTests.swift
 
@@ -100,8 +111,11 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/t
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_request_bridge.py
 
 # Tools/vfcommit/tests/__pycache__/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314.pyc
 
 # Tools/vfcommit/vfcommit_lib/
