@@ -45,35 +45,38 @@ public enum ProjectImporter {
 
   // MARK: - Private
 
+  public static func axisDefinition(from axis: FontAnalysis.AnalyzedAxis) -> AxisDefinition {
+    let isDesignRecordOnly = axis.roleInferred == .designRecordOnly
+    return AxisDefinition(
+      tag: axis.tag,
+      displayName: axis.displayName,
+      min: isDesignRecordOnly ? nil : axis.min,
+      default: isDesignRecordOnly ? nil : axis.default,
+      max: isDesignRecordOnly ? nil : axis.max,
+      role: axis.roleInferred,
+      roleInferred: axis.roleInferred,
+      values: axis.valuesExisting.map { stop in
+        AxisValue(
+          id: "\(axis.tag)-\(UUID().uuidString.prefix(8))",
+          value: resolvedStopValue(stop, axis: axis),
+          name: stop.name,
+          elidable: stop.elidable ?? false,
+          statFormat: stop.format ?? 1,
+          rangeMin: stop.rangeMin,
+          rangeMax: stop.rangeMax,
+          linkedValue: stop.linkedValue
+        )
+      }
+    )
+  }
+
   private static func fontDocument(
     from analysis: FontAnalysis,
     sourceURL: URL,
     isMaster: Bool,
     masterFontID: String?
   ) -> FontDocument {
-    let axes = analysis.axes.map { axis in
-      AxisDefinition(
-        tag: axis.tag,
-        displayName: axis.displayName,
-        min: axis.min,
-        default: axis.default,
-        max: axis.max,
-        role: axis.roleInferred,
-        roleInferred: axis.roleInferred,
-        values: axis.valuesExisting.map { stop in
-          AxisValue(
-            id: "\(axis.tag)-\(UUID().uuidString.prefix(8))",
-            value: resolvedStopValue(stop, axis: axis),
-            name: stop.name,
-            elidable: stop.elidable ?? false,
-            statFormat: stop.format ?? 1,
-            rangeMin: stop.rangeMin,
-            rangeMax: stop.rangeMax,
-            linkedValue: stop.linkedValue
-          )
-        }
-      )
-    }
+    let axes = analysis.axes.map { axisDefinition(from: $0) }
 
   let placeholder = FontDocument(
       id: UUID().uuidString,
@@ -120,6 +123,7 @@ public enum ProjectImporter {
     let raw: Double
     if let value = stop.value { raw = value }
     else if let nominal = stop.nominal { raw = nominal }
+    else if axis.roleInferred == .designRecordOnly { raw = 0 }
     else { raw = axis.default }
     return AxisCoordinateFormat.canonical(raw)
   }

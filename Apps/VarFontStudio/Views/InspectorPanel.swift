@@ -27,7 +27,7 @@ struct InspectorPanel: View {
             .id(editor.planRevision)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var resolvedInspectorInstance: PlannedInstance? {

@@ -21,6 +21,7 @@ struct NamingOrderChainFooter: View {
                 disclosureContent
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: editor.selectedFontID) {
             session.reset()
         }
@@ -34,66 +35,80 @@ struct NamingOrderChainFooter: View {
     }
 
     private var disclosureContent: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
-                chainTrack
+        VStack(alignment: .leading, spacing: 0) {
+            disclosureHeader
 
-                exampleRow
+            if isExpanded {
+                VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+                    chainTrack
+
+                    exampleRow
+                }
+                .padding(.top, StudioSpacing.controlGap)
+                .padding(.bottom, StudioSpacing.toolbarVertical + 2)
             }
-            .padding(.top, StudioSpacing.controlGap)
-            .padding(.bottom, StudioSpacing.toolbarVertical + 2)
-        } label: {
-            disclosureLabel
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
         .padding(.top, StudioSpacing.toolbarVertical + 2)
         .padding(.bottom, isExpanded ? StudioSpacing.toolbarVertical + 2 : StudioSpacing.toolbarVertical)
     }
 
-    private var disclosureLabel: some View {
-        StudioDisclosureLabelRow {
-            HStack(spacing: StudioSpacing.controlGap) {
-                HStack(spacing: 4) {
-                    Text("Naming order")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
+    private var disclosureHeader: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    StudioSquareDisclosureChevron(isExpanded: isExpanded)
 
-                    if editor.projectHasMultipleFiles {
-                        Text("· project")
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.tertiary)
+                    HStack(spacing: StudioSpacing.controlGap) {
+                        HStack(spacing: 4) {
+                            Text("Naming order")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+
+                            if editor.projectHasMultipleFiles {
+                                Text("· project")
+                                    .font(StudioTypography.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .help("Drag a chip to reorder; drop into the outlined gap. Use Hide STAT-only to focus on instance naming axes.")
+
+                        if !isExpanded {
+                            Text(editor.namingChainSummary(hideStatOnly: hideStatOnly))
+                                .font(StudioTypography.meta)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
                     }
                 }
-                .help("Drag a chip to reorder; drop into the outlined gap. Use Hide STAT-only to focus on instance naming axes.")
-
-                if !isExpanded {
-                    Text(editor.namingChainSummary(hideStatOnly: hideStatOnly))
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
+                .frame(height: StudioFieldMetrics.disclosureLabelRowHeight)
+                .contentShape(Rectangle())
             }
-        } trailing: {
-            HStack(spacing: StudioSpacing.controlGap) {
-                hideStatOnlyControl
-                    .opacity(isExpanded ? 1 : 0)
-                    .allowsHitTesting(isExpanded)
+            .buttonStyle(.plain)
 
-                disclosureToolbarDivider
-                    .opacity(isExpanded ? 1 : 0)
+            Spacer(minLength: StudioSpacing.controlGap)
 
-                restoreButton
-                    .opacity(isExpanded ? 1 : 0)
-                    .allowsHitTesting(isExpanded)
+            if isExpanded {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    hideStatOnlyControl
 
+                    disclosureToolbarDivider
+
+                    restoreButton
+                }
+            } else {
                 Text(editor.namingChainPreviewName)
                     .font(StudioTypography.caption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .frame(maxWidth: 220, alignment: .trailing)
-                    .opacity(isExpanded ? 0 : 1)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: StudioFieldMetrics.disclosureLabelRowHeight)
     }
 
     private var hideStatOnlyControl: some View {
@@ -107,7 +122,7 @@ struct NamingOrderChainFooter: View {
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
         }
-        .help("Show only axes that participate in instance naming. STAT-only axes remain editable in the Axis Tree.")
+        .help("Show only axes that participate in instance naming. STAT-only and STAT design axes remain editable in the Axis Tree.")
     }
 
     private var disclosureToolbarDivider: some View {

@@ -141,7 +141,7 @@ struct AxisConflictResolverSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: StudioSpacing.sheetSectionSpacing) {
             header
             stopsSection
             symptomSection
@@ -149,7 +149,7 @@ struct AxisConflictResolverSheet: View {
             previewSection
             actions
         }
-        .padding(24)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 440)
         .onAppear(perform: syncOnAppear)
         .onChange(of: selectedStopID) { _, _ in syncDraftsForSelectedStop() }

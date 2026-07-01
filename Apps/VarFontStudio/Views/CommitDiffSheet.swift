@@ -104,75 +104,19 @@ struct CommitDiffReviewView: View {
         let nameAdded = diffReport.nameIDRows.filter { $0.change == .added }.count
 
         HStack(spacing: 6) {
-            summaryMetric(value: "\(summary.instancesWritten)", label: "Instances")
-            summaryMetric(value: "\(summary.statValuesWritten)", label: "STAT values")
-            summaryMetric(value: "\(summary.nameIDsAllocated.count)", label: "New name IDs")
-            summaryMetric(value: "\(nameRemoved)", label: "Removed")
-            summaryMetric(value: "\(nameAdded)", label: "Added")
+            StudioMetricCard(value: "\(summary.instancesWritten)", label: "Instances")
+            StudioMetricCard(value: "\(summary.statValuesWritten)", label: "STAT values")
+            StudioMetricCard(value: "\(summary.nameIDsAllocated.count)", label: "New name IDs")
+            StudioMetricCard(value: "\(nameRemoved)", label: "Removed")
+            StudioMetricCard(value: "\(nameAdded)", label: "Added")
         }
-    }
-
-    private func summaryMetric(value: String, label: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(StudioTypography.statValue)
-                .monospacedDigit()
-            Text(label)
-                .font(StudioTypography.gridSummaryValue)
-                .textCase(.uppercase)
-                .tracking(0.4)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(minWidth: 72)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: 6))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
-        )
-    }
-
-    private struct DiffSectionPill: Identifiable {
-        let id = UUID()
-        let text: String
-        let foreground: Color
-        let background: Color
-        let border: Color
-    }
-
-    private func sectionPill(_ text: String, style: DiffPillStyle) -> DiffSectionPill {
-        DiffSectionPill(
-            text: text,
-            foreground: style.foreground,
-            background: style.background,
-            border: style.border
-        )
-    }
-
-    private enum DiffPillStyle {
-        case removed, added, changed, reflowed, unchanged, protected
-
-        var foreground: Color {
-            switch self {
-            case .removed: StudioColors.diffRemoved
-            case .added: StudioColors.diffAdded
-            case .changed: StudioColors.warningForeground
-            case .reflowed: StudioColors.diffReflowed
-            case .unchanged: .secondary
-            case .protected: StudioColors.diffProtected
-            }
-        }
-
-        var background: Color { foreground.opacity(0.12) }
-        var border: Color { foreground.opacity(0.22) }
     }
 
     @ViewBuilder
     private func diffSection<Content: View>(
         title: String,
         detail: String,
-        pills: [DiffSectionPill],
+        pills: [StudioDiffPillItem],
         isExpanded: Binding<Bool>,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -181,10 +125,7 @@ struct CommitDiffReviewView: View {
                 isExpanded.wrappedValue.toggle()
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: isExpanded.wrappedValue ? "chevron.down" : "chevron.right")
-                        .font(StudioTypography.disclosureChevron)
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 12)
+                    StudioDisclosureChevron(isExpanded: isExpanded.wrappedValue)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
                             .font(StudioTypography.bodyMedium)
@@ -195,13 +136,7 @@ struct CommitDiffReviewView: View {
                     Spacer(minLength: 8)
                     HStack(spacing: 4) {
                         ForEach(pills) { pill in
-                            Text(pill.text)
-                                .font(StudioTypography.pillLabel)
-                                .foregroundStyle(pill.foreground)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(pill.background, in: Capsule())
-                                .overlay(Capsule().strokeBorder(pill.border, lineWidth: 0.5))
+                            StudioSemanticPill(text: pill.text, style: pill.style)
                         }
                     }
                 }
@@ -232,40 +167,40 @@ struct CommitDiffReviewView: View {
         "full rebuild · \(rows.count) slots"
     }
 
-    private func statSectionPills(_ rows: [CommitDiffStatRow]) -> [DiffSectionPill] {
-        var pills: [DiffSectionPill] = []
+    private func statSectionPills(_ rows: [CommitDiffStatRow]) -> [StudioDiffPillItem] {
+        var pills: [StudioDiffPillItem] = []
         let reflowed = rows.filter(statRowIsReflow).count
         let renamed = rows.filter { $0.change == .changed && !statRowIsReflow($0) }.count
         let same = rows.filter { $0.change == .unchanged }.count
-        if reflowed > 0 { pills.append(sectionPill("\(reflowed) reflowed", style: .reflowed)) }
-        if renamed > 0 { pills.append(sectionPill("\(renamed) renamed", style: .changed)) }
-        if same > 0 { pills.append(sectionPill("\(same) same", style: .unchanged)) }
+        if reflowed > 0 { pills.append(StudioDiffPillItem("\(reflowed) reflowed", style: .reflowed)) }
+        if renamed > 0 { pills.append(StudioDiffPillItem("\(renamed) renamed", style: .changed)) }
+        if same > 0 { pills.append(StudioDiffPillItem("\(same) same", style: .unchanged)) }
         return pills
     }
 
-    private func instanceSectionPills(_ rows: [CommitDiffInstanceRow]) -> [DiffSectionPill] {
-        var pills: [DiffSectionPill] = []
+    private func instanceSectionPills(_ rows: [CommitDiffInstanceRow]) -> [StudioDiffPillItem] {
+        var pills: [StudioDiffPillItem] = []
         let changed = rows.filter { $0.change == .changed }.count
         let same = rows.filter { $0.change == .unchanged }.count
         let added = rows.filter { $0.change == .added }.count
         let removed = rows.filter { $0.change == .removed }.count
-        if removed > 0 { pills.append(sectionPill("\(removed) removed", style: .removed)) }
-        if added > 0 { pills.append(sectionPill("\(added) added", style: .added)) }
-        if changed > 0 { pills.append(sectionPill("\(changed) renamed", style: .changed)) }
-        if same > 0 { pills.append(sectionPill("\(same) same", style: .unchanged)) }
+        if removed > 0 { pills.append(StudioDiffPillItem("\(removed) removed", style: .removed)) }
+        if added > 0 { pills.append(StudioDiffPillItem("\(added) added", style: .added)) }
+        if changed > 0 { pills.append(StudioDiffPillItem("\(changed) renamed", style: .changed)) }
+        if same > 0 { pills.append(StudioDiffPillItem("\(same) same", style: .unchanged)) }
         return pills
     }
 
-    private func nameSectionPills(_ rows: [CommitDiffNameIDRow]) -> [DiffSectionPill] {
-        var pills: [DiffSectionPill] = []
+    private func nameSectionPills(_ rows: [CommitDiffNameIDRow]) -> [StudioDiffPillItem] {
+        var pills: [StudioDiffPillItem] = []
         let removed = rows.filter { $0.change == .removed }.count
         let added = rows.filter { $0.change == .added }.count
         let changed = rows.filter { $0.change == .changed }.count
         let protected = rows.filter { $0.afterRole == "protected_ot_label" }.count
-        if removed > 0 { pills.append(sectionPill("\(removed) removed", style: .removed)) }
-        if added > 0 { pills.append(sectionPill("\(added) added", style: .added)) }
-        if changed > 0 { pills.append(sectionPill("\(changed) changed", style: .changed)) }
-        if protected > 0 { pills.append(sectionPill("\(protected) protected", style: .protected)) }
+        if removed > 0 { pills.append(StudioDiffPillItem("\(removed) removed", style: .removed)) }
+        if added > 0 { pills.append(StudioDiffPillItem("\(added) added", style: .added)) }
+        if changed > 0 { pills.append(StudioDiffPillItem("\(changed) changed", style: .changed)) }
+        if protected > 0 { pills.append(StudioDiffPillItem("\(protected) protected", style: .protected)) }
         return pills
     }
 
@@ -427,9 +362,58 @@ struct CommitDiffReviewView: View {
         }
     }
 
-    private enum TTXSide {
-        case before
-        case after
+    private func statTTXCell(row: CommitDiffStatRow, side: StudioDiffRowSide) -> some View {
+        let key = "AxisValue \(row.tag)=\(StudioFormatting.axisValue(row.value))"
+        let name = side == .before ? row.beforeName : row.afterName
+        let nameID = side == .before ? row.beforeNameID : row.afterNameID
+        let value: String? = {
+            guard let name, !name.isEmpty else { return nil }
+            var text: String
+            if let nameID {
+                text = "nameID=\(nameID) \"\(name)\""
+            } else {
+                text = "\"\(name)\""
+            }
+            if side == .after, row.afterStatFormat == 3, let linked = row.afterLinkedValue {
+                text += "  format 3 → \(StudioFormatting.axisValue(linked))"
+            }
+            return text
+        }()
+        let reflow = statRowIsReflow(row)
+        return StudioDiffRow(
+            change: row.change,
+            key: key,
+            value: value,
+            side: side,
+            reflow: reflow
+        )
+    }
+
+    private func instanceTTXCell(row: CommitDiffInstanceRow, side: StudioDiffRowSide) -> some View {
+        let name = side == .before ? row.beforeName : row.afterName
+        let value = name.map { "\"\($0)\"" }
+        return StudioDiffRow(
+            change: row.change,
+            key: "Instance \(row.key)",
+            value: value,
+            side: side
+        )
+    }
+
+    private func nameIDTTXCell(row: CommitDiffNameIDRow, side: StudioDiffRowSide) -> some View {
+        let string = side == .before ? row.beforeString : row.afterString
+        let role = side == .before ? row.beforeDescription : row.afterRole
+        let value = string.map { "\(row.id) \"\($0)\"" }
+        let isProtected = row.afterRole == "protected_ot_label"
+        let roleLabel = role.flatMap { displayRoleLabel($0) }
+        return StudioDiffRow(
+            change: row.change,
+            key: "nameID \(row.id)",
+            value: value,
+            roleLabel: roleLabel,
+            side: side,
+            protected: isProtected
+        )
     }
 
     private func ttxSideBySide<Before: View, After: View>(
@@ -476,111 +460,6 @@ struct CommitDiffReviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func ttxRow(
-        annotation: CommitDiffChangeKind,
-        key: String,
-        value: String?,
-        role: String?,
-        side: TTXSide,
-        reflow: Bool = false,
-        protected: Bool = false
-    ) -> some View {
-        HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 1)
-                .fill(ttxAnnotationColor(annotation, side: side, reflow: reflow, protected: protected))
-                .frame(width: 4)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(key)
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                if let value, !value.isEmpty {
-                    HStack(spacing: 6) {
-                        Text(value)
-                            .font(StudioTypography.monoMeta)
-                            .foregroundStyle(ttxValueColor(annotation, side: side, reflow: reflow, protected: protected))
-                            .lineLimit(1)
-                        if let role, !role.isEmpty {
-                            Text(displayRoleLabel(role))
-                                .font(StudioTypography.meta)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: 3))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                } else {
-                    Text("—")
-                        .font(StudioTypography.monoMeta)
-                        .foregroundStyle(.tertiary)
-                        .italic()
-                }
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            Spacer(minLength: 0)
-        }
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
-    }
-
-    private func statTTXCell(row: CommitDiffStatRow, side: TTXSide) -> some View {
-        let key = "AxisValue \(row.tag)=\(StudioFormatting.axisValue(row.value))"
-        let name = side == .before ? row.beforeName : row.afterName
-        let nameID = side == .before ? row.beforeNameID : row.afterNameID
-        let value: String? = {
-            guard let name, !name.isEmpty else { return nil }
-            var text: String
-            if let nameID {
-                text = "nameID=\(nameID) \"\(name)\""
-            } else {
-                text = "\"\(name)\""
-            }
-            if side == .after, row.afterStatFormat == 3, let linked = row.afterLinkedValue {
-                text += "  format 3 → \(StudioFormatting.axisValue(linked))"
-            }
-            return text
-        }()
-        let reflow = statRowIsReflow(row)
-        return ttxRow(
-            annotation: row.change,
-            key: key,
-            value: value,
-            role: nil,
-            side: side,
-            reflow: reflow
-        )
-    }
-
-    private func instanceTTXCell(row: CommitDiffInstanceRow, side: TTXSide) -> some View {
-        let name = side == .before ? row.beforeName : row.afterName
-        let value = name.map { "\"\($0)\"" }
-        return ttxRow(
-            annotation: row.change,
-            key: "Instance \(row.key)",
-            value: value,
-            role: nil,
-            side: side
-        )
-    }
-
-    private func nameIDTTXCell(row: CommitDiffNameIDRow, side: TTXSide) -> some View {
-        let string = side == .before ? row.beforeString : row.afterString
-        let role = side == .before ? row.beforeDescription : row.afterRole
-        let value = string.map { "\(row.id) \"\($0)\"" }
-        let isProtected = row.afterRole == "protected_ot_label"
-        return ttxRow(
-            annotation: row.change,
-            key: "nameID \(row.id)",
-            value: value,
-            role: role,
-            side: side,
-            protected: isProtected
-        )
-    }
-
     private func displayRoleLabel(_ role: String) -> String {
         switch role {
         case "protected_ot_label":
@@ -597,46 +476,6 @@ struct CommitDiffReviewView: View {
             return "elided_fallback"
         default:
             return role
-        }
-    }
-
-    private func ttxAnnotationColor(
-        _ change: CommitDiffChangeKind,
-        side: TTXSide,
-        reflow: Bool = false,
-        protected: Bool = false
-    ) -> Color {
-        if protected { return StudioColors.diffProtected }
-        if reflow { return StudioColors.diffReflowed }
-        switch change {
-        case .added:
-            return side == .after ? StudioColors.diffAdded : .clear
-        case .removed:
-            return side == .before ? StudioColors.diffRemoved : .clear
-        case .changed:
-            return StudioColors.warningForeground
-        case .unchanged:
-            return .clear
-        }
-    }
-
-    private func ttxValueColor(
-        _ change: CommitDiffChangeKind,
-        side: TTXSide,
-        reflow: Bool = false,
-        protected: Bool = false
-    ) -> Color {
-        if protected { return StudioColors.diffProtected }
-        if reflow { return StudioColors.diffReflowed }
-        switch change {
-        case .added:
-            return side == .after ? StudioColors.diffAdded : .primary
-        case .removed:
-            return side == .before ? StudioColors.diffRemoved : .primary
-        case .changed:
-            return StudioColors.warningForeground
-        case .unchanged:
-            return .primary
         }
     }
 

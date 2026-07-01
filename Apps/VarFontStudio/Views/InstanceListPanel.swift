@@ -266,11 +266,12 @@ private struct InstanceRowView: View {
                 onIncludedChange(!isIncluded)
             }
 
-            Text(instance.composedName)
-                .font(StudioTypography.bodyMedium)
-                .foregroundStyle(isIncluded ? .primary : .secondary)
-                .strikethrough(!isIncluded, color: .secondary)
-                .lineLimit(1)
+            StudioInstanceComposedName(
+                links: instance.namingChain,
+                fallback: instance.composedName,
+                included: isIncluded
+            )
+            .strikethrough(!isIncluded, color: .secondary)
 
             Color.clear
                 .frame(width: StudioWarningBadge.slotSize, height: StudioWarningBadge.slotSize)

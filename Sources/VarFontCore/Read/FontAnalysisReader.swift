@@ -154,6 +154,43 @@ public enum FontAnalysisReader {
             )
         }
 
+        let fvarTags = Set(fvar.axes.map(\.tag))
+        for designAxis in stat?.designAxes ?? [] where !fvarTags.contains(designAxis.tag) {
+            let valuesExisting = (statByTag[designAxis.tag] ?? []).map { statValue in
+                FontAnalysis.StatValueSnapshot(
+                    format: statValue.format,
+                    value: statValue.value,
+                    name: statValue.name,
+                    elidable: statValue.elidable,
+                    linkedValue: statValue.linkedValue,
+                    rangeMin: statValue.rangeMin,
+                    rangeMax: statValue.rangeMax,
+                    nominal: statValue.nominal
+                )
+            }
+
+            axes.append(
+                FontAnalysis.AnalyzedAxis(
+                    tag: designAxis.tag,
+                    displayName: OpenTypeNameTable.name(id: designAxis.nameID, from: font) ?? designAxis.tag,
+                    min: 0,
+                    default: 0,
+                    max: 0,
+                    ordering: orderMap[designAxis.tag],
+                    roleInferred: .designRecordOnly,
+                    variesInExistingInstances: false,
+                    valuesExisting: valuesExisting
+                )
+            )
+        }
+
+        axes.sort { lhs, rhs in
+            let leftOrder = lhs.ordering ?? Int.max
+            let rightOrder = rhs.ordering ?? Int.max
+            if leftOrder != rightOrder { return leftOrder < rightOrder }
+            return lhs.tag < rhs.tag
+        }
+
         let instanceSlice = includeAllInstances ? fvar.instances : Array(fvar.instances.prefix(min(5, fvar.instances.count)))
         let sampleCount = includeAllInstances ? fvar.instances.count : min(5, fvar.instances.count)
         let instancesExisting = instanceSlice.map { instance in
@@ -177,6 +214,7 @@ public enum FontAnalysisReader {
         let nameAudit = buildNameAudit(
             font: font,
             fvar: fvar,
+            designAxes: stat?.designAxes ?? [],
             statValues: statValues,
             elidedFallbackID: elidedFallbackID,
             elidedFallbackName: elidedFallbackName
@@ -219,6 +257,7 @@ public enum FontAnalysisReader {
     private static func buildNameAudit(
         font: CTFont,
         fvar: (axes: [FvarAxis], instances: [FvarInstance]),
+        designAxes: [StatDesignAxis],
         statValues: [FontAnalysis.StatValueRecord],
         elidedFallbackID: Int?,
         elidedFallbackName: String?
@@ -234,6 +273,9 @@ public enum FontAnalysisReader {
         }
         for axis in fvar.axes {
             labels[axis.nameID] = "fvar axis \(axis.tag)"
+        }
+        for designAxis in designAxes {
+            labels[designAxis.nameID] = "STAT DesignAxisRecord [\(designAxis.tag)] AxisNameID"
         }
         for instance in fvar.instances {
             labels[instance.subfamilyNameID] = "fvar instance subfamily"

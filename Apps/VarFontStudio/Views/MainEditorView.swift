@@ -293,8 +293,7 @@ struct MainEditorView: View {
                     onDismiss: { openProjectMenuID = nil }
                 )
                 .environmentObject(editor)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(width: 360, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: true)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
                 .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
                 .offset(x: tabRect.minX, y: tabRect.maxY + 4)
@@ -339,6 +338,7 @@ struct MainEditorView: View {
         VStack(spacing: 0) {
             Divider()
             NamingOrderChainFooter()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, StudioSpacing.sectionGap - 2)
             Divider()
             statusBar

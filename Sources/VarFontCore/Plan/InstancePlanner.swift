@@ -128,7 +128,7 @@ public enum InstancePlanner {
 
     private static func pinnedCoords(from axes: [AxisDefinition]) -> [String: Double] {
         var pinned: [String: Double] = [:]
-        for axis in axes where axis.role != .instance {
+        for axis in axes where axis.role != .instance && axis.role != .designRecordOnly {
             if axis.values.count == 1, let value = axis.values.first?.value {
                 pinned[axis.tag] = value
             } else if let defaultValue = axis.default {

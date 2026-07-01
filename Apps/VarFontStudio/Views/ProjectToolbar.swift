@@ -138,7 +138,7 @@ private struct ProjectTabChip: View {
                     .background(.quaternary.opacity(0.5), in: Capsule())
 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(StudioTypography.iconGlyph)
                     .foregroundStyle(.secondary)
             }
         }

@@ -14,6 +14,7 @@ private struct AddAxisStopRequest: Identifiable {
 
 struct AxisTreePanel: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var layout: EditorLayoutPreferences
     @State private var expandedAxes: Set<String> = []
     @State private var editingStop: (id: String, field: StopEditField)?
     @State private var addStopRequest: AddAxisStopRequest?
@@ -23,29 +24,52 @@ struct AxisTreePanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FileClarifiersBar()
-                .environmentObject(editor)
-
             StudioPanelHeader(title: "Axis tree") {
-                if let font = editor.selectedFont {
-                    HStack(spacing: 3) {
-                        Text("\(font.axes.count)")
-                            .foregroundStyle(StudioColors.computedHighlight)
-                        Text("axes")
-                            .foregroundStyle(.secondary)
+                HStack(spacing: StudioSpacing.controlGap) {
+                    if let font = editor.selectedFont {
+                        HStack(spacing: 3) {
+                            Text("\(font.axes.count)")
+                                .foregroundStyle(StudioColors.computedHighlight)
+                            Text("axes")
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(StudioTypography.meta)
                     }
-                    .font(StudioTypography.meta)
+
+                    if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
+                        Button("Push to tree") {
+                            editor.pushMasterAxisTreeToAllFonts()
+                        }
+                        .font(StudioTypography.meta)
+                        .buttonStyle(.plain)
+                        .help("Copy master axis stops to all other files in this project")
+                    }
+
+                    StudioToolbarIconButton(
+                        systemName: "sidebar.left",
+                        help: "Collapse axis tree"
+                    ) {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            layout.axisTreeCollapsed = true
+                        }
+                    }
                 }
             }
 
             ScrollViewReader { scrollProxy in
-                List {
-                    if editor.selectedFont != nil {
-                        gridSummarySection
-                        axesSection
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if editor.selectedFont != nil {
+                            gridSummaryContent
+                            axesContent
+                        }
                     }
+                    .padding(.leading, StudioSpacing.scrollContentHorizontal)
+                    .padding(.trailing, StudioSpacing.scrollContentHorizontal + StudioSpacing.scrollGutter)
+                    .padding(.top, StudioSpacing.panelContentTop)
+                    .padding(.bottom, StudioSpacing.panelVertical)
                 }
-                .listStyle(.inset)
+                .transaction { $0.animation = nil }
                 .onChange(of: editor.axisTreeFocusRequest) { _, request in
                     guard let request else { return }
                     scrollToAxisStop(
@@ -102,16 +126,13 @@ struct AxisTreePanel: View {
     // MARK: - Sections
 
     @ViewBuilder
-    private var gridSummarySection: some View {
+    private var gridSummaryContent: some View {
         if let plan = editor.instancePlan, !plan.formula.parts.isEmpty {
-            Section {
-                VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                    studioSummaryRow("Instance grid", value: gridFormulaText(plan))
-                    studioSummaryRow("Generated", value: "\(plan.formula.totalGenerated)", monospaced: true)
-                }
-                .padding(.bottom, StudioSpacing.rowGap)
+            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                studioSummaryRow("Instance grid", value: gridFormulaText(plan))
+                studioSummaryRow("Generated", value: "\(plan.formula.totalGenerated)", monospaced: true)
             }
-            .listSectionSeparator(.hidden, edges: .bottom)
+            .padding(.bottom, StudioSpacing.sectionGap)
         }
     }
 
@@ -136,34 +157,33 @@ struct AxisTreePanel: View {
         return "\(count) axes need attention"
     }
 
-    private var axesSection: some View {
-        Section {
-            if let font = editor.selectedFont {
+    @ViewBuilder
+    private var axesContent: some View {
+        if editor.unresolvedAxisConflictCount > 0 {
+            StudioConflictAlert(
+                message: conflictAlertMessage,
+                actionTitle: editor.unresolvedAxisConflictCount == 1 ? "Resolve…" : "Review…"
+            ) {
+                editor.presentFirstConflictResolver()
+            }
+            .padding(.bottom, StudioSpacing.controlGap)
+        }
+
+        if let font = editor.selectedFont {
+            LazyVStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
                 ForEach(font.axes) { axis in
                     axisBlock(axis)
                         .id(axis.tag)
                 }
             }
-        } header: {
-            if editor.unresolvedAxisConflictCount > 0 {
-                StudioConflictAlert(
-                    message: conflictAlertMessage,
-                    actionTitle: editor.unresolvedAxisConflictCount == 1 ? "Resolve…" : "Review…"
-                ) {
-                    editor.presentFirstConflictResolver()
-                }
-                .textCase(nil)
-                .padding(.top, 4)
-                .padding(.bottom, 2)
-            }
         }
-        .listSectionSeparator(.hidden)
     }
 
     @ViewBuilder
     private func axisBlock(_ axis: AxisDefinition) -> some View {
         let isInstanceAxis = axis.role == .instance
         let isExpanded = expandedAxes.contains(axis.tag)
+        let detailOpacity: Double = (isInstanceAxis || axis.isDesignRecordOnly) ? 1 : 0.4
 
         VStack(alignment: .leading, spacing: 0) {
             AxisTreeAxisHeader(
@@ -180,11 +200,9 @@ struct AxisTreePanel: View {
             if isExpanded {
                 axisDetail(axis)
                     .padding(.top, 4)
-                    .opacity(isInstanceAxis ? 1 : 0.4)
+                    .opacity(detailOpacity)
             }
         }
-        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-        .listRowSeparator(.hidden)
     }
 
     // MARK: - Axis detail
@@ -192,8 +210,17 @@ struct AxisTreePanel: View {
     @ViewBuilder
     private func axisDetail(_ axis: AxisDefinition) -> some View {
         VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
+            if axis.isDesignRecordOnly {
+                DesignRecordAxisLabelRow(
+                    tag: axis.tag,
+                    displayName: displayNameBinding(for: axis.tag)
+                )
+            }
+
             if axis.values.isEmpty {
-                Text("No STAT stops on this axis")
+                Text(axis.isDesignRecordOnly
+                    ? "No STAT axis values on this design axis"
+                    : "No STAT stops on this axis")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -206,6 +233,8 @@ struct AxisTreePanel: View {
                         isSelected: editor.selectedAxisStopID == stop.id,
                         editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
                         showElidable: axis.role == .instance,
+                        allowsRemove: !axis.isDesignRecordOnly,
+                        valueEditable: axis.hasFvarScale,
                         isElidable: stop.elidable,
                         onSelect: {
                             scheduleClearEdit()
@@ -284,13 +313,26 @@ struct AxisTreePanel: View {
         )
     }
 
+    private func displayNameBinding(for tag: String) -> Binding<String> {
+        Binding(
+            get: {
+                editor.selectedFont?.axes.first(where: { $0.tag == tag })?.displayName
+                    ?? editor.selectedFont?.axes.first(where: { $0.tag == tag })?.tag
+                    ?? tag
+            },
+            set: { editor.updateAxisDisplayName(tag: tag, name: $0) }
+        )
+    }
+
     private func resetExpansion() {
         guard let font = editor.selectedFont else {
             expandedAxes = []
             return
         }
         expandedAxes = Set(
-            font.axes.filter { $0.role == .instance || !$0.values.isEmpty }.map(\.tag)
+            font.axes.filter {
+                $0.role == .instance || $0.isDesignRecordOnly || !$0.values.isEmpty
+            }.map(\.tag)
         )
     }
 
@@ -429,39 +471,44 @@ private struct AxisTreeAxisHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            if hasConflict {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(StudioColors.warningForeground)
+                    .help("Naming conflict on this axis")
+            }
+
+            StudioTagPill(text: axis.tag)
+                .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
+
             Button(action: onToggleExpansion) {
                 HStack(spacing: AxisBlockLayout.tagNameSpacing) {
-                    if hasConflict {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(StudioColors.warningForeground)
-                            .help("Naming conflict on this axis")
-                    }
-
-                    StudioTagPill(text: axis.tag)
-                        .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
-
                     VStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 4) {
                             Text(axis.displayName ?? axis.tag)
                                 .font(StudioTypography.body)
                                 .lineLimit(1)
-                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                                .font(StudioTypography.disclosureChevron)
-                                .foregroundStyle(.tertiary)
+                            StudioDisclosureChevron(isExpanded: isExpanded)
                         }
-                        if let range = axisRangeText {
+
+                        if axis.isDesignRecordOnly {
+                            Text("No fvar scale")
+                                .font(StudioTypography.meta)
+                                .foregroundStyle(.secondary)
+                        } else if let range = axisRangeText {
                             Text(range)
                                 .font(StudioTypography.meta)
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
-                                .help("fvar minimum · default · maximum")
                         }
                     }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .help(axis.isDesignRecordOnly
+                ? "STAT design axis — edit the axis label and stop names below."
+                : "Expand axis stops")
 
             Spacer(minLength: 4)
 
@@ -472,33 +519,49 @@ private struct AxisTreeAxisHeader: View {
                     .help("Open conflict resolver for this axis")
             }
 
-            stopCountBadge
+            HStack(spacing: 6) {
+                if axis.isDesignRecordOnly {
+                    StudioTagPill(text: "STAT", compact: true)
+                        .help("Registered in STAT DesignAxisRecord only")
+                }
 
-            Toggle("Instance axis", isOn: $isInstanceAxis)
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .labelsHidden()
-                .help(
-                    "When on, stops on this axis generate named instances. "
-                        + "When off, the axis stays at its default value for every instance."
-                )
-                .accessibilityLabel("Instance axis")
+                stopCountBadge
+                    .fixedSize(horizontal: true, vertical: false)
+
+                if !axis.isDesignRecordOnly {
+                    Toggle("Instance axis", isOn: $isInstanceAxis)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .labelsHidden()
+                        .help(
+                            "When on, stops on this axis generate named instances. "
+                                + "When off, the axis stays at its default value for every instance."
+                        )
+                        .accessibilityLabel("Instance axis")
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 
     private var stopCountBadge: some View {
-        Text("\(isInstanceAxis ? axis.values.count : 0)")
-            .font(StudioTypography.meta.weight(.medium))
-            .monospacedDigit()
-            .foregroundStyle(isInstanceAxis ? AnyShapeStyle(StudioColors.computedHighlight) : AnyShapeStyle(.tertiary))
-            .frame(width: AxisBlockLayout.stopCountBadgeWidth)
-            .padding(.vertical, 2)
-            .background(.quaternary.opacity(isInstanceAxis ? 1 : 0.6), in: Capsule())
-            .help(
-                isInstanceAxis
-                    ? "\(axis.values.count) stops in the instance grid formula"
-                    : "Not in the instance grid (contributes ×0)"
-            )
+        let count: Int
+        let help: String
+        if axis.isDesignRecordOnly {
+            count = axis.values.count
+            help = "\(count) STAT axis value\(count == 1 ? "" : "s") on this design axis"
+        } else {
+            count = isInstanceAxis ? axis.values.count : 0
+            help = isInstanceAxis
+                ? "\(axis.values.count) stops in the instance grid formula"
+                : "Not in the instance grid (contributes ×0)"
+        }
+        return StudioCountBadge(
+            text: "\(count)",
+            highlighted: axis.isDesignRecordOnly || isInstanceAxis,
+            fixedWidth: AxisBlockLayout.stopCountBadgeWidth,
+            help: help
+        )
     }
 
     private var axisRangeText: String? {
@@ -509,6 +572,36 @@ private struct AxisTreeAxisHeader: View {
             return "\(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
         }
         return "\(minText) – \(maxText)"
+    }
+}
+
+// MARK: - Design record axis label
+
+private struct DesignRecordAxisLabelRow: View {
+    let tag: String
+    @Binding var displayName: String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.clear
+                .frame(width: AxisBlockLayout.removeGutterWidth)
+
+            Text("Label")
+                .font(StudioTypography.columnLabel)
+                .foregroundStyle(.tertiary)
+                .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            StudioTextField(
+                placeholder: tag,
+                text: $displayName,
+                font: StudioTypography.bodyMedium,
+                rowHeight: StudioFieldMetrics.listRowMinHeight
+            )
+            .padding(.leading, AxisBlockLayout.nameGap)
+            .help("STAT DesignAxisRecord axis label (AxisNameID)")
+        }
+        .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
+        .padding(.bottom, 2)
     }
 }
 
@@ -531,8 +624,8 @@ private enum AxisBlockLayout {
     static let nameGap: CGFloat = 12
     static let elidableWidth: CGFloat = 52
 
-    /// Fixed width for stop-count badge so instance toggles align across axes.
-    static let stopCountBadgeWidth: CGFloat = 28
+    /// Fixed width for stop-count badge so instance toggles align across axes (1–3 digits).
+    static let stopCountBadgeWidth: CGFloat = 32
 
     /// Gutter between the badge (highlight left edge) and the Value column.
     static var removeGutterWidth: CGFloat {
@@ -592,6 +685,8 @@ private struct AxisTreeStopRow: View {
     let isSelected: Bool
     let editingField: StopEditField?
     let showElidable: Bool
+    var allowsRemove: Bool = true
+    var valueEditable: Bool = true
     let isElidable: Bool
     let onSelect: () -> Void
     let onBeginEdit: (StopEditField) -> Void
@@ -682,7 +777,7 @@ private struct AxisTreeStopRow: View {
                     height: AxisBlockLayout.removeButtonSize
                 )
 
-            if isHovered {
+            if allowsRemove, isHovered {
                 Button {
                     confirmRemove = true
                 } label: {
@@ -731,14 +826,21 @@ private struct AxisTreeStopRow: View {
                 onSubmit: { navigateTab(forward: true) }
             )
             .focused($focusedField, equals: .value)
-        } else {
-            Text(StudioFormatting.axisValue(stop.value))
-                .font(StudioTypography.monoValue)
-                .foregroundStyle(StudioColors.axisValue)
-                .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
-                .contentShape(Rectangle())
+        } else if valueEditable {
+            staticValueLabel
                 .gesture(clickGesture(for: .value))
+        } else {
+            staticValueLabel
+                .gesture(selectOnlyGesture)
         }
+    }
+
+    private var staticValueLabel: some View {
+        Text(StudioFormatting.axisValue(stop.value))
+            .font(StudioTypography.monoValue)
+            .foregroundStyle(StudioColors.axisValue)
+            .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
+            .contentShape(Rectangle())
     }
 
     @ViewBuilder
@@ -782,6 +884,14 @@ private struct AxisTreeStopRow: View {
                         }
                     }
             )
+    }
+
+    private var selectOnlyGesture: some Gesture {
+        TapGesture(count: 1)
+            .onEnded {
+                selectTask?.cancel()
+                onSelect()
+            }
     }
 
     private func syncDrafts() {

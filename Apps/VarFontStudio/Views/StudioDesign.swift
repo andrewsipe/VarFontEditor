@@ -22,6 +22,8 @@ enum StudioTypography {
     static let pillLabel = Font.system(size: 9, weight: .semibold)
     /// Disclosure / expand chevrons in axis headers and diff sections.
     static let disclosureChevron = Font.system(size: 10, weight: .semibold)
+    /// Compact tab / menu chevrons (8pt).
+    static let iconGlyph = Font.system(size: 8, weight: .semibold)
 }
 
 enum StudioSpacing {
@@ -32,7 +34,17 @@ enum StudioSpacing {
     static let rowGap: CGFloat = 6
     static let controlGap: CGFloat = 8
     static let sectionGap: CGFloat = 10
+    /// Standard sheet outer inset (pickers, conflict resolver, save review chrome).
+    static let sheetOuterPadding: CGFloat = 20
+    /// Root spacing in stacked editor sheets — slightly looser than `sectionGap` for dense multi-section layouts.
+    static let sheetSectionSpacing: CGFloat = 14
     static let listInset: CGFloat = 6
+    /// Horizontal inset for scrollable panel bodies — matches `StudioPanelHeader` text edges.
+    static let scrollContentHorizontal: CGFloat = panelHorizontal + 2
+    /// Extra trailing inset so overlay scroll indicators don't cover row chrome (toggles, badges).
+    static let scrollGutter: CGFloat = 8
+    /// Top inset when scroll content sits directly under `StudioPanelHeader` (no filter/toolbar row).
+    static let panelContentTop: CGFloat = toolbarVertical
     static let groupHeaderBelow: CGFloat = 3
     static let instanceRowVertical: CGFloat = 3
     static let instanceRowGap: CGFloat = 1
@@ -217,14 +229,269 @@ struct StudioClarifierPill: View {
     }
 }
 
+// MARK: - Pills & badges
+
+/// Capsule pill with semantic diff colors — Save Review section counts.
+enum StudioDiffPillStyle {
+    case removed, added, changed, reflowed, unchanged, protected
+
+    var foreground: Color {
+        switch self {
+        case .removed: StudioColors.diffRemoved
+        case .added: StudioColors.diffAdded
+        case .changed: StudioColors.warningForeground
+        case .reflowed: StudioColors.diffReflowed
+        case .unchanged: .secondary
+        case .protected: StudioColors.diffProtected
+        }
+    }
+
+    var background: Color { foreground.opacity(0.12) }
+    var border: Color { foreground.opacity(0.22) }
+}
+
+struct StudioSemanticPill: View {
+    let text: String
+    let style: StudioDiffPillStyle
+
+    var body: some View {
+        Text(text)
+            .font(StudioTypography.pillLabel)
+            .foregroundStyle(style.foreground)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(style.background, in: Capsule())
+            .overlay(Capsule().strokeBorder(style.border, lineWidth: 0.5))
+    }
+}
+
+struct StudioDiffPillItem: Identifiable {
+    let id = UUID()
+    let text: String
+    let style: StudioDiffPillStyle
+
+    init(_ text: String, style: StudioDiffPillStyle) {
+        self.text = text
+        self.style = style
+    }
+}
+
+/// Numeric count capsule for aligned metric slots (axis header stop counts).
+///
+/// **Fixed width:** When `fixedWidth` is set, digits scale down before truncating so trailing
+/// header clusters stay aligned. The axis-tree slot is 32pt (fits 1–3 digit counts at `meta`).
+/// Use 36pt+ for 4-digit totals. Trailing cluster today: optional Resolve button, count badge,
+/// instance-axis toggle — not the legacy "Pinned" label (replaced by the switch).
+struct StudioCountBadge: View {
+    let text: String
+    var highlighted: Bool = true
+    var fixedWidth: CGFloat? = nil
+    var help: String = ""
+
+    var body: some View {
+        Text(text)
+            .font(StudioTypography.meta.weight(.medium))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .foregroundStyle(highlighted ? AnyShapeStyle(StudioColors.computedHighlight) : AnyShapeStyle(.tertiary))
+            .frame(width: fixedWidth)
+            .padding(.vertical, 2)
+            .background(.quaternary.opacity(highlighted ? 1 : 0.6), in: Capsule())
+            .help(help)
+    }
+}
+
+// MARK: - Disclosure & metrics
+
+/// Icon-swap chevron for custom expand toggles — preserves Save Review / axis header behavior (not `DisclosureGroup` rotation).
+struct StudioDisclosureChevron: View {
+    var isExpanded: Bool
+
+    var body: some View {
+        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+            .font(StudioTypography.disclosureChevron)
+            .foregroundStyle(.tertiary)
+            .frame(width: 12)
+    }
+}
+
+/// Square chevron for chrome/footer disclosure rows — larger hit target than system `DisclosureGroup`.
+struct StudioSquareDisclosureChevron: View {
+    var isExpanded: Bool
+
+    var body: some View {
+        Image(systemName: isExpanded ? "chevron.down.square" : "chevron.right.square")
+            .font(.system(size: StudioFieldMetrics.toolbarIconPointSize))
+            .foregroundStyle(.tertiary)
+            .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.toolbarIconHitSize)
+    }
+}
+
+/// Save Review / dashboard summary metric tile.
+///
+/// **Sizing contract** (`minWidth` defaults to 72):
+/// - **Values:** `statValue` (16pt) with `monospacedDigit()` — comfortable through 4 digits at 72pt;
+///   5+ digits may need a wider `minWidth` (84–96) rather than shrinking the value line.
+/// - **Labels:** `gridSummaryValue` (9pt uppercase, +0.4 tracking), single line — fits labels up to
+///   ~14 characters at 72pt (`"New name IDs"`, `"STAT values"`). Longer copy should use a shorter
+///   label, raise `minWidth`, or accept `minimumScaleFactor` shrink — labels do not wrap.
+struct StudioMetricCard: View {
+    let value: String
+    let label: String
+    var minWidth: CGFloat = 72
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(StudioTypography.statValue)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Text(label)
+                .font(StudioTypography.gridSummaryValue)
+                .textCase(.uppercase)
+                .tracking(0.4)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(minWidth: minWidth)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
+        )
+    }
+}
+
+// MARK: - Diff rows
+
+enum StudioDiffRowSide {
+    case before
+    case after
+}
+
+/// TTX side-by-side diff row — annotation bar, key, value, optional role label.
+struct StudioDiffRow: View {
+    let change: CommitDiffChangeKind
+    let key: String
+    let value: String?
+    var roleLabel: String? = nil
+    let side: StudioDiffRowSide
+    var reflow: Bool = false
+    var protected: Bool = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(Self.annotationColor(change: change, side: side, reflow: reflow, protected: protected))
+                .frame(width: 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(key)
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let value, !value.isEmpty {
+                    HStack(spacing: 6) {
+                        Text(value)
+                            .font(StudioTypography.monoMeta)
+                            .foregroundStyle(Self.valueColor(change: change, side: side, reflow: reflow, protected: protected))
+                            .lineLimit(1)
+                        if let roleLabel, !roleLabel.isEmpty {
+                            Text(roleLabel)
+                                .font(StudioTypography.meta)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: 3))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                } else {
+                    Text("—")
+                        .font(StudioTypography.monoMeta)
+                        .foregroundStyle(.tertiary)
+                        .italic()
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            Spacer(minLength: 0)
+        }
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+
+    static func annotationColor(
+        change: CommitDiffChangeKind,
+        side: StudioDiffRowSide,
+        reflow: Bool = false,
+        protected: Bool = false
+    ) -> Color {
+        if protected { return StudioColors.diffProtected }
+        if reflow { return StudioColors.diffReflowed }
+        switch change {
+        case .added:
+            return side == .after ? StudioColors.diffAdded : .clear
+        case .removed:
+            return side == .before ? StudioColors.diffRemoved : .clear
+        case .changed:
+            return StudioColors.warningForeground
+        case .unchanged:
+            return .clear
+        }
+    }
+
+    static func valueColor(
+        change: CommitDiffChangeKind,
+        side: StudioDiffRowSide,
+        reflow: Bool = false,
+        protected: Bool = false
+    ) -> Color {
+        if protected { return StudioColors.diffProtected }
+        if reflow { return StudioColors.diffReflowed }
+        switch change {
+        case .added:
+            return side == .after ? StudioColors.diffAdded : .primary
+        case .removed:
+            return side == .before ? StudioColors.diffRemoved : .primary
+        case .changed:
+            return StudioColors.warningForeground
+        case .unchanged:
+            return .primary
+        }
+    }
+}
+
 struct StudioSectionLabel: View {
     let title: String
+    /// When `false` (floating menus/popovers), uses `.secondary` for readable contrast on material surfaces.
+    var muted: Bool = true
 
     var body: some View {
         Text(title.uppercased())
             .font(StudioTypography.sectionLabel)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(muted ? .tertiary : .secondary)
             .tracking(0.4)
+    }
+}
+
+/// Shared 32pt panel header band with bottom divider — use for section headers and collapsed panel rails.
+struct StudioPanelHeaderChrome<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        content()
+            .frame(height: 32)
+            .frame(maxWidth: .infinity)
+            .background(.bar)
+            .overlay(alignment: .bottom) {
+                Divider()
+            }
     }
 }
 
@@ -242,16 +509,13 @@ struct StudioPanelHeader<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: StudioSpacing.controlGap) {
-            StudioSectionLabel(title: title)
-            Spacer(minLength: 0)
-            trailing()
-        }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
-        .frame(height: 32)
-        .background(.bar)
-        .overlay(alignment: .bottom) {
-            Divider()
+        StudioPanelHeaderChrome {
+            HStack(spacing: StudioSpacing.controlGap) {
+                StudioSectionLabel(title: title)
+                Spacer(minLength: 0)
+                trailing()
+            }
+            .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
         }
     }
 }
@@ -430,12 +694,23 @@ struct StudioTextField: View {
     /// When false, renders without field chrome (for embedding in `StudioSearchField`).
     var showsFieldChrome: Bool = true
 
+    /// When set, non-empty value text uses this color (e.g. clarifier fields in file naming).
+    var filledForeground: Color? = nil
+
     @FocusState private var isFocused: Bool
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
-        TextField(placeholder, text: $text)
+        TextField(
+            "",
+            text: $text,
+            prompt: Text(placeholder)
+                .font(font)
+                .foregroundStyle(.tertiary)
+        )
             .textFieldStyle(.plain)
             .font(font)
+            .foregroundStyle(valueForeground)
             .padding(.horizontal, showsFieldChrome ? StudioFieldMetrics.horizontalPadding : 0)
             .frame(height: rowHeight, alignment: .center)
             .background {
@@ -452,6 +727,12 @@ struct StudioTextField: View {
             }
             .focused($isFocused)
             .modifier(StudioFocusRingSuppression())
+    }
+
+    private var valueForeground: Color {
+        if !isEnabled { return .secondary }
+        if !text.isEmpty, let filledForeground { return filledForeground }
+        return .primary
     }
 
     private var fieldBackground: Color {
@@ -827,6 +1108,51 @@ struct StudioComposedNameCallout: View {
                     .fill(isDuplicate ? StudioColors.warningForeground : Color.accentColor)
                     .frame(width: 3)
             }
+    }
+}
+
+struct StudioInstanceComposedName: View {
+    let links: [NamingChainLink]
+    let fallback: String
+    var included: Bool = true
+
+    var body: some View {
+        Group {
+            if links.isEmpty {
+                Text(fallback)
+                    .foregroundStyle(included ? .primary : .secondary)
+            } else {
+                composedText
+            }
+        }
+        .font(StudioTypography.bodyMedium)
+        .lineLimit(1)
+    }
+
+    private var composedText: Text {
+        links.enumerated().reduce(Text("")) { partial, item in
+            let (index, link) = item
+            var result = partial
+            if index > 0 {
+                result = result + Text(" ")
+            }
+            var segment = Text(link.name)
+                .foregroundStyle(segmentColor(for: link))
+            if link.elided {
+                segment = segment.strikethrough(true, color: .secondary)
+            }
+            return result + segment
+        }
+    }
+
+    private func segmentColor(for link: NamingChainLink) -> Color {
+        if link.kind == .clarifier {
+            return included
+                ? StudioColors.clarifierForeground
+                : StudioColors.clarifierForeground.opacity(0.55)
+        }
+        if link.elided { return Color.secondary.opacity(0.55) }
+        return included ? Color.primary : Color.secondary
     }
 }
 

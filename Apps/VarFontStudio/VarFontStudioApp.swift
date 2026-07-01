@@ -105,6 +105,11 @@ struct VarFontStudioApp: App {
 
                 Divider()
 
+                Toggle("Auto-Hide Inspector", isOn: $layout.inspectorAutoHide)
+                    .disabled(!layout.showInspector)
+
+                Divider()
+
                 Button("Save Review Window") {
                     editor.presentSaveReviewWindow()
                 }

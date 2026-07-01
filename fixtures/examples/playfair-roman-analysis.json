@@ -183,6 +183,25 @@
           "value": 900.0
         }
       ]
+    },
+    {
+      "tag": "ital",
+      "display_name": "Italic",
+      "min": 0.0,
+      "default": 0.0,
+      "max": 0.0,
+      "ordering": 3,
+      "role_inferred": "design_record_only",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 3,
+          "name": "Roman",
+          "elidable": true,
+          "value": 0.0,
+          "linked_value": 1.0
+        }
+      ]
     }
   ],
   "stat_values": [

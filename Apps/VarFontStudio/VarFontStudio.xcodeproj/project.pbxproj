@@ -209,14 +209,16 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/../../Tools/vfcommit",
 			);
 			name = "Bundle vfcommit";
 			outputPaths = (
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vfcommit/vfcommit.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vfcommit/vfcommit_lib",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "VFCOMMIT_SRC=\"${SRCROOT}/../../Tools/vfcommit\"\nVFCOMMIT_DST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/vfcommit\"\nif [ -d \"$VFCOMMIT_SRC\" ]; then\n  rm -rf \"$VFCOMMIT_DST\"\n  mkdir -p \"$(dirname \"$VFCOMMIT_DST\")\"\n  cp -R \"$VFCOMMIT_SRC\" \"$VFCOMMIT_DST\"\n  find \"$VFCOMMIT_DST\" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true\nfi\n";
+			shellScript = "set -e\nVFCOMMIT_SRC=\"${SRCROOT}/../../Tools/vfcommit\"\nVFCOMMIT_DST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/vfcommit\"\nif [ ! -d \"$VFCOMMIT_SRC\" ]; then\n  echo \"error: vfcommit source missing at $VFCOMMIT_SRC\" >&2\n  exit 1\nfi\nrm -rf \"$VFCOMMIT_DST\"\nmkdir -p \"$(dirname \"$VFCOMMIT_DST\")\"\ncp -R \"$VFCOMMIT_SRC\" \"$VFCOMMIT_DST\"\nfind \"$VFCOMMIT_DST\" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true\nfind \"$VFCOMMIT_DST\" -name '.DS_Store' -delete 2>/dev/null || true\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -364,6 +366,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "VarFont Studio";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
@@ -389,6 +392,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "VarFont Studio";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";

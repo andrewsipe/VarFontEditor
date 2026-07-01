@@ -6,6 +6,8 @@ public enum AxisRole: String, Codable, Sendable, CaseIterable {
     case instance
     case statOnly = "stat_only"
     case parametric
+    /// STAT DesignAxisRecord axis with no corresponding fvar scale.
+    case designRecordOnly = "design_record_only"
 }
 
 public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
@@ -111,6 +113,12 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         roleInferred = try c.decodeIfPresent(AxisRole.self, forKey: .roleInferred)
         values = try c.decodeIfPresent([AxisValue].self, forKey: .values) ?? []
     }
+
+    /// True when this axis exists only in STAT DesignAxisRecord (no fvar scale).
+    public var isDesignRecordOnly: Bool { role == .designRecordOnly }
+
+    /// True when fvar min/default/max apply to this axis.
+    public var hasFvarScale: Bool { !isDesignRecordOnly }
 }
 
 public struct NamingPolicy: Codable, Equatable, Sendable {

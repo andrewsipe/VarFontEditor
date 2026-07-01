@@ -13,7 +13,7 @@ public struct CommitService: Sendable {
     public var pythonExecutable: String
 
     public init(helperURL: URL? = nil, pythonExecutable: String? = nil) {
-        self.helperURL = helperURL ?? Self.defaultHelperURL()
+        self.helperURL = helperURL
         self.pythonExecutable = pythonExecutable ?? Self.defaultPythonExecutable()
     }
 
@@ -48,13 +48,27 @@ public struct CommitService: Sendable {
         }
     }
 
-    /// Bundled `Tools/vfcommit/vfcommit.py`, or a copy under the app cache (never run Python directly out of ~/Documents).
+    /// Bundled `vfcommit/vfcommit.py`, synced into the app cache. Never reads ~/Documents at launch.
     public static func defaultHelperURL() -> URL? {
         if let bundled = bundledHelperURL(),
            FileManager.default.fileExists(atPath: bundled.path) {
             return installedHelperURL(preferredSource: bundled.deletingLastPathComponent())
         }
-        return installedHelperURL(preferredSource: developmentSourceDirectory())
+
+        let cached = cacheDirectory().appendingPathComponent("vfcommit.py")
+        if FileManager.default.fileExists(atPath: cached.path) {
+            return cached
+        }
+
+        #if DEBUG
+        let dev = developmentSourceDirectory()
+        let devScript = dev.appendingPathComponent("vfcommit.py")
+        if FileManager.default.fileExists(atPath: devScript.path) {
+            return installedHelperURL(preferredSource: dev)
+        }
+        #endif
+
+        return nil
     }
 
     private static func bundledHelperURL() -> URL? {

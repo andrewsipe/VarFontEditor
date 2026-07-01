@@ -431,6 +431,13 @@ final class EditorViewModel: ObservableObject {
             }
             selectedInstanceKey = selectedInstanceKeys.contains(key) ? key : selectedInstanceKeys.sorted().first
         } else {
+            let isOnlySelection = selectedInstanceKey == key
+                && (selectedInstanceKeys.isEmpty || selectedInstanceKeys == [key])
+            if isOnlySelection {
+                selectedInstanceKey = nil
+                selectedInstanceKeys = []
+                return
+            }
             selectedInstanceKeys = [key]
             selectedInstanceKey = key
         }
@@ -1851,6 +1858,8 @@ final class EditorViewModel: ObservableObject {
     }
 
     func setAxisInstanceGridEnabled(tag: String, enabled: Bool) {
+        guard let axis = selectedFont?.axes.first(where: { $0.tag == tag }),
+              !axis.isDesignRecordOnly else { return }
         updateAxisRole(tag: tag, role: enabled ? .instance : .statOnly)
     }
 
@@ -1881,7 +1890,13 @@ final class EditorViewModel: ObservableObject {
     /// Clarifiers are per-file naming tokens. Editable on variants and on the sole file in a project;
     /// read-only on the master when multiple files share a project (variants carry clarifiers).
     var areFileClarifiersEditable: Bool {
-        !isSelectedFontMaster || !projectHasMultipleFiles
+        guard let selectedFontID else { return false }
+        return areFileClarifiersEditable(for: selectedFontID)
+    }
+
+    func areFileClarifiersEditable(for fontID: String) -> Bool {
+        let isMaster = fileRole(for: fontID)?.kind == .master
+        return !isMaster || !projectHasMultipleFiles
     }
 
     func clarifierLabels(for fontID: String) -> [FileClarifier] {
@@ -2055,17 +2070,26 @@ final class EditorViewModel: ObservableObject {
         let targetByTag = Dictionary(uniqueKeysWithValues: target.map { ($0.tag, $0) })
         var merged: [AxisDefinition] = []
         for masterAxis in master {
-            guard var existing = targetByTag[masterAxis.tag] else { continue }
-            existing.displayName = masterAxis.displayName
-            existing.values = masterAxis.values.map { stop in
-                var copy = stop
-                copy.id = "\(masterAxis.tag)-\(UUID().uuidString.prefix(8))"
-                return copy
+            if var existing = targetByTag[masterAxis.tag] {
+                existing.displayName = masterAxis.displayName
+                existing.values = masterAxis.values.map { stop in
+                    var copy = stop
+                    copy.id = "\(masterAxis.tag)-\(UUID().uuidString.prefix(8))"
+                    return copy
+                }
+                if syncRoles {
+                    existing.role = masterAxis.role
+                }
+                merged.append(existing)
+            } else {
+                var imported = masterAxis
+                imported.values = imported.values.map { stop in
+                    var copy = stop
+                    copy.id = "\(masterAxis.tag)-\(UUID().uuidString.prefix(8))"
+                    return copy
+                }
+                merged.append(imported)
             }
-            if syncRoles {
-                existing.role = masterAxis.role
-            }
-            merged.append(existing)
         }
         for axis in target where !master.contains(where: { $0.tag == axis.tag }) {
             merged.append(axis)
@@ -2087,7 +2111,16 @@ final class EditorViewModel: ObservableObject {
     func updateAxisRole(tag: String, role: AxisRole) {
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == tag }) else { return }
+            if font.axes[axisIndex].isDesignRecordOnly { return }
             font.axes[axisIndex].role = role
+        }
+    }
+
+    func updateAxisDisplayName(tag: String, name: String) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == tag }) else { return }
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            font.axes[axisIndex].displayName = trimmed.isEmpty ? nil : trimmed
         }
     }
 
@@ -2201,11 +2234,13 @@ final class EditorViewModel: ObservableObject {
     }
 
     func validateAxisStopValue(_ value: Double, for axis: AxisDefinition, excludingStopID: String? = nil) -> String? {
-        if let min = axis.min, value < min {
-            return "Value must be at least \(StudioFormatting.axisValue(min))."
-        }
-        if let max = axis.max, value > max {
-            return "Value must be at most \(StudioFormatting.axisValue(max))."
+        if axis.hasFvarScale {
+            if let min = axis.min, value < min {
+                return "Value must be at least \(StudioFormatting.axisValue(min))."
+            }
+            if let max = axis.max, value > max {
+                return "Value must be at most \(StudioFormatting.axisValue(max))."
+            }
         }
         let duplicate = axis.values.contains { stop in
             stop.id != excludingStopID && AxisCoordinate.valuesEqual(stop.value, value)
@@ -2246,10 +2281,16 @@ final class EditorViewModel: ObservableObject {
     private func backfillMissingInferredAxisRoles() {
         guard var project,
               let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else { return }
-        guard project.fonts[fontIndex].axes.contains(where: { $0.roleInferred == nil }) else { return }
 
         let sourceURL = URL(fileURLWithPath: project.fonts[fontIndex].sourcePath)
         guard let analysis = try? FontAnalysisReader.analyze(url: sourceURL) else { return }
+
+        let existingTags = Set(project.fonts[fontIndex].axes.map(\.tag))
+        let missingDesignAxes = analysis.axes.filter {
+            $0.roleInferred == .designRecordOnly && !existingTags.contains($0.tag)
+        }
+        let needsRoleBackfill = project.fonts[fontIndex].axes.contains { $0.roleInferred == nil }
+        guard needsRoleBackfill || !missingDesignAxes.isEmpty else { return }
 
         var changed = false
         for axisIndex in project.fonts[fontIndex].axes.indices {
@@ -2259,8 +2300,25 @@ final class EditorViewModel: ObservableObject {
             project.fonts[fontIndex].axes[axisIndex].roleInferred = analyzed.roleInferred
             changed = true
         }
+
+        if !missingDesignAxes.isEmpty {
+            for analyzed in missingDesignAxes {
+                project.fonts[fontIndex].axes.append(ProjectImporter.axisDefinition(from: analyzed))
+            }
+            let order = analysis.axes.map(\.tag)
+            project.fonts[fontIndex].axes.sort {
+                let left = order.firstIndex(of: $0.tag) ?? Int.max
+                let right = order.firstIndex(of: $1.tag) ?? Int.max
+                if left != right { return left < right }
+                return $0.tag < $1.tag
+            }
+            project.fonts[fontIndex].dirty = true
+            changed = true
+        }
+
         if changed {
             self.project = project
+            regeneratePlan()
         }
     }
 
