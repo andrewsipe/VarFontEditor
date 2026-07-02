@@ -2,9 +2,6 @@
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/EXPORT_DESIGN_NOTES.md
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Package.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/SCHEMA.md
-https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype-axis-tree-ui-v2a.html
-https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype-multi-file-options.html
-https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype-project-workspace.html
 
 # Apps/VarFontStudio/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/CommitPreflightSession.swift
@@ -40,6 +37,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/MainEditorView.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/NamingOrderChainFooter.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectDropdownMenu.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectFileCommands.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectFileSubBar.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectPickerSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectTargetPickerSheet.swift
@@ -67,6 +65,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisConflictBundler.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisCoordinate.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisCoordinateFormat.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisLadderAlignment.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisLane.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisPinPolicy.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisReferenceMapping.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopSuggestions.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopValidator.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/ConflictResolver.swift
@@ -74,6 +76,8 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstancePlanner.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/NamingComposer.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/NamingConflictAnalyzer.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/RegistrationAxisSupport.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/StatFormat3Pairing.swift
 
 # Sources/VarFontCore/Read/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/FontAnalysisReader.swift
@@ -86,12 +90,16 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 # Tests/VarFontCoreTests/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisConflictResolverTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisCoordinateFormatTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisLadderAlignmentTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisLaneTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisNamingWarningTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitDiffBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitRequestBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/DesignRecordAxisTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FixtureLoader.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FontAnalysisReaderTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/Format2StopTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/Format3StopTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstanceKeyBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstancePlannerTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontImportPlanTests.swift
@@ -99,7 +107,12 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/PostScriptPrefixInferenceTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ProjectImporterTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ReferenceMappingTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/RegistrationNamingTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/SchemaDecodeTests.swift
+
+# Tools/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/reference_mapping_audit.py
 
 # Tools/vfcommit/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/README.md
@@ -152,6 +165,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/generat
 
 # fixtures/examples/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/commit-result-success.json
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/melange-format2-analysis.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-family-project.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-italic-analysis.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-roman-analysis.json
@@ -159,3 +173,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/example
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-roman-instance-plan.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/roboto-flex-analysis.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/roboto-flex-project-snippet.json
+
+# prototype mockups/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/axis-tree-lanes-prototype.html
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-axis-tree-coordinate-layouts.html
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-axis-tree-ui-v2a.html
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-multi-file-options.html
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-project-workspace.html
