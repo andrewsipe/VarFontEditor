@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Axis Tree — STAT Format Layout Prototypes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #1e1e1e; --sf: #252526; --s2: #2d2d30; --s3: #333337;
+      --bd: rgba(255,255,255,.1); --bd-strong: rgba(255,255,255,.14);
+      --tx: #e8e8e8; --mu: #9a9a9e; --label: #7a7a80;
+      --pr: #bf5af2; --pr-dim: rgba(191,90,242,.14);
+      --axis-val: #ff9f0a; --warn: #ff9f0a; --warn-bg: rgba(255,159,10,.12);
+      --te: #64d2ff; --te-dim: rgba(100,210,255,.12);
+      --gn: #30d158;
+      --r: 6px; --r-sm: 4px;
+      --ui: 'IBM Plex Sans', system-ui, sans-serif;
+      --mo: 'IBM Plex Mono', ui-monospace, monospace;
+      --tree-w: 380px;
+      --col-rm: 12px;
+      --col-fmt: 38px;
+      --col-num: 44px;
+      --col-link: 54px;
+      --col-elid: 28px;
+    }
+    [data-theme="light"] {
+      --bg: #f5f0e8; --sf: #ede7da; --s2: #e4ded2; --s3: #d8d0c4;
+      --bd: #d0c9bb; --tx: #2b2926; --mu: #504b44; --label: #3e3930;
+      --pr: #6b50a0; --pr-dim: rgba(107,80,160,.12); --axis-val: #b86a1a;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { font-family: var(--ui); font-size: 13px; color: var(--tx); background: var(--bg); }
+
+    .shell { display: grid; grid-template-columns: 280px 1fr 300px; height: 100vh; min-height: 720px; }
+    @media (max-width: 1100px) { .shell { grid-template-columns: 1fr; } }
+
+    .controls, .notes { background: var(--sf); border-right: 1px solid var(--bd); overflow: auto; padding: 16px; }
+    .notes { border-right: none; border-left: 1px solid var(--bd); }
+    h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+    .sub { font-size: 11px; color: var(--mu); margin: 0 0 14px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--label); margin-bottom: 5px; }
+    select { width: 100%; padding: 6px 8px; border: 1px solid var(--bd); border-radius: var(--r-sm); background: var(--s2); color: var(--tx); font: inherit; font-size: 12px; }
+    .layout-grid { display: flex; flex-direction: column; gap: 4px; }
+    .layout-opt { display: flex; gap: 8px; padding: 8px 10px; border: 1px solid var(--bd); border-radius: var(--r); background: var(--s2); cursor: pointer; text-align: left; font: inherit; color: var(--tx); }
+    .layout-opt:hover { border-color: var(--bd-strong); }
+    .layout-opt.active { border-color: var(--pr); background: var(--pr-dim); }
+    .layout-opt input { accent-color: var(--pr); margin-top: 2px; }
+    .layout-opt .t { font-size: 12px; font-weight: 600; }
+    .layout-opt .d { font-size: 10px; color: var(--mu); margin-top: 2px; }
+    .theme-row { display: flex; gap: 6px; }
+    .theme-row button { flex: 1; padding: 5px; font: inherit; font-size: 11px; border: 1px solid var(--bd); border-radius: var(--r-sm); background: var(--s2); color: var(--mu); cursor: pointer; }
+    .theme-row button.active { border-color: var(--pr); color: var(--pr); }
+
+    .stage { display: flex; flex-direction: column; align-items: center; padding: 20px 12px; overflow: auto; background: var(--bg); }
+    .stage-label { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--label); margin-bottom: 10px; align-self: flex-start; }
+
+    .tree { width: var(--tree-w); background: var(--sf); border: 1px solid var(--bd); border-radius: var(--r); overflow: hidden; }
+    .tree-head { display: flex; justify-content: space-between; padding: 7px 10px; background: var(--s3); border-bottom: 1px solid var(--bd); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--label); }
+    .tree-head strong { color: var(--pr); }
+    .summary { padding: 8px 10px; border-bottom: 1px solid var(--bd); }
+    .sum-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+    .sum-row .l { color: var(--mu); }
+    .sum-row .v { color: var(--pr); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .warn-band { margin: 8px 10px; padding: 8px 10px; font-size: 11px; background: var(--warn-bg); border-radius: var(--r-sm); display: flex; gap: 8px; }
+    .warn-band::before { content: '⚠'; color: var(--warn); }
+
+    .axis { border-bottom: 1px solid var(--bd); }
+    .ax-h { display: flex; align-items: center; gap: 6px; padding: 6px 8px; }
+    .ax-tag { font-family: var(--mo); font-size: 9px; padding: 2px 5px; background: rgba(255,255,255,.08); border-radius: 3px; color: var(--mu); }
+    .ax-title { font-size: 13px; font-weight: 500; }
+    .ax-sub { font-size: 10px; color: var(--mu); font-family: var(--mo); }
+    .ax-meta { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+    .badge-n { font-size: 10px; color: var(--pr); background: rgba(255,255,255,.08); padding: 2px 8px; border-radius: 999px; }
+    .tog { width: 28px; height: 16px; background: var(--pr); border-radius: 999px; position: relative; }
+    .tog::after { content: ''; position: absolute; right: 2px; top: 2px; width: 12px; height: 12px; background: #fff; border-radius: 50%; }
+    .ax-body { padding: 0 6px 8px; overflow-x: auto; }
+
+    /* ── grid tables (headers + rows share template) ── */
+    .tbl { font-size: 11px; }
+    .g {
+      display: grid;
+      align-items: center;
+      column-gap: 4px;
+      padding: 0 2px;
+      min-width: max-content;
+    }
+    .g-hdr { color: var(--label); font-size: 8px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding-bottom: 4px; }
+    .g-j.g-hdr > :nth-child(3),
+    .g-j.g-hdr > :nth-child(4),
+    .g-j.g-hdr > :nth-child(5),
+    .g-f.g-hdr > :nth-child(3),
+    .g-f.g-hdr > :nth-child(4),
+    .g-f.g-hdr > :nth-child(5),
+    .g-f.g-hdr > :nth-child(6),
+    .g-i.g-hdr > :nth-child(2) { text-align: right; }
+    .g-hdr-span { text-align: center; font-size: 8px; color: var(--label); letter-spacing: .06em; text-transform: uppercase; padding-bottom: 2px; border-bottom: 1px solid var(--bd); margin-bottom: 2px; }
+    .g-row { min-height: 24px; border-radius: var(--r-sm); margin: 1px 0; }
+    .g-row.dim { opacity: .5; }
+    .g-row:hover { background: rgba(255,255,255,.04); }
+
+    /* J · format grid */
+    .g-j { grid-template-columns: var(--col-rm) var(--col-fmt) var(--col-num) var(--col-num) var(--col-num) minmax(72px, 1fr) var(--col-link) var(--col-elid); }
+    .g-j .span-value { grid-column: 3 / 6; }
+
+    /* F · VF_Remap name-first */
+    .g-f { grid-template-columns: 14px minmax(80px, 1fr) var(--col-num) var(--col-num) var(--col-num) var(--col-num) var(--col-link) var(--col-elid); }
+
+    /* I · native only */
+    .g-i { grid-template-columns: var(--col-rm) 52px minmax(72px, 1fr) var(--col-elid); }
+
+    .num { font-family: var(--mo); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; color: var(--axis-val); }
+    .num.off { color: var(--label); opacity: .35; }
+    .num .dash { color: var(--label); opacity: .4; }
+    .cell-name { font-size: 12px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .cell-elid { text-align: center; }
+    .cell-elid input { accent-color: var(--pr); width: 12px; height: 12px; }
+    .cell-link { font-size: 10px; color: var(--mu); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .cell-link img { width: 12px; height: 12px; opacity: .75; flex-shrink: 0; }
+    .cell-idx { text-align: center; color: var(--label); font-size: 9px; }
+    .range-sub { font-family: var(--mo); font-size: 10px; color: var(--mu); padding: 0 4px 4px 66px; }
+
+    /* G · row-adaptive */
+    .g-g { grid-template-columns: var(--col-fmt) minmax(64px, auto) 1fr var(--col-elid); }
+    .g-g .inline-vals { display: flex; align-items: baseline; gap: 8px; flex-wrap: nowrap; font-size: 10px; }
+    .g-g .inline-vals .pair { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
+    .g-g .inline-vals .lbl { font-size: 9px; color: var(--label); }
+    .g-g .inline-vals .val { font-family: var(--mo); color: var(--axis-val); }
+
+    .fmt-btn {
+      font-size: 8px; font-weight: 700; letter-spacing: .03em; padding: 2px 5px; border-radius: 3px;
+      border: 1px solid var(--bd); background: var(--s2); color: var(--mu); cursor: pointer; font-family: var(--mo);
+    }
+    .fmt-btn.f1 { color: var(--gn); border-color: rgba(48,209,88,.35); }
+    .fmt-btn.f2 { color: var(--te); border-color: rgba(100,210,255,.35); background: var(--te-dim); }
+    .fmt-btn.f3 { color: var(--pr); border-color: rgba(191,90,242,.35); background: var(--pr-dim); }
+
+    .add-stop {
+      display: block; width: calc(100% - 8px); margin: 4px 4px 0; padding: 5px 8px;
+      font: inherit; font-size: 11px; color: var(--mu); background: transparent;
+      border: 1px dashed var(--bd); border-radius: var(--r-sm); cursor: pointer; text-align: left;
+    }
+    .add-stop:hover { border-color: var(--pr); color: var(--pr); }
+
+    /* adaptive row inline labels (legacy flex fallback) */
+    .adapt-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 11px; border-radius: var(--r-sm); }
+    .adapt-row:hover { background: rgba(255,255,255,.04); }
+    .adapt-fmt { font-size: 8px; font-weight: 700; padding: 1px 4px; border-radius: 3px; background: rgba(255,255,255,.08); color: var(--mu); }
+    .adapt-vals { font-family: var(--mo); font-size: 10px; color: var(--axis-val); }
+    .adapt-lbl { font-size: 9px; color: var(--label); margin-right: 2px; }
+
+    /* modal */
+    .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-back.open { display: flex; }
+    .modal { background: var(--sf); border: 1px solid var(--bd); border-radius: var(--r); padding: 16px; width: 260px; }
+    .modal h3 { margin: 0 0 10px; font-size: 13px; }
+    .modal label { display: block; font-size: 10px; color: var(--label); margin-bottom: 4px; }
+    .modal select, .modal input { width: 100%; margin-bottom: 10px; padding: 6px; font: inherit; background: var(--s2); border: 1px solid var(--bd); color: var(--tx); border-radius: var(--r-sm); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-actions button { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: var(--r-sm); border: 1px solid var(--bd); background: var(--s2); color: var(--tx); cursor: pointer; }
+    .modal-actions button.primary { background: var(--pr); border-color: var(--pr); color: #fff; }
+
+    .notes h2 { font-size: 13px; margin: 0 0 8px; }
+    .notes p, .notes li { font-size: 12px; color: var(--mu); }
+    .tag-rec { display: inline-block; font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: var(--pr-dim); color: var(--pr); margin-bottom: 8px; }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="shell">
+    <aside class="controls">
+      <h1>STAT format layouts</h1>
+      <p class="sub">Pivot from ref/nat — explore format 1/2/3 stop rows. Panel 380px.</p>
+      <div class="field">
+        <label>Sample font</label>
+        <select id="fontPreset">
+          <option value="playfair" selected>Playfair — format 1 stops</option>
+          <option value="telegraf">Telegraf — format 2 ranges</option>
+          <option value="mixed">Mixed — format 1+2+3</option>
+          <option value="milgram">Milgram — format 3 link</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Layout</label>
+        <div class="layout-grid" id="layoutGrid"></div>
+      </div>
+      <div class="field">
+        <label>Theme</label>
+        <div class="theme-row">
+          <button type="button" class="active" data-theme="dark">Dark</button>
+          <button type="button" data-theme="light">Light</button>
+        </div>
+      </div>
+    </aside>
+    <main class="stage">
+      <div class="stage-label">Preview · <span id="layoutName">—</span></div>
+      <div class="tree" id="tree"></div>
+    </main>
+    <aside class="notes" id="notes"></aside>
+  </div>
+
+  <div class="modal-back" id="modal">
+    <div class="modal">
+      <h3 id="modalTitle">Change format</h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions">
+        <button type="button" id="modalCancel">Cancel</button>
+        <button type="button" class="primary" id="modalOk">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LINK_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>');
+
+    const LAYOUTS = [
+      { id: 'format-grid', title: 'J · Format grid (proposed)', desc: 'Fmt badge | Min·Pin·Max | Name | Link | Elid', rec: true,
+        notes: `<span class="tag-rec">New direction</span>
+          <p>Unified column grid. <strong>Pin</strong> holds Static (F1/F3) or Nom (F2). Inactive cells show —. Format badge is the row format selector; F3 prompts for link target.</p>
+          <ul><li>Add Stop → pick format → required fields</li><li>Native values only (no ref/nat)</li><li>Horizontal scroll if needed</li></ul>` },
+      { id: 'native-only', title: 'I · Native only (current best)', desc: 'Single Value | Name | Elid', rec: false,
+        notes: `<p>Simple format-1 style until format grid ships.</p>` },
+      { id: 'stat-fixed', title: 'F · VF_Remap fixed table', desc: 'Name | Static | Min | Nom | Max | Link', rec: false,
+        notes: `<p>Classic stat-layout-exploration: all columns always visible, — where unused. Name leads.</p>` },
+      { id: 'stat-adaptive', title: 'G · Row-adaptive labels', desc: 'Per-row inline value labels, no empty cols', rec: false,
+        notes: `<p>Each row shows only its format fields with micro-labels (static / min·nom·max / link).</p>` }
+    ];
+
+    // Mutable demo state — stops can change format in prototype
+    let fontState = null;
+
+    function cloneFontData() {
+      const src = JSON.parse(JSON.stringify(FONT_TEMPLATES[fontId]));
+      src.axes.forEach(ax => ax.stops.forEach(normalizeStop));
+      return src;
+    }
+
+    const FONT_TEMPLATES = {
+      playfair: {
+        label: 'Playfair Micro', formula: '12 × 3 × 7 = 252',
+        warn: "Axis 'ital' stop 'Roman' links to missing value 1.",
+        axes: [{
+          tag: 'wdth', name: 'Width', range: '88 – 113', count: 3, grid: true,
+          stops: [
+            { id: 'w1', name: 'SemiCond', pin: 88, elidable: false },
+            { id: 'w2', name: 'Normal', pin: 100, elidable: true },
+            { id: 'w3', name: 'SemiExp', pin: 113, elidable: false }
+          ]
+        }, {
+          tag: 'wght', name: 'Weight', range: '360 – 900', count: 7, grid: true,
+          stops: [
+            { id: 'g1', name: 'SemiLight', pin: 360, elidable: false },
+            { id: 'g2', name: 'Normal', pin: 400, elidable: true },
+            { id: 'g3', name: 'Medium', pin: 500, elidable: false },
+            { id: 'g4', name: 'SemiBold', pin: 600, elidable: false },
+            { id: 'g5', name: 'Bold', pin: 700, elidable: false },
+            { id: 'g6', name: 'Ultra', pin: 800, elidable: false },
+            { id: 'g7', name: 'Black', pin: 900, elidable: false }
+          ]
+        }]
+      },
+      telegraf: {
+        label: 'Telegraf VF', formula: '5 × 9 = 45', axes: [{
+          tag: 'wdth', name: 'Width', range: '50 – 200', count: 5, grid: true,
+          stops: [
+            { id: 't1', fmt: 2, name: 'Ultra Condensed', min: 50, pin: 50, max: 68.47, elidable: false },
+            { id: 't2', fmt: 2, name: 'Condensed', min: 68.47, pin: 86.93, max: 105.78, elidable: false },
+            { id: 't3', fmt: 2, name: 'Semi Condensed', min: 105.78, pin: 124.62, max: 143.47, elidable: false },
+            { id: 't4', fmt: 2, name: 'Normal', min: 143.47, pin: 162.31, max: 181.16, elidable: true },
+            { id: 't5', fmt: 2, name: 'Expanded', min: 181.16, pin: 200, max: 200, elidable: false }
+          ]
+        }]
+      },
+      mixed: {
+        label: 'Demo family', formula: '4 × 3 = 12', axes: [{
+          tag: 'wght', name: 'Weight', range: '1 – 1000', count: 4, grid: true,
+          stops: [
+            { id: 'm1', fmt: 1, name: 'Hairline', pin: 200, elidable: false },
+            { id: 'm2', fmt: 1, name: 'Heavy', pin: 800, elidable: false },
+            { id: 'm3', fmt: 2, name: 'Blended', min: 300, pin: 500, max: 700, elidable: false },
+            { id: 'm4', fmt: 3, name: 'Regular', pin: 400, linkTo: 'Bold', linkVal: 700, elidable: true }
+          ]
+        }]
+      },
+      milgram: {
+        label: 'Milgram VF', formula: '6 = 6', axes: [{
+          tag: 'wght', name: 'Weight', range: '300 – 900', count: 6, grid: true,
+          stops: [
+            { id: 'l1', fmt: 1, name: 'Light', pin: 300, elidable: false },
+            { id: 'l2', fmt: 1, name: 'Regular', pin: 400, elidable: true },
+            { id: 'l3', fmt: 1, name: 'Medium', pin: 500, elidable: false },
+            { id: 'l4', fmt: 3, name: 'Bold', pin: 700, linkTo: 'Regular', linkVal: 400, elidable: false },
+            { id: 'l5', fmt: 1, name: 'X-Bold', pin: 800, elidable: false },
+            { id: 'l6', fmt: 1, name: 'Black', pin: 900, elidable: false }
+          ]
+        }]
+      }
+    };
+
+    let layoutId = 'format-grid';
+    let fontId = 'playfair';
+    let modalCtx = null;
+
+    function normalizeStop(s) {
+      if (!s.fmt) s.fmt = s.min != null ? 2 : (s.linkTo || s.linkVal ? 3 : 1);
+      if (s.pin == null) s.pin = s.val ?? s.nat ?? s.natNom ?? 0;
+      if (s.fmt === 2 && s.min == null) { s.min = s.natMin; s.max = s.natMax; s.pin = s.natNom ?? s.pin; }
+      if (!s.id) s.id = Math.random().toString(36).slice(2, 8);
+    }
+
+    function fmt(n) {
+      if (n == null || n === '') return '—';
+      return Number.isInteger(n) ? String(n) : Number(n).toFixed(2).replace(/\.?0+$/, (m) => m.startsWith('.') ? '' : m);
+    }
+
+    function elid(checked) {
+      return `<span class="cell-elid"><input type="radio" ${checked ? 'checked' : ''} disabled /></span>`;
+    }
+
+    function fmtBtn(stop) {
+      return `<button type="button" class="fmt-btn f${stop.fmt}" data-fmt-stop="${stop.id}" title="Change STAT format">F${stop.fmt}</button>`;
+    }
+
+    function linkCell(stop) {
+      if (stop.fmt !== 3 || !stop.linkTo) return `<span class="cell-link"><span class="dash">—</span></span>`;
+      return `<span class="cell-link"><img src="${LINK_ICON}" alt="" />${stop.linkTo}</span>`;
+    }
+
+    function numCell(v, active) {
+      const cls = active ? 'num' : 'num off';
+      const content = active ? fmt(v) : '<span class="dash">—</span>';
+      return `<span class="${cls}">${content}</span>`;
+    }
+
+    // ── J: Format grid ──
+    function headerFormatGrid() {
+      return `
+        <div class="tbl">
+          <div class="g g-j g-hdr-span"><span class="span-value">Value</span></div>
+          <div class="g g-j g-hdr">
+            <span></span><span>Fmt</span><span>Min</span><span>Pin</span><span>Max</span>
+            <span>Name</span><span>Link</span><span>Elid</span>
+          </div>`;
+    }
+
+    function rowFormatGrid(stop, axis) {
+      const f = stop.fmt;
+      return `<div class="g g-j g-row ${stop.dim ? 'dim' : ''}" data-stop="${stop.id}">
+        <span></span>
+        <span>${fmtBtn(stop)}</span>
+        ${numCell(stop.min, f === 2)}
+        ${numCell(stop.pin, f === 1 || f === 2 || f === 3)}
+        ${numCell(stop.max, f === 2)}
+        <span class="cell-name">${stop.name}</span>
+        ${linkCell(stop)}
+        ${elid(stop.elidable)}
+      </div>`;
+    }
+
+    // ── F: VF_Remap fixed (name first) ──
+    function headerStatFixed() {
+      return `
+        <div class="tbl">
+          <div class="g g-f g-hdr">
+            <span>#</span><span>Name</span><span>Stat</span><span>Min</span><span>Nom</span><span>Max</span>
+            <span>Link</span><span>Elid</span>
+          </div>`;
+    }
+
+    function rowStatFixed(stop, i, axis) {
+      const f = stop.fmt;
+      const nameExtra = f === 2 ? '<span style="font-size:8px;color:var(--te);margin-right:4px">RANGE</span>' : (f === 3 ? '<span style="font-size:8px;color:var(--pr);margin-right:4px">LINK</span>' : '');
+      return `<div class="g g-f g-row">
+        <span class="cell-idx">${i + 1}</span>
+        <span class="cell-name">${nameExtra}${stop.name}</span>
+        ${numCell(stop.pin, f === 1 || f === 3)}
+        ${numCell(stop.min, f === 2)}
+        ${numCell(stop.pin, f === 2)}
+        ${numCell(stop.max, f === 2)}
+        ${linkCell(stop)}
+        ${elid(stop.elidable)}
+      </div>`;
+    }
+
+    // ── G: Row-adaptive ──
+    function headerStatAdaptive() {
+      return `
+        <div class="tbl">
+          <div class="g g-g g-hdr">
+            <span>Fmt</span><span>Name</span><span>Values</span><span>Elid</span>
+          </div>`;
+    }
+
+    function rowStatAdaptive(stop) {
+      let pairs = '';
+      if (stop.fmt === 1) {
+        pairs = `<span class="pair"><span class="lbl">static</span><span class="val">${fmt(stop.pin)}</span></span>`;
+      } else if (stop.fmt === 2) {
+        pairs = `<span class="pair"><span class="lbl">min</span><span class="val">${fmt(stop.min)}</span></span>
+          <span class="pair"><span class="lbl">nom</span><span class="val">${fmt(stop.pin)}</span></span>
+          <span class="pair"><span class="lbl">max</span><span class="val">${fmt(stop.max)}</span></span>`;
+      } else if (stop.fmt === 3) {
+        pairs = `<span class="pair"><span class="lbl">static</span><span class="val">${fmt(stop.pin)}</span></span>`;
+        if (stop.linkTo) pairs += `<span class="pair"><span class="lbl">link</span><span class="val" style="color:var(--mu)">↗ ${stop.linkTo}</span></span>`;
+      }
+      return `<div class="g g-g g-row">
+        <span>${fmtBtn(stop)}</span>
+        <span class="cell-name">${stop.name}</span>
+        <span class="inline-vals">${pairs}</span>
+        ${elid(stop.elidable)}
+      </div>`;
+    }
+
+    // ── I: Native only ──
+    function headerNativeOnly() {
+      return `
+        <div class="tbl">
+          <div class="g g-i g-hdr">
+            <span></span><span>Value</span><span>Name</span><span>Elid</span>
+          </div>`;
+    }
+
+    function rowNativeOnly(stop) {
+      const link = stop.fmt === 3 && stop.linkTo ? ` <span style="font-size:10px;color:var(--mu)">→ ${stop.linkTo}</span>` : '';
+      const rangeBadge = stop.fmt === 2 ? '<span style="font-size:9px;color:var(--te)">range </span>' : '';
+      let rows = `<div class="g g-i g-row">
+        <span></span>
+        <span class="num">${fmt(stop.pin)}</span>
+        <span class="cell-name">${rangeBadge}${stop.name}${link}</span>
+        ${elid(stop.elidable)}
+      </div>`;
+      if (stop.fmt === 2) {
+        rows += `<div class="range-sub">${fmt(stop.min)} – ${fmt(stop.max)}</div>`;
+      }
+      return rows;
+    }
+
+    function footerTable() { return `</div>`; }
+
+    function renderAxisBody(layout, axis) {
+      const visible = axis.stops.filter(s => !s.hidden);
+      let hdr = '', rows = '', footer = footerTable();
+      if (layout === 'format-grid') {
+        hdr = headerFormatGrid();
+        rows = visible.map(s => rowFormatGrid(s, axis)).join('');
+      } else if (layout === 'stat-fixed') {
+        hdr = headerStatFixed();
+        rows = visible.map((s, i) => rowStatFixed(s, i, axis)).join('');
+      } else if (layout === 'stat-adaptive') {
+        hdr = headerStatAdaptive();
+        rows = visible.map(s => rowStatAdaptive(s)).join('');
+      } else {
+        hdr = headerNativeOnly();
+        rows = visible.map(s => rowNativeOnly(s)).join('');
+      }
+      const addBtn = layout === 'format-grid'
+        ? `<button type="button" class="add-stop" data-axis="${axis.tag}">+ Add Stop…</button>` : '';
+      return hdr + rows + footer + addBtn;
+    }
+
+    function render() {
+      if (!fontState) fontState = cloneFontData();
+      const font = fontState;
+      const warn = font.warn ? `<div class="warn-band">${font.warn}</div>` : '';
+      const axes = font.axes.map(axis => `
+        <section class="axis">
+          <div class="ax-h">
+            <span class="ax-tag">${axis.tag}</span>
+            <div><div class="ax-title">${axis.name}</div><div class="ax-sub">${axis.range}</div></div>
+            <div class="ax-meta"><span class="badge-n">${axis.stops.filter(s=>!s.hidden).length}</span>${axis.grid ? '<span class="tog"></span>' : ''}</div>
+          </div>
+          <div class="ax-body">${renderAxisBody(layoutId, axis)}</div>
+        </section>`).join('');
+
+      document.getElementById('tree').innerHTML = `
+        <div class="tree-head">Axis tree <span><strong>${font.axes.length}</strong> axes</span></div>
+        <div class="summary">
+          <div class="sum-row"><span class="l">Instance grid</span><span class="v">${font.formula}</span></div>
+          <div class="sum-row"><span class="l">Generated</span><span class="v">${font.formula.split('=').pop().trim()}</span></div>
+        </div>${warn}${axes}`;
+
+      document.querySelectorAll('[data-fmt-stop]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          openFormatModal(btn.dataset.fmtStop);
+        });
+      });
+      document.querySelectorAll('.add-stop').forEach(btn => {
+        btn.addEventListener('click', () => openAddStopModal(btn.dataset.axis));
+      });
+
+      const L = LAYOUTS.find(l => l.id === layoutId);
+      document.getElementById('layoutName').textContent = L.title;
+      document.getElementById('notes').innerHTML = `<h2>${L.title}</h2>${L.notes}`;
+    }
+
+    function findStop(id) {
+      for (const ax of fontState.axes) {
+        const s = ax.stops.find(x => x.id === id);
+        if (s) return { stop: s, axis: ax };
+      }
+      return null;
+    }
+
+    function openFormatModal(stopId) {
+      const found = findStop(stopId);
+      if (!found) return;
+      const { stop, axis } = found;
+      modalCtx = { type: 'format', stop, axis };
+      const others = axis.stops.filter(s => s.id !== stop.id && s.fmt !== 3).map(s => s.name);
+      document.getElementById('modalTitle').textContent = `Format · ${stop.name}`;
+      document.getElementById('modalBody').innerHTML = `
+        <label>STAT format</label>
+        <select id="mFmt"><option value="1" ${stop.fmt===1?'selected':''}>Format 1 — static value</option>
+          <option value="2" ${stop.fmt===2?'selected':''}>Format 2 — min / nom / max range</option>
+          <option value="3" ${stop.fmt===3?'selected':''}>Format 3 — static + linked style</option></select>
+        <div id="mFmtFields"></div>`;
+      const updateFields = () => {
+        const f = +document.getElementById('mFmt').value;
+        let html = '';
+        if (f === 3) {
+          html = `<label>Link to stop</label><select id="mLink">${others.map(n => `<option ${stop.linkTo===n?'selected':''}>${n}</option>`).join('')}</select>`;
+        }
+        document.getElementById('mFmtFields').innerHTML = html;
+      };
+      document.getElementById('mFmt').addEventListener('change', updateFields);
+      updateFields();
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function openAddStopModal(axisTag) {
+      const axis = fontState.axes.find(a => a.tag === axisTag);
+      if (!axis) return;
+      modalCtx = { type: 'add', axis };
+      document.getElementById('modalTitle').textContent = 'Add Stop';
+      document.getElementById('modalBody').innerHTML = `
+        <label>Name</label><input id="mName" placeholder="Stop name" />
+        <label>STAT format</label>
+        <select id="mFmt"><option value="1">Format 1 — static</option><option value="2">Format 2 — range</option><option value="3">Format 3 — linked</option></select>
+        <div id="mFmtFields"><label>Static value</label><input id="mPin" type="number" placeholder="400" /></div>`;
+      document.getElementById('mFmt').addEventListener('change', () => {
+        const f = +document.getElementById('mFmt').value;
+        const others = axis.stops.map(s => s.name);
+        if (f === 1) document.getElementById('mFmtFields').innerHTML = `<label>Static value</label><input id="mPin" type="number" />`;
+        else if (f === 2) document.getElementById('mFmtFields').innerHTML = `<label>Min</label><input id="mMin" type="number"/><label>Nominal</label><input id="mPin" type="number"/><label>Max</label><input id="mMax" type="number"/>`;
+        else document.getElementById('mFmtFields').innerHTML = `<label>Static value</label><input id="mPin" type="number"/><label>Link to</label><select id="mLink">${others.map(n=>`<option>${n}</option>`).join('')}</select>`;
+      });
+      document.getElementById('modal').classList.add('open');
+    }
+
+    document.getElementById('modalCancel').onclick = () => { document.getElementById('modal').classList.remove('open'); modalCtx = null; };
+    document.getElementById('modalOk').onclick = () => {
+      if (!modalCtx) return;
+      if (modalCtx.type === 'format') {
+        const f = +document.getElementById('mFmt').value;
+        modalCtx.stop.fmt = f;
+        if (f === 3) {
+          modalCtx.stop.linkTo = document.getElementById('mLink')?.value;
+          const target = modalCtx.axis.stops.find(s => s.name === modalCtx.stop.linkTo);
+          modalCtx.stop.linkVal = target?.pin;
+        } else { delete modalCtx.stop.linkTo; delete modalCtx.stop.linkVal; }
+        if (f === 2 && modalCtx.stop.min == null) { modalCtx.stop.min = modalCtx.stop.pin - 20; modalCtx.stop.max = modalCtx.stop.pin + 20; }
+      } else if (modalCtx.type === 'add') {
+        const f = +document.getElementById('mFmt').value;
+        const stop = { id: 'n' + Date.now(), name: document.getElementById('mName').value || 'New', fmt: f, pin: +document.getElementById('mPin')?.value || 400, elidable: false };
+        if (f === 2) { stop.min = +document.getElementById('mMin')?.value || 300; stop.max = +document.getElementById('mMax')?.value || 700; }
+        if (f === 3) { stop.linkTo = document.getElementById('mLink')?.value; const t = modalCtx.axis.stops.find(s => s.name === stop.linkTo); stop.linkVal = t?.pin; }
+        modalCtx.axis.stops.push(stop);
+        modalCtx.axis.count = modalCtx.axis.stops.length;
+      }
+      document.getElementById('modal').classList.remove('open');
+      modalCtx = null;
+      render();
+    };
+
+    function buildLayoutGrid() {
+      const grid = document.getElementById('layoutGrid');
+      grid.innerHTML = LAYOUTS.map(l => `
+        <label class="layout-opt ${l.id === layoutId ? 'active' : ''}">
+          <input type="radio" name="layout" value="${l.id}" ${l.id === layoutId ? 'checked' : ''} />
+          <div><div class="t">${l.title}</div><div class="d">${l.desc}</div></div>
+        </label>`).join('');
+      grid.querySelectorAll('.layout-opt').forEach(el => {
+        el.onclick = () => { layoutId = el.querySelector('input').value; buildLayoutGrid(); render(); };
+      });
+    }
+
+    document.getElementById('fontPreset').onchange = e => { fontId = e.target.value; fontState = cloneFontData(); render(); };
+    document.querySelectorAll('.theme-row button').forEach(btn => {
+      btn.onclick = () => {
+        document.body.dataset.theme = btn.dataset.theme;
+        document.querySelectorAll('.theme-row button').forEach(b => b.classList.toggle('active', b === btn));
+      };
+    });
+
+    fontState = cloneFontData();
+    buildLayoutGrid();
+    render();
+  </script>
+</body>
+</html>

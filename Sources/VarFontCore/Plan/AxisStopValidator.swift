@@ -5,6 +5,7 @@ public enum AxisStopValidator {
         var warnings: [PlanWarning] = []
         for axis in axes {
             warnings.append(contentsOf: duplicateValueWarnings(for: axis))
+            warnings.append(contentsOf: StatFormat3Pairing.orphanLinkWarnings(for: axis))
             if axis.role == .instance {
                 warnings.append(contentsOf: duplicateNameWarnings(for: axis))
             }

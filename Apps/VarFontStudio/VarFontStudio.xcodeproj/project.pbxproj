@@ -11,12 +11,6 @@
 		B2000002 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000002 /* EditorViewModel.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
-		B2000013 /* OpenProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* OpenProject.swift */; };
-		B2000014 /* ProjectToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000013 /* ProjectToolbar.swift */; };
-		B2000015 /* ProjectDropdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000014 /* ProjectDropdownMenu.swift */; };
-		B2000016 /* ProjectFileSubBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000015 /* ProjectFileSubBar.swift */; };
-		B2000017 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000016 /* ProjectPickerSheet.swift */; };
-		B2000018 /* WorkspaceDropOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000017 /* WorkspaceDropOverlay.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
 		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
@@ -24,17 +18,24 @@
 		B2000010 /* StudioDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000009 /* StudioDesign.swift */; };
 		B2000011 /* InstanceInclusionCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000010 /* InstanceInclusionCommands.swift */; };
 		B2000012 /* NamingOrderChainFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000011 /* NamingOrderChainFooter.swift */; };
+		B2000013 /* OpenProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* OpenProject.swift */; };
+		B2000014 /* ProjectToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000013 /* ProjectToolbar.swift */; };
+		B2000015 /* ProjectDropdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000014 /* ProjectDropdownMenu.swift */; };
+		B2000016 /* ProjectFileSubBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000015 /* ProjectFileSubBar.swift */; };
+		B2000017 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000016 /* ProjectPickerSheet.swift */; };
+		B2000018 /* WorkspaceDropOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000017 /* WorkspaceDropOverlay.swift */; };
 		B2000019 /* EditorLayoutPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000018 /* EditorLayoutPreferences.swift */; };
 		B2000020 /* StudioPanelSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000019 /* StudioPanelSplitView.swift */; };
 		B2000021 /* ProjectTargetPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000020 /* ProjectTargetPickerSheet.swift */; };
 		B2000022 /* WorkspaceDragSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000021 /* WorkspaceDragSession.swift */; };
 		B2000023 /* InspectorSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000022 /* InspectorSupport.swift */; };
 		B2000024 /* AxisConflictResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000023 /* AxisConflictResolverSheet.swift */; };
-        B2000025 /* CommitDiffSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitDiffSheet.swift */; };
+		B2000025 /* CommitDiffSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitDiffSheet.swift */; };
 		B2000026 /* CommitPreflightSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000025 /* CommitPreflightSession.swift */; };
 		B2000027 /* SourceFontAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000026 /* SourceFontAccess.swift */; };
 		B2000028 /* SaveReviewWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000027 /* SaveReviewWindowLifecycle.swift */; };
 		B2000029 /* FileClarifiersBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000028 /* FileClarifiersBar.swift */; };
+		B2000030 /* ProjectFileCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000029 /* ProjectFileCommands.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,18 +44,18 @@
 		F2000002 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
-		F2000012 /* OpenProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenProject.swift; sourceTree = "<group>"; };
-		F2000013 /* ProjectToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectToolbar.swift; sourceTree = "<group>"; };
-		F2000014 /* ProjectDropdownMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDropdownMenu.swift; sourceTree = "<group>"; };
-		F2000015 /* ProjectFileSubBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileSubBar.swift; sourceTree = "<group>"; };
-		F2000016 /* ProjectPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerSheet.swift; sourceTree = "<group>"; };
-		F2000017 /* WorkspaceDropOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDropOverlay.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2000009 /* StudioDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDesign.swift; sourceTree = "<group>"; };
 		F2000010 /* InstanceInclusionCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceInclusionCommands.swift; sourceTree = "<group>"; };
 		F2000011 /* NamingOrderChainFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamingOrderChainFooter.swift; sourceTree = "<group>"; };
+		F2000012 /* OpenProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenProject.swift; sourceTree = "<group>"; };
+		F2000013 /* ProjectToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectToolbar.swift; sourceTree = "<group>"; };
+		F2000014 /* ProjectDropdownMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDropdownMenu.swift; sourceTree = "<group>"; };
+		F2000015 /* ProjectFileSubBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileSubBar.swift; sourceTree = "<group>"; };
+		F2000016 /* ProjectPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerSheet.swift; sourceTree = "<group>"; };
+		F2000017 /* WorkspaceDropOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDropOverlay.swift; sourceTree = "<group>"; };
 		F2000018 /* EditorLayoutPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorLayoutPreferences.swift; sourceTree = "<group>"; };
 		F2000019 /* StudioPanelSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioPanelSplitView.swift; sourceTree = "<group>"; };
 		F2000020 /* ProjectTargetPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTargetPickerSheet.swift; sourceTree = "<group>"; };
@@ -66,6 +67,7 @@
 		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
 		F2000027 /* SaveReviewWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewWindowLifecycle.swift; sourceTree = "<group>"; };
 		F2000028 /* FileClarifiersBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClarifiersBar.swift; sourceTree = "<group>"; };
+		F2000029 /* ProjectFileCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileCommands.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +115,7 @@
 				F2000013 /* ProjectToolbar.swift */,
 				F2000014 /* ProjectDropdownMenu.swift */,
 				F2000015 /* ProjectFileSubBar.swift */,
+				F2000029 /* ProjectFileCommands.swift */,
 				F2000028 /* FileClarifiersBar.swift */,
 				F2000016 /* ProjectPickerSheet.swift */,
 				F2000020 /* ProjectTargetPickerSheet.swift */,
@@ -248,6 +251,7 @@
 				B2000027 /* SourceFontAccess.swift in Sources */,
 				B2000028 /* SaveReviewWindowLifecycle.swift in Sources */,
 				B2000029 /* FileClarifiersBar.swift in Sources */,
+				B2000030 /* ProjectFileCommands.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,
@@ -420,7 +424,7 @@
 				XC200002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		X2000003 /* Build configuration list for PBXNativeTarget "VarFontStudio" */ = {
 			isa = XCConfigurationList;
@@ -429,7 +433,7 @@
 				XC200004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 

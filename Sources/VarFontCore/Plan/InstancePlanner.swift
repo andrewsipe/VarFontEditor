@@ -24,10 +24,12 @@ public enum InstancePlanner {
         warnings.append(contentsOf: AxisStopValidator.validate(axes: font.axes))
         warnings.append(contentsOf: validateInstanceKeySets(font))
         warnings.append(contentsOf: validateClarifiers(font: font))
+        warnings.append(contentsOf: RegistrationAxisSupport.registrationWarnings(font: font, analysis: nil))
+        warnings.append(contentsOf: AxisLadderAlignment.planWarnings(axes: font.axes))
         var instances: [PlannedInstance] = []
         var seenNames: [String: String] = [:]
 
-        let pinned = pinnedCoords(from: font.axes)
+        let pinned = AxisPinPolicy.pinnedCoords(from: font.axes)
 
         for var coords in generated {
             for (tag, value) in pinned where coords[tag] == nil {
@@ -38,7 +40,8 @@ public enum InstancePlanner {
                 coords: coords,
                 axes: font.axes,
                 naming: naming,
-                fileRole: font.fileRole
+                fileRole: font.fileRole,
+                fileStatRegistration: font.fileStatRegistration
             )
             let chain = composed.chain.map {
                 NamingChainLink(kind: $0.kind, tag: $0.tag, name: $0.name, elided: $0.elided)
@@ -124,20 +127,6 @@ public enum InstancePlanner {
             results = next
         }
         return results
-    }
-
-    private static func pinnedCoords(from axes: [AxisDefinition]) -> [String: Double] {
-        var pinned: [String: Double] = [:]
-        for axis in axes where axis.role != .instance && axis.role != .designRecordOnly {
-            if axis.values.count == 1, let value = axis.values.first?.value {
-                pinned[axis.tag] = value
-            } else if let defaultValue = axis.default {
-                pinned[axis.tag] = defaultValue
-            } else if let first = axis.values.first?.value {
-                pinned[axis.tag] = first
-            }
-        }
-        return pinned
     }
 
     private static func validateAxes(_ axes: [AxisDefinition]) -> [PlanWarning] {

@@ -11,6 +11,7 @@ struct MainEditorView: View {
     @State private var openProjectMenuID: String?
     @State private var workspaceOrigin: CGPoint = .zero
     @State private var projectMenuTabRect: CGRect?
+    @State private var projectMenuSize: CGSize = .zero
 
     var body: some View {
         GeometryReader { geometry in
@@ -29,6 +30,9 @@ struct MainEditorView: View {
                 }
                 .overlay {
                     projectMenuOverlay(screenSize: geometry.size)
+                }
+                .onChange(of: openProjectMenuID) { _, _ in
+                    projectMenuSize = .zero
                 }
                 .onDrop(
                     of: EditorViewModel.fontDropTypes,
@@ -288,6 +292,12 @@ struct MainEditorView: View {
             if let openID = openProjectMenuID,
                let tabRect = projectMenuTabRect,
                let openProject = editor.openProjects.first(where: { $0.id == openID }) {
+                let menuOrigin = clampedProjectMenuOrigin(
+                    tabRect: tabRect,
+                    menuSize: projectMenuSize,
+                    screenSize: screenSize,
+                    projectID: openID
+                )
                 ProjectDropdownMenu(
                     openProject: openProject,
                     onDismiss: { openProjectMenuID = nil }
@@ -295,11 +305,70 @@ struct MainEditorView: View {
                 .environmentObject(editor)
                 .fixedSize(horizontal: true, vertical: true)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: ProjectMenuSizePreferenceKey.self,
+                            value: geometry.size
+                        )
+                    }
+                }
+                .onPreferenceChange(ProjectMenuSizePreferenceKey.self) { size in
+                    if size != projectMenuSize {
+                        projectMenuSize = size
+                    }
+                }
                 .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
-                .offset(x: tabRect.minX, y: tabRect.maxY + 4)
+                .offset(x: menuOrigin.x, y: menuOrigin.y)
                 .opacity(workspaceDrag.isActive ? 0 : 1)
             }
         }
+    }
+
+    private func clampedProjectMenuOrigin(
+        tabRect: CGRect,
+        menuSize: CGSize,
+        screenSize: CGSize,
+        projectID: String
+    ) -> CGPoint {
+        let margin: CGFloat = 8
+        let availableWidth = max(screenSize.width - margin * 2, 0)
+
+        var menuWidth = menuSize.width
+        if menuWidth <= 0 {
+            menuWidth = estimatedProjectMenuWidth(for: projectID)
+        }
+        menuWidth = min(menuWidth, availableWidth)
+
+        var x = tabRect.minX
+        if x + menuWidth > screenSize.width - margin {
+            x = tabRect.maxX - menuWidth
+        }
+        x = min(x, screenSize.width - menuWidth - margin)
+        x = max(x, margin)
+
+        var y = tabRect.maxY + 4
+        let menuHeight = menuSize.height > 0 ? menuSize.height : 0
+        if menuHeight > 0, y + menuHeight > screenSize.height - margin {
+            y = max(margin, tabRect.minY - menuHeight - 4)
+        }
+
+        return CGPoint(x: x, y: y)
+    }
+
+    private func estimatedProjectMenuWidth(for projectID: String) -> CGFloat {
+        let padding = StudioSpacing.sheetOuterPadding * 2
+        let list = StudioPanelMetrics.projectMenuListWidth
+        guard let project = editor.openProjects.first(where: { $0.id == projectID }) else {
+            return padding + list
+        }
+
+        let showsNaming = editor.activeProjectID == projectID && editor.selectedFontID != nil
+            && project.document.fonts.contains(where: { $0.id == editor.selectedFontID })
+        if showsNaming {
+            return padding + list + StudioSpacing.sheetSectionSpacing + StudioPanelMetrics.projectMenuNamingWidth
+        }
+        return padding + list
     }
 
     private func resolvedProjectMenuTabRect(

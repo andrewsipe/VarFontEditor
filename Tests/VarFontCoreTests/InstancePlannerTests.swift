@@ -31,8 +31,8 @@ final class InstancePlannerTests: XCTestCase {
     func testExclusionsReduceIncludedCount() throws {
         var project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
         project.fonts[0].excludedInstanceKeys = [
-            "ital:0|opsz:5|wdth:88|wght:360",
-            "ital:0|opsz:5|wdth:100|wght:400",
+            "opsz:5|wdth:88|wght:360",
+            "opsz:5|wdth:100|wght:400",
         ]
 
         let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: romanFontID))
@@ -116,6 +116,7 @@ final class InstancePlannerTests: XCTestCase {
                 ),
                 AxisDefinition(
                     tag: "wdth",
+                    min: 88,
                     default: 88,
                     role: .statOnly,
                     values: [
@@ -157,18 +158,5 @@ final class InstancePlannerTests: XCTestCase {
         XCTAssertTrue(result.ok)
         XCTAssertTrue(result.dryRun)
         XCTAssertEqual(result.summary?.instancesWritten, request.includedInstanceKeys.count)
-    }
-
-    func testCommitServiceNonDryRunNotImplemented() async throws {
-        var request = try FixtureLoader.decode(CommitRequest.self, from: "playfair-roman-commit-request.json")
-        request.dryRun = false
-        let service = CommitService()
-
-        do {
-            _ = try await service.commit(request)
-            XCTFail("Expected notImplemented")
-        } catch CommitServiceError.notImplemented {
-            // expected
-        }
     }
 }

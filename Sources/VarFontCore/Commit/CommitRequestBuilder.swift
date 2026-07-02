@@ -62,10 +62,8 @@ public enum CommitRequestBuilder {
         )
     }
 
-    /// vfcommit auto-fix for fvar default is off until axis default pinning exists in the UI.
+    /// vfcommit may apply fvar default alignment when enabled in per-font CommitOptions.
     private static func commitOptions(from options: CommitOptions) -> CommitOptions {
-        var commit = options
-        commit.fixFvarDefault = false
-        return commit
+        options
     }
 }

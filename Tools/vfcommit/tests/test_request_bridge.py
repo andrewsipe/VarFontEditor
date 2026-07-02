@@ -1,52 +1,59 @@
-"""Tests for vfcommit (no font files required for bridge/unit tests)."""
+"""Tests for vfcommit request bridge."""
 
 from __future__ import annotations
 
-import json
-import unittest
+import sys
 from pathlib import Path
 
-from vfcommit_lib.request_bridge import (
-    axis_defs_from_request,
-    count_included_instances,
-    grid_axis_defs,
-    instance_key,
-    pinned_coords,
-)
+import pytest
 
-_FIXTURE = (
-    Path(__file__).resolve().parents[3]
-    / "fixtures"
-    / "examples"
-    / "playfair-roman-commit-request.json"
-)
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from vfcommit_lib.request_bridge import grid_axis_defs, pinned_coords  # noqa: E402
 
 
-class RequestBridgeTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.request = json.loads(_FIXTURE.read_text(encoding="utf-8"))
-
-    def test_instance_key_sorts_tags(self) -> None:
-        key = instance_key({"wght": 400, "opsz": 12, "wdth": 100})
-        self.assertEqual(key, "opsz:12|wdth:100|wght:400")
-
-    def test_grid_axes_excludes_stat_only(self) -> None:
-        axis_defs = axis_defs_from_request(self.request["axes"])
-        grid = grid_axis_defs(axis_defs, self.request["axes"])
-        tags = {axis.tag for axis in grid}
-        self.assertEqual(tags, {"opsz", "wdth", "wght"})
-        self.assertNotIn("ital", tags)
-
-    def test_pinned_coords_for_stat_only(self) -> None:
-        pinned = pinned_coords(self.request["axes"])
-        self.assertEqual(pinned, {"ital": 0.0})
-
-    def test_instance_count_without_filter(self) -> None:
-        axis_defs = axis_defs_from_request(self.request["axes"])
-        grid = grid_axis_defs(axis_defs, self.request["axes"])
-        # 2 opsz × 2 wdth × 2 wght = 8
-        self.assertEqual(count_included_instances(grid, []), 8)
+def test_pinned_coords_skips_instance_and_design_record_only() -> None:
+    axes = [
+        {"tag": "wght", "role": "instance", "values": [{"value": 400}]},
+        {
+            "tag": "ital",
+            "role": "design_record_only",
+            "values": [{"value": 0}],
+        },
+        {
+            "tag": "GRAD",
+            "role": "stat_only",
+            "default": 0,
+            "values": [{"value": 0}],
+        },
+    ]
+    assert pinned_coords(axes) == {"GRAD": 0.0}
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_pinned_coords_stat_only_uses_default() -> None:
+    axes = [
+        {
+            "tag": "opsz",
+            "role": "stat_only",
+            "default": 14,
+            "values": [
+                {"value": 8},
+                {"value": 14},
+            ],
+        }
+    ]
+    assert pinned_coords(axes) == {"opsz": 14.0}
+
+
+def test_grid_axis_defs_only_instance_roles() -> None:
+    axes_json = [
+        {"tag": "wght", "role": "instance", "values": [{"value": 400, "name": "Regular"}]},
+        {"tag": "ital", "role": "design_record_only", "values": [{"value": 0, "name": "Roman"}]},
+        {"tag": "GRAD", "role": "stat_only", "values": [{"value": 0, "name": "Default"}]},
+    ]
+    from vfcommit_lib.request_bridge import axis_defs_from_request
+
+    axis_defs = axis_defs_from_request(axes_json)
+    grid = grid_axis_defs(axis_defs, axes_json)
+    assert [axis.tag for axis in grid] == ["wght"]

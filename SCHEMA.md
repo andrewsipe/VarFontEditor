@@ -42,11 +42,24 @@ Four-character OpenType axis tag (`"wght"`, `"opsz"`, `"GRAD"`).
 
 ### `axis_role`
 
-| Value | Instance grid | STAT labels | Typical use |
-|-------|---------------|-------------|-------------|
-| `instance` | Multiplies combinations | Yes | wght, wdth, ital in static grids |
-| `stat_only` | Fixed at default in fvar | Yes | opsz/GRAD pinned in instances (Roboto) |
-| `parametric` | Off grid | Optional | XOPQ, YTLC, … |
+| Value | Lane | Instance grid | STAT labels | Typical use |
+|-------|------|---------------|-------------|-------------|
+| `instance` | Variation | Multiplies combinations | Yes | wght, wdth, opsz in static grids |
+| `stat_only` | Pinned (when fvar `min` present) | Fixed pin coord | Yes | GRAD, opsz pinned per file (Roboto) |
+| `parametric` | Pinned (when fvar `min` present) | Fixed pin coord | Optional | XOPQ, YTLC, … |
+| `design_record_only` | Registration | Off grid | Yes (per-file) | `ital` on Roman VF (STAT only, no fvar) |
+
+Lanes are derived in the app from `role` + `hasFvarScale` (`min != nil`); not stored in JSON.
+
+Optional per-axis reference mapping (**`wght` and `wdth` only**; editor display — native values in file). Optical size (`opsz`) always uses native designer coordinates; there is no registry translation for opsz.
+
+```json
+"reference_mapping": "identity",
+"reference_mapping_inferred": "stop_anchored",
+"reference_anchors": [{ "reference": 400.0, "native": 360.0 }]
+```
+
+Project-level `coordinate_display`: `"reference"` | `"native"` (applies to weight and width only). The planner emits `ladder_missing_stop` / `ladder_misaligned_stop` warnings when offset axes diverge from the OpenType registry ladder.
 
 ### `stat_format`
 
@@ -54,10 +67,16 @@ Four-character OpenType axis tag (`"wght"`, `"opsz"`, `"GRAD"`).
 
 ### `InstanceKey`
 
-Stable string for selection and prune sets. Tags sorted alphabetically:
+Stable string for selection and prune sets. Tags sorted alphabetically. **Registration axes** (`design_record_only`) are **not** included in instance keys — they resolve per file, not per grid combination.
 
 ```
 "GRAD:0|opsz:14|slnt:0|wdth:100|wght:400"
+```
+
+Example without registration axis:
+
+```
+"opsz:5|wdth:88|wght:360"
 ```
 
 Use the same rule in Swift and `vfcommit`.

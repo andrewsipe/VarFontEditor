@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "source": {
+    "path": "/tmp/MelangeVF.ttf",
+    "format": "ttf",
+    "family_name": "Melange",
+    "full_name": "Melange Regular",
+    "is_variable": true
+  },
+  "readiness": {
+    "has_fvar": true,
+    "has_stat": true,
+    "has_design_axis_record": true,
+    "writable": true,
+    "blockers": []
+  },
+  "axes": [
+    {
+      "tag": "opsz",
+      "display_name": "Optical size",
+      "min": 6,
+      "default": 12,
+      "max": 72,
+      "ordering": 0,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 2,
+          "name": "Text",
+          "elidable": true,
+          "nominal": 12,
+          "range_min": 6,
+          "range_max": 18
+        }
+      ]
+    },
+    {
+      "tag": "wght",
+      "display_name": "Weight",
+      "min": 400,
+      "default": 400,
+      "max": 700,
+      "ordering": 1,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Regular",
+          "elidable": true,
+          "value": 400
+        }
+      ]
+    }
+  ],
+  "stat_values": [
+    {
+      "format": 2,
+      "tag": "opsz",
+      "name": "Text",
+      "elidable": true,
+      "nominal": 12,
+      "range_min": 6,
+      "range_max": 18
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Regular",
+      "elidable": true,
+      "value": 400
+    }
+  ],
+  "instances_existing": [],
+  "instances_existing_meta": { "total": 0, "sample_count": 0 },
+  "name_audit": {
+    "free_start": 256,
+    "used": [],
+    "elided_fallback_id": 2,
+    "elided_fallback_name": "Regular"
+  },
+  "inferred": {
+    "is_italic_font": false,
+    "grid_axis_tags": ["opsz", "wght"],
+    "naming_order_suggested": ["opsz", "wght"]
+  }
+}

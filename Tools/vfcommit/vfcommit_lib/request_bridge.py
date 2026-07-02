@@ -89,10 +89,11 @@ def _coord_combinations(grid_axes: List[AxisDef]):
 
 
 def pinned_coords(axes_json: List[Dict[str, Any]]) -> Dict[str, float]:
-    """Default coordinates for non-instance axes."""
+    """Default coordinates for non-instance axes (excludes design_record_only)."""
     pinned: Dict[str, float] = {}
     for axis in axes_json:
-        if str(axis.get("role", "instance")) == "instance":
+        role = str(axis.get("role", "instance"))
+        if role == "instance" or role == "design_record_only":
             continue
         values = axis.get("values") or []
         if len(values) == 1:

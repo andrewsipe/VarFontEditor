@@ -17,6 +17,16 @@ enum WorkspaceDragItem: Equatable {
 enum WorkspaceDropTarget: Equatable {
     case project(String)
     case newProject
+    case reorderFont(projectID: String, beforeFontID: String)
+    case reorderFontEnd(projectID: String)
+}
+
+struct FileChipFrameKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
 }
 
 struct ProjectTabFrameKey: PreferenceKey {
@@ -44,8 +54,23 @@ enum WorkspaceDragSupport {
         at location: CGPoint,
         tabFrames: [String: CGRect],
         toolbarFrame: CGRect,
+        fontChipFrames: [String: CGRect],
         canSplitFont: Bool
     ) -> WorkspaceDropTarget? {
+        if case let .font(draggedID, fromProjectID, _) = item {
+            for (key, frame) in fontChipFrames where frame.contains(location) {
+                let parts = key.split(separator: ":", maxSplits: 1)
+                guard parts.count == 2, String(parts[0]) == fromProjectID else { continue }
+                let anchorID = String(parts[1])
+                if anchorID == "__end__" {
+                    return .reorderFontEnd(projectID: fromProjectID)
+                }
+                if anchorID != draggedID {
+                    return .reorderFont(projectID: fromProjectID, beforeFontID: anchorID)
+                }
+            }
+        }
+
         let excludedID = item.sourceProjectID
 
         for (projectID, frame) in tabFrames where frame.contains(location) {
@@ -79,9 +104,11 @@ final class WorkspaceDragCoordinator {
     private(set) var hoveredTarget: WorkspaceDropTarget?
 
     private var tabFrames: [String: CGRect] = [:]
+    private var fontChipFrames: [String: CGRect] = [:]
     private var toolbarFrame: CGRect = .zero
     /// Snapshotted at drag begin so hover hit-testing stays stable while the UI highlights.
     private var dragTabFrames: [String: CGRect] = [:]
+    private var dragFontChipFrames: [String: CGRect] = [:]
     private var dragToolbarFrame: CGRect = .zero
     private var dragCanSplitFont = false
 
@@ -95,8 +122,14 @@ final class WorkspaceDragCoordinator {
         toolbarFrame = frame
     }
 
+    func setFontChipFrames(_ frames: [String: CGRect]) {
+        guard frames != fontChipFrames else { return }
+        fontChipFrames = frames
+    }
+
     func begin(item: WorkspaceDragItem, location: CGPoint, canSplitFont: Bool) {
         dragTabFrames = tabFrames
+        dragFontChipFrames = fontChipFrames
         dragToolbarFrame = toolbarFrame
         dragCanSplitFont = canSplitFont
         self.item = item
@@ -138,6 +171,7 @@ final class WorkspaceDragCoordinator {
             at: location,
             tabFrames: isActive ? dragTabFrames : tabFrames,
             toolbarFrame: isActive ? dragToolbarFrame : toolbarFrame,
+            fontChipFrames: isActive ? dragFontChipFrames : fontChipFrames,
             canSplitFont: dragCanSplitFont
         )
     }

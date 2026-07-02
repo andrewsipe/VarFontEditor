@@ -54,6 +54,7 @@ public enum FileClarifierInference {
         if lower.contains("italic") { return "Italic" }
         if analysis?.inferred.isItalicFont == true { return "Italic" }
         if font.axes.contains(where: { $0.tag == "ital" && $0.role == .instance }) { return nil }
+        if font.axes.contains(where: { $0.tag == "ital" && $0.isDesignRecordOnly }) { return nil }
         let names = font.axes.flatMap(\.values).map(\.name)
         if names.contains(where: { $0.localizedCaseInsensitiveContains("italic") }) {
             return "Italic"

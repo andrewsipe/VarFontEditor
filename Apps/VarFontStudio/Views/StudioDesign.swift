@@ -140,6 +140,10 @@ enum StudioColors {
     static let clarifierForeground = Color(red: 0.55, green: 0.45, blue: 0.95)
     static let clarifierBackground = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.14)
     static let clarifierStroke = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.35)
+    /// STAT format badges in the axis tree format grid.
+    static let statFormat1 = Color.green
+    static let statFormat2 = Color.cyan
+    static let statFormat3 = Color.accentColor
     /// Drop zone half fills — always visible during drag (top = add, bottom = new).
     static let dropZoneAddFill = Color.accentColor.opacity(0.06)
     static let dropZoneNewFill = Color.green.opacity(0.05)
@@ -200,6 +204,46 @@ struct StudioTagPill: View {
                 StudioColors.tagBackground,
                 in: RoundedRectangle(cornerRadius: compact ? StudioRadius.small : StudioRadius.small)
             )
+    }
+}
+
+struct StudioStatFormatBadge: View {
+    let format: Int
+    var action: (() -> Void)?
+
+  private var foreground: Color {
+        switch format {
+        case 2: StudioColors.statFormat2
+        case 3: StudioColors.statFormat3
+        default: StudioColors.statFormat1
+        }
+    }
+
+    var body: some View {
+        Group {
+            if let action {
+                Button(action: action) {
+                    badgeLabel
+                }
+                .buttonStyle(.plain)
+                .help("Change STAT format")
+            } else {
+                badgeLabel
+            }
+        }
+    }
+
+    private var badgeLabel: some View {
+        Text("F\(format)")
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .foregroundStyle(foreground)
+            .background(foreground.opacity(format == 2 ? 0.14 : 0.08), in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(foreground.opacity(0.35), lineWidth: 0.5)
+            }
     }
 }
 

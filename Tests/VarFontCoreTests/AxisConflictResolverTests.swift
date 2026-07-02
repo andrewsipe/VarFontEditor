@@ -239,10 +239,10 @@ final class AxisConflictResolverTests: XCTestCase {
     }
 
     func testStrategiesForDuplicateNameIncludeElideOnInstanceAxis() {
-        let axis = wdthAxis(role: .instance, values: [
+        let axis = wdthAxis(values: [
             AxisValue(id: "a", value: 100, name: "Normal", elidable: false),
             AxisValue(id: "b", value: 101, name: "Normal", elidable: false),
-        ])
+        ], role: .instance)
         let bundle = AxisConflictBundle(
             axisTag: "wdth",
             axisLabel: "Width",
@@ -252,7 +252,7 @@ final class AxisConflictResolverTests: XCTestCase {
         )
 
         let strategies = ConflictResolver.strategies(for: bundle, axis: axis)
-        XCTAssertTrue(strategies.contains(.setElidable))
+        XCTAssertTrue(strategies.contains(ConflictFixStrategy.setElidable))
     }
 
     func testPreviewInvolvedStopsRemoveTarget() {
@@ -303,10 +303,10 @@ final class AxisConflictResolverTests: XCTestCase {
     }
 
     func testDuplicateValueAndNameStrategiesIncludeCompoundFixes() {
-        let axis = wdthAxis(role: .instance, values: [
+        let axis = wdthAxis(values: [
             AxisValue(id: "a", value: 100, name: "Name", elidable: false),
             AxisValue(id: "b", value: 100, name: "Name", elidable: false),
-        ])
+        ], role: .instance)
         let bundle = AxisConflictBundle(
             axisTag: "wdth",
             axisLabel: "Width",
@@ -316,10 +316,10 @@ final class AxisConflictResolverTests: XCTestCase {
         )
 
         let strategies = ConflictResolver.strategies(for: bundle, axis: axis)
-        XCTAssertTrue(strategies.contains(.revalueAndRename))
-        XCTAssertTrue(strategies.contains(.revalueAndSetElidable))
-        XCTAssertFalse(strategies.contains(.revalue))
-        XCTAssertFalse(strategies.contains(.rename))
+        XCTAssertTrue(strategies.contains(ConflictFixStrategy.revalueAndRename))
+        XCTAssertTrue(strategies.contains(ConflictFixStrategy.revalueAndSetElidable))
+        XCTAssertFalse(strategies.contains(ConflictFixStrategy.revalue))
+        XCTAssertFalse(strategies.contains(ConflictFixStrategy.rename))
     }
 
     func testThreeStopRevalueAndRenameNeedsFollowUp() {

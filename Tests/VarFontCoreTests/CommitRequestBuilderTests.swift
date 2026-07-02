@@ -28,14 +28,14 @@ final class CommitRequestBuilderTests: XCTestCase {
     func testIncludedKeysWhenExcluded() throws {
         var project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
         project.fonts[0].excludedInstanceKeys = [
-            "ital:0|opsz:5|wdth:88|wght:360",
+            "opsz:5|wdth:88|wght:360",
         ]
         let font = project.fonts[0]
         let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: romanFontID))
 
         let keys = CommitRequestBuilder.includedInstanceKeys(font: font, plan: plan)
         XCTAssertEqual(keys.count, plan.formula.totalIncluded)
-        XCTAssertFalse(keys.contains("ital:0|opsz:5|wdth:88|wght:360"))
+        XCTAssertFalse(keys.contains("opsz:5|wdth:88|wght:360"))
     }
 
     func testSuggestedOutputPathPreservesExtension() {

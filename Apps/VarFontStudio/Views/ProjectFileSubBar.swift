@@ -8,7 +8,10 @@ struct ProjectFileSubBar: View {
 
     var body: some View {
         Group {
-            if editor.hasOpenProjects, let project = editor.project, !project.fonts.isEmpty {
+            if editor.hasOpenProjects,
+               let project = editor.project,
+               let projectID = editor.activeProjectID,
+               !project.fonts.isEmpty {
                 HStack(spacing: StudioSpacing.controlGap) {
                     Text("FILE")
                         .font(StudioTypography.sectionLabel)
@@ -17,8 +20,23 @@ struct ProjectFileSubBar: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
                             ForEach(project.fonts) { font in
-                                fileChip(font)
+                                fileChip(font, projectID: projectID, projectFontCount: project.fonts.count)
                             }
+
+                            Color.clear
+                                .frame(width: 12, height: 1)
+                                .background {
+                                    GeometryReader { geometry in
+                                        Color.clear.preference(
+                                            key: FileChipFrameKey.self,
+                                            value: ["\(projectID):__end__": geometry.frame(in: .global)]
+                                        )
+                                    }
+                                }
+                        }
+                        .onPreferenceChange(FileChipFrameKey.self) { frames in
+                            guard !workspaceDrag.isActive else { return }
+                            editor.workspaceDrag.setFontChipFrames(frames)
                         }
                     }
                     .scrollDisabled(workspaceDrag.isActive)
@@ -29,35 +47,74 @@ struct ProjectFileSubBar: View {
         }
     }
 
-    private func fileChip(_ font: FontDocument) -> some View {
+    private func fileChip(_ font: FontDocument, projectID: String, projectFontCount: Int) -> some View {
         let isSelected = editor.selectedFontID == font.id
         let name = editor.fontBasename(for: font)
-        let projectID = editor.activeProjectID ?? ""
+        let isMaster = editor.isMasterFont(fontID: font.id, projectID: projectID)
 
         return WorkspaceDraggableContainer(
             item: .font(fontID: font.id, fromProjectID: projectID, label: name),
             isDragEnabled: editor.canDragFont(forProjectID: projectID),
-            helpText: "Drag to a project tab to move, or to the toolbar to start a new project",
+            helpText: "Drag onto another file to reorder, to a project tab to move, or to the toolbar to start a new project",
             onTap: {
                 editor.selectFont(id: font.id)
             }
         ) {
             StudioTabChip(isSelected: isSelected) {
-                Text(name)
-                    .font(StudioTypography.caption)
-                    .fontWeight(isSelected ? .semibold : .regular)
-                    .lineLimit(1)
-            } trailing: {
-                if let savedName = editor.savedOutputLabel(for: font) {
-                    Text("→")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.tertiary)
-                    Text(savedName)
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    if isMaster, projectFontCount > 1 {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(StudioColors.computedHighlight)
+                            .help("Master file — axis tree source for this project")
+                    }
+                    Text(name)
+                        .font(StudioTypography.caption)
+                        .fontWeight(isSelected ? .semibold : .regular)
                         .lineLimit(1)
                 }
+            } trailing: {
+                HStack(spacing: 4) {
+                    if let savedName = editor.savedOutputLabel(for: font) {
+                        Text("→")
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.tertiary)
+                        Text(savedName)
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    if projectFontCount > 1 {
+                        Button {
+                            editor.requestRemoveFont(projectID: projectID, fontID: font.id)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 14, height: 14)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove from project")
+                    }
+                }
             }
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: FileChipFrameKey.self,
+                    value: ["\(projectID):\(font.id)": geometry.frame(in: .global)]
+                )
+            }
+        }
+        .contextMenu {
+            ProjectFileContextMenu(
+                font: font,
+                projectID: projectID,
+                projectFontCount: projectFontCount
+            )
         }
     }
 }

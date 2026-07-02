@@ -42,7 +42,7 @@ final class SchemaDecodeTests: XCTestCase {
         let result = try FixtureLoader.decode(CommitResult.self, from: "commit-result-success.json")
         XCTAssertTrue(result.ok)
         XCTAssertEqual(result.summary?.instancesWritten, 8)
-        XCTAssertEqual(result.diff?.familyPsPrefix, "PlayfairVF")
+        XCTAssertEqual(result.diff?.familyPSPrefix, "PlayfairVF")
         XCTAssertEqual(result.diff?.nameRecordsPlanned.first?.string, "Bold")
         XCTAssertEqual(result.diff?.statValuesPlanned.first?.name, "Normal")
     }

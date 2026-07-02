@@ -71,6 +71,9 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
     /// Role inferred at import; used by Restore in the naming chain footer.
     public var roleInferred: AxisRole?
     public var values: [AxisValue]
+    public var referenceMapping: ReferenceMappingKind?
+    public var referenceMappingInferred: ReferenceMappingKind?
+    public var referenceAnchors: [ReferenceAnchor]
 
     public var id: String { tag }
 
@@ -80,6 +83,9 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         case min, `default`, max, role
         case roleInferred = "role_inferred"
         case values
+        case referenceMapping = "reference_mapping"
+        case referenceMappingInferred = "reference_mapping_inferred"
+        case referenceAnchors = "reference_anchors"
     }
 
     public init(
@@ -90,7 +96,10 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         max: Double? = nil,
         role: AxisRole = .instance,
         roleInferred: AxisRole? = nil,
-        values: [AxisValue] = []
+        values: [AxisValue] = [],
+        referenceMapping: ReferenceMappingKind? = nil,
+        referenceMappingInferred: ReferenceMappingKind? = nil,
+        referenceAnchors: [ReferenceAnchor] = []
     ) {
         self.tag = tag
         self.displayName = displayName
@@ -100,6 +109,9 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         self.role = role
         self.roleInferred = roleInferred
         self.values = values
+        self.referenceMapping = referenceMapping
+        self.referenceMappingInferred = referenceMappingInferred
+        self.referenceAnchors = referenceAnchors
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,13 +124,16 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         role = try c.decodeIfPresent(AxisRole.self, forKey: .role) ?? .instance
         roleInferred = try c.decodeIfPresent(AxisRole.self, forKey: .roleInferred)
         values = try c.decodeIfPresent([AxisValue].self, forKey: .values) ?? []
+        referenceMapping = try c.decodeIfPresent(ReferenceMappingKind.self, forKey: .referenceMapping)
+        referenceMappingInferred = try c.decodeIfPresent(ReferenceMappingKind.self, forKey: .referenceMappingInferred)
+        referenceAnchors = try c.decodeIfPresent([ReferenceAnchor].self, forKey: .referenceAnchors) ?? []
     }
 
     /// True when this axis exists only in STAT DesignAxisRecord (no fvar scale).
     public var isDesignRecordOnly: Bool { role == .designRecordOnly }
 
     /// True when fvar min/default/max apply to this axis.
-    public var hasFvarScale: Bool { !isDesignRecordOnly }
+    public var hasFvarScale: Bool { min != nil }
 }
 
 public struct NamingPolicy: Codable, Equatable, Sendable {
@@ -521,6 +536,11 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
 
 // MARK: - ProjectDocument
 
+public enum CoordinateDisplayMode: String, Codable, Sendable, CaseIterable {
+    case native
+    case reference
+}
+
 public struct ProjectDocument: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var created: Date?
@@ -531,6 +551,7 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
     public var naming: NamingPolicy
     public var template: ProjectTemplate
     public var fonts: [FontDocument]
+    public var coordinateDisplay: CoordinateDisplayMode
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -538,6 +559,7 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         case familyLabel = "family_label"
         case displayName = "display_name"
         case naming, template, fonts
+        case coordinateDisplay = "coordinate_display"
     }
 
     public init(
@@ -548,7 +570,8 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         displayName: String? = nil,
         naming: NamingPolicy,
         template: ProjectTemplate,
-        fonts: [FontDocument]
+        fonts: [FontDocument],
+        coordinateDisplay: CoordinateDisplayMode = .reference
     ) {
         self.schemaVersion = schemaVersion
         self.created = created
@@ -558,6 +581,7 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         self.naming = naming
         self.template = template
         self.fonts = fonts
+        self.coordinateDisplay = coordinateDisplay
     }
 
     public init(from decoder: Decoder) throws {
@@ -570,6 +594,7 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         naming = try c.decode(NamingPolicy.self, forKey: .naming)
         template = try c.decode(ProjectTemplate.self, forKey: .template)
         fonts = try c.decode([FontDocument].self, forKey: .fonts)
+        coordinateDisplay = try c.decodeIfPresent(CoordinateDisplayMode.self, forKey: .coordinateDisplay) ?? .reference
         migrateFileRolesIfNeeded()
     }
 
@@ -623,6 +648,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var includedInstanceKeys: [String]
     public var excludedInstanceKeys: [String]
     public var overrides: InstanceOverrides
+    /// Per-file resolved values on registration (`design_record_only`) axes.
+    public var fileStatRegistration: [String: Double]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -635,6 +662,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case includedInstanceKeys = "included_instance_keys"
         case excludedInstanceKeys = "excluded_instance_keys"
         case overrides
+        case fileStatRegistration = "file_stat_registration"
     }
 
     public init(
@@ -648,7 +676,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         options: CommitOptions = CommitOptions(),
         includedInstanceKeys: [String] = [],
         excludedInstanceKeys: [String] = [],
-        overrides: InstanceOverrides = InstanceOverrides()
+        overrides: InstanceOverrides = InstanceOverrides(),
+        fileStatRegistration: [String: Double] = [:]
     ) {
         self.id = id
         self.sourcePath = sourcePath
@@ -661,6 +690,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         self.includedInstanceKeys = includedInstanceKeys
         self.excludedInstanceKeys = excludedInstanceKeys
         self.overrides = overrides
+        self.fileStatRegistration = fileStatRegistration
     }
 
     public init(from decoder: Decoder) throws {
@@ -676,6 +706,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         includedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .includedInstanceKeys) ?? []
         excludedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .excludedInstanceKeys) ?? []
         overrides = try c.decodeIfPresent(InstanceOverrides.self, forKey: .overrides) ?? InstanceOverrides()
+        fileStatRegistration = try c.decodeIfPresent([String: Double].self, forKey: .fileStatRegistration) ?? [:]
     }
 }
 

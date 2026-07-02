@@ -121,8 +121,8 @@ private struct AxisTreeRail: View {
 }
 
 enum StudioPanelMetrics {
-    static let axisTreeMin: CGFloat = 220
-    static let axisTreeDefault: CGFloat = 260
+    static let axisTreeMin: CGFloat = 280
+    static let axisTreeDefault: CGFloat = 320
     static let axisTreeMax: CGFloat = 420
     static let axisTreeRailWidth: CGFloat = 44
     /// Unrotated width of `StudioSectionLabel("Axis tree")` — reserved as layout height after −90° rotation.

@@ -9,9 +9,9 @@
   },
   "instances": [
     {
-      "key": "ital:0|opsz:5|wdth:88|wght:360",
+      "key": "opsz:5|wdth:88|wght:360",
       "composed_name": "Micro SemiCond SemiLight",
-      "coords": { "opsz": 5, "wdth": 88, "wght": 360, "ital": 0 },
+      "coords": { "opsz": 5, "wdth": 88, "wght": 360 },
       "included": true,
       "duplicate": false,
       "naming_chain": [
@@ -21,9 +21,9 @@
       ]
     },
     {
-      "key": "ital:0|opsz:5|wdth:100|wght:400",
+      "key": "opsz:5|wdth:100|wght:400",
       "composed_name": "Micro",
-      "coords": { "opsz": 5, "wdth": 100, "wght": 400, "ital": 0 },
+      "coords": { "opsz": 5, "wdth": 100, "wght": 400 },
       "included": true,
       "duplicate": false,
       "naming_chain": [
@@ -33,9 +33,9 @@
       ]
     },
     {
-      "key": "ital:0|opsz:48|wdth:100|wght:700",
+      "key": "opsz:48|wdth:100|wght:700",
       "composed_name": "Display Bold",
-      "coords": { "opsz": 48, "wdth": 100, "wght": 700, "ital": 0 },
+      "coords": { "opsz": 48, "wdth": 100, "wght": 700 },
       "included": true,
       "duplicate": false,
       "naming_chain": [
@@ -50,6 +50,6 @@
     "family_ps_prefix": "PlayfairDisplayVF",
     "new_id_range": [280, 320],
     "instance_count": 27,
-    "note": "Truncated sample; full Playfair grid is 12×3×7=252 with complete axis stops from analysis fixture"
+    "note": "Truncated sample; full Playfair grid is 3×3×3=27 with complete axis stops from analysis fixture"
   }
 }

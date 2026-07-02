@@ -20,7 +20,8 @@ public enum NamingComposer {
         coords: [String: Double],
         axes: [AxisDefinition],
         naming: NamingPolicy,
-        fileRole: FileRole? = nil
+        fileRole: FileRole? = nil,
+        fileStatRegistration: [String: Double] = [:]
     ) -> (name: String, chain: [Link]) {
         let axisByTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
         var chain: [Link] = []
@@ -33,8 +34,26 @@ public enum NamingComposer {
                       !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     continue
                 }
+                if token == NamingPolicy.clarifierTokenSlope,
+                   fileStatRegistration["ital"] != nil,
+                   axisByTag["ital"]?.isDesignRecordOnly == true {
+                    continue
+                }
                 chain.append(Link(kind: .clarifier, tag: token, name: label, elided: false))
                 parts.append(label)
+                continue
+            }
+
+            if let axis = axisByTag[token], axis.isDesignRecordOnly {
+                guard let resolved = RegistrationAxisSupport.registrationStopName(
+                    tag: token,
+                    axes: axes,
+                    fileStatRegistration: fileStatRegistration
+                ) else { continue }
+                chain.append(Link(kind: .axis, tag: token, name: resolved.stop.name, elided: resolved.elided))
+                if !resolved.elided {
+                    parts.append(resolved.stop.name)
+                }
                 continue
             }
 

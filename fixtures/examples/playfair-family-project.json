@@ -53,6 +53,7 @@
       "included_instance_keys": [],
       "excluded_instance_keys": [],
       "overrides": { "per_instance": [] },
+      "file_stat_registration": { "ital": 0 },
       "axes": [
         {
           "tag": "opsz",
@@ -96,10 +97,8 @@
         {
           "tag": "ital",
           "display_name": "Italic",
-          "min": 0,
-          "default": 0,
-          "max": 1,
-          "role": "stat_only",
+          "role": "design_record_only",
+          "role_inferred": "design_record_only",
           "values": [
             { "id": "i0", "value": 0, "name": "Roman", "elidable": true, "stat_format": 3, "linked_value": 1 }
           ]
@@ -119,6 +118,7 @@
       "included_instance_keys": [],
       "excluded_instance_keys": [],
       "overrides": { "per_instance": [] },
+      "file_stat_registration": { "ital": 1 },
       "axes": [
         {
           "tag": "opsz",
@@ -162,10 +162,8 @@
         {
           "tag": "ital",
           "display_name": "Italic",
-          "min": 0,
-          "default": 1,
-          "max": 1,
-          "role": "stat_only",
+          "role": "design_record_only",
+          "role_inferred": "design_record_only",
           "values": [
             { "id": "i1", "value": 1, "name": "Italic", "elidable": false, "stat_format": 1 }
           ]

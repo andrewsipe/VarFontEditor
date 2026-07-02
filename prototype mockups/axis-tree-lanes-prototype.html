@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Axis Tree — Lane Redesign Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:       #f5f0e8;
+    --sf:       #ede7da;
+    --s2:       #e4ded2;
+    --s3:       #cec7b8;
+    --input-bg: #fffcf7;
+    --bd:       #cfc8ba;
+    --bd-dk:    #b8b0a0;
+    --tx:       #2b2926;
+    --mu:       #5a5449;
+    --label:    #3e3930;
+
+    --pr:       #6b50a0;
+    --pr-dk:    #513c82;
+    --on-pr:    #f5f0e8;
+    --tint-pr:  rgba(107,80,160,.10);
+    --tint-pr-b:rgba(107,80,160,.28);
+
+    --te:       #5b9ba4;
+    --te-dk:    #3f7880;
+    --tint-te:  rgba(91,155,164,.12);
+    --tint-te-b:rgba(91,155,164,.30);
+
+    --am:       #b86a1a;
+    --am-dk:    #8a4e10;
+    --tint-am:  rgba(184,106,26,.10);
+    --tint-am-b:rgba(184,106,26,.30);
+
+    --er:       #c96040;
+    --er-dk:    #a44a2e;
+    --tint-er:  rgba(201,96,64,.10);
+    --tint-er-b:rgba(201,96,64,.28);
+
+    --gn:       #4e8a6c;
+    --gn-dk:    #32634a;
+    --tint-gn:  rgba(78,138,108,.10);
+    --tint-gn-b:rgba(78,138,108,.28);
+
+    /* Lane accents */
+    --lane-variation:    var(--te);
+    --lane-variation-dk: var(--te-dk);
+    --lane-variation-t:  var(--tint-te);
+    --lane-variation-tb: var(--tint-te-b);
+
+    --lane-pinned:    #8b8578;
+    --lane-pinned-dk: #6b6558;
+    --lane-pinned-t:  rgba(139,133,120,.12);
+    --lane-pinned-tb: rgba(139,133,120,.28);
+
+    --lane-registration:    var(--pr);
+    --lane-registration-dk: var(--pr-dk);
+    --lane-registration-t:  var(--tint-pr);
+    --lane-registration-tb: var(--tint-pr-b);
+
+    --r-inp:  3px;
+    --r-ctrl: 4px;
+    --r-card: 6px;
+
+    --ui: 'IBM Plex Sans', system-ui, sans-serif;
+    --mo: 'IBM Plex Mono', ui-monospace, monospace;
+
+    --tree-w: 340px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--ui);
+    font-size: 13px;
+    color: var(--tx);
+    background: var(--bg);
+    line-height: 1.45;
+  }
+
+  .stage {
+    display: flex;
+    height: 100vh;
+    min-height: 640px;
+  }
+
+  /* ── Left: the panel itself ─────────────────────────────────── */
+  .panel-col {
+    width: var(--tree-w);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--sf);
+    border-right: 1px solid var(--bd);
+  }
+
+  .panel-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 10px; height: 32px; flex-shrink: 0;
+    background: var(--s2); border-bottom: 1px solid var(--bd);
+    font-size: 10px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--label);
+  }
+  .panel-head .count { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--mu); }
+
+  .summary-band {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--bd);
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 11px;
+  }
+  .summary-row { display: flex; align-items: baseline; gap: 6px; }
+  .summary-key { color: var(--mu); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; min-width: 78px; flex-shrink: 0; }
+  .summary-val { font-family: var(--mo); font-size: 11px; color: var(--tx); }
+  .summary-val .op { color: var(--am); }
+  .summary-val .total { color: var(--pr); font-weight: 600; }
+  .summary-val.fallback { font-family: var(--ui); font-weight: 500; }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 6px; }
+
+  .warnings-box {
+    margin: 0 4px 6px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .warning-line {
+    display: flex; gap: 6px; align-items: flex-start;
+    padding: 5px 8px; border-radius: var(--r-ctrl);
+    background: var(--tint-am); border: 1px solid var(--tint-am-b);
+    color: var(--am-dk); font-size: 10.5px; line-height: 1.4;
+  }
+  .warning-line.error {
+    background: var(--tint-er); border-color: var(--tint-er-b); color: var(--er-dk);
+  }
+  .warning-line .ic { flex-shrink: 0; }
+
+  /* ── Axis block ─────────────────────────────────────────────── */
+  .axis-block { margin-bottom: 2px; border-radius: var(--r-card); overflow: hidden; }
+
+  .axis-head {
+    display: flex; align-items: center; gap: 7px;
+    width: 100%; padding: 6px 7px;
+    border: none; background: transparent;
+    font: inherit; text-align: left; cursor: pointer;
+  }
+  .axis-head:hover { background: var(--s2); }
+
+  .chev { font-size: 8px; color: var(--mu); width: 9px; flex-shrink: 0; transition: transform .12s; }
+  .axis-head.collapsed .chev { transform: rotate(-90deg); }
+
+  .ax-tag {
+    font-family: var(--mo); font-size: 9px; font-weight: 500;
+    padding: 2px 5px; border-radius: var(--r-inp);
+    letter-spacing: .03em; flex-shrink: 0;
+  }
+  .ax-tag.lane-variation   { background: var(--lane-variation-t); border: 1px solid var(--lane-variation-tb); color: var(--lane-variation-dk); }
+  .ax-tag.lane-pinned      { background: var(--lane-pinned-t); border: 1px solid var(--lane-pinned-tb); color: var(--lane-pinned-dk); }
+  .ax-tag.lane-registration{ background: var(--lane-registration-t); border: 1px solid var(--lane-registration-tb); color: var(--lane-registration-dk); }
+
+  .ax-titles { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .ax-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ax-sub { font-size: 9.5px; color: var(--mu); font-family: var(--mo); white-space: nowrap; }
+
+  .ax-spacer { flex: 1; min-width: 4px; }
+
+  .lane-pill {
+    font-size: 8.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 999px; flex-shrink: 0; white-space: nowrap;
+  }
+  .lane-pill.lane-variation    { background: var(--lane-variation-t); color: var(--lane-variation-dk); }
+  .lane-pill.lane-pinned       { background: var(--lane-pinned-t); color: var(--lane-pinned-dk); }
+  .lane-pill.lane-registration { background: var(--lane-registration-t); color: var(--lane-registration-dk); }
+
+  .stop-count {
+    font-size: 9.5px; font-family: var(--mo); color: var(--mu);
+    padding: 1px 5px; background: var(--s2); border-radius: 999px; flex-shrink: 0;
+  }
+
+  .axis-detail { padding: 2px 8px 8px 24px; display: flex; flex-direction: column; gap: 6px; }
+
+  /* Controls row: instance-grid toggle / naming toggle */
+  .axis-controls { display: flex; align-items: center; gap: 10px; padding: 2px 0 4px; }
+  .ctrl-toggle {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10.5px; color: var(--mu); cursor: pointer; user-select: none;
+  }
+  .ctrl-toggle input { accent-color: var(--pr); width: 12px; height: 12px; cursor: pointer; }
+  .ctrl-toggle.disabled { opacity: .4; cursor: default; }
+  .ctrl-toggle.disabled input { cursor: default; }
+
+  /* Registration resolver line */
+  .resolver-line {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; margin-bottom: 2px;
+    background: var(--input-bg); border: 1px solid var(--bd);
+    border-radius: var(--r-ctrl); font-size: 11px;
+  }
+  .resolver-line.mismatch { background: var(--tint-er); border-color: var(--tint-er-b); }
+  .resolver-label { color: var(--mu); font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0; }
+  .resolver-val { font-weight: 600; color: var(--tx); font-family: var(--ui); }
+  .resolver-val .n { font-family: var(--mo); font-size: 10px; color: var(--am); font-weight: 400; }
+  .resolver-badge {
+    margin-left: auto; font-size: 9px; padding: 1px 5px; border-radius: 2px;
+    background: var(--tint-gn); color: var(--gn-dk); font-weight: 500;
+  }
+  .resolver-badge.mismatch { background: var(--tint-er-b); color: var(--er-dk); }
+
+  /* Column header row for stop table */
+  .stop-cols {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 6px; font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--mu);
+  }
+  .stop-cols .c-val { width: 46px; flex-shrink: 0; }
+  .stop-cols .c-name { flex: 1; }
+  .stop-cols .c-elide { width: 44px; flex-shrink: 0; text-align: right; }
+
+  /* Stop rows — format 1 */
+  .stop-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px; border-radius: var(--r-ctrl);
+    border: 1px solid transparent; cursor: pointer;
+  }
+  .stop-row:hover { background: var(--s2); }
+  .stop-row.selected { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+  .val-num { font-family: var(--mo); font-size: 10.5px; color: var(--am); width: 46px; flex-shrink: 0; }
+  .val-name { flex: 1; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .val-badges { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+  .badge {
+    font-size: 8.5px; padding: 1px 5px; border-radius: 2px; font-weight: 500; white-space: nowrap;
+  }
+  .badge.linked { background: var(--tint-pr); color: var(--pr-dk); }
+  .badge.sibling { background: var(--tint-te); color: var(--te-dk); }
+  .elide-chk { width: 44px; flex-shrink: 0; display: flex; justify-content: flex-end; }
+  .elide-chk input { accent-color: var(--pr); width: 13px; height: 13px; cursor: pointer; }
+
+  /* Format 2 — range row */
+  .stop-row.format2 { flex-direction: column; align-items: stretch; gap: 3px; cursor: default; }
+  .f2-top { display: flex; align-items: center; gap: 6px; }
+  .f2-range {
+    font-family: var(--mo); font-size: 10.5px; color: var(--mu);
+    padding-left: 52px; display: flex; align-items: center; gap: 5px;
+  }
+  .f2-range .mid { color: var(--am); font-weight: 500; }
+  .f2-nominal-toggle {
+    padding-left: 52px; display: flex; align-items: center; gap: 5px;
+    font-size: 10px; color: var(--mu);
+  }
+  .f2-nominal-toggle input { accent-color: var(--pr); width: 11px; height: 11px; cursor: pointer; }
+
+  /* Format 3 — linked row */
+  .stop-row.format3 .val-name { display: flex; align-items: center; gap: 5px; }
+  .link-arrow { color: var(--mu); font-size: 10px; }
+  .link-name { color: var(--mu); font-weight: 400; }
+  .f3-values { font-family: var(--mo); font-size: 9.5px; color: var(--mu); padding-left: 52px; margin-top: -2px; }
+  .f3-values .lv { color: var(--pr-dk); }
+
+  .empty-stops {
+    font-size: 11px; color: var(--mu); font-style: italic;
+    padding: 6px 6px;
+  }
+
+  .add-stop {
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 2px; padding: 4px 6px;
+    border: 1px dashed var(--bd); border-radius: var(--r-ctrl);
+    font-size: 10.5px; color: var(--mu); cursor: pointer; background: transparent;
+    width: fit-content;
+  }
+  .add-stop:hover { border-color: var(--pr); color: var(--pr); background: var(--tint-pr); }
+
+  /* Combination styles (format 4) section */
+  .combo-section {
+    margin: 8px 4px 2px; border: 1px solid var(--bd); border-radius: var(--r-card);
+    overflow: hidden; background: var(--input-bg);
+  }
+  .combo-head {
+    display: flex; align-items: center; gap: 7px;
+    width: 100%; padding: 6px 8px; border: none; background: var(--s2);
+    font: inherit; text-align: left; cursor: pointer;
+  }
+  .combo-head:hover { background: var(--s3); }
+  .combo-title { font-size: 11px; font-weight: 600; }
+  .combo-sub { font-size: 9.5px; color: var(--mu); margin-left: auto; }
+  .combo-list { padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 3px; }
+  .combo-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 6px; border-radius: var(--r-ctrl); font-size: 11.5px;
+  }
+  .combo-row:hover { background: var(--s2); }
+  .combo-name { font-weight: 500; min-width: 74px; }
+  .combo-coords { font-family: var(--mo); font-size: 10px; color: var(--mu); }
+
+  hr.axis-divider { border: none; border-top: 1px solid var(--bd); margin: 2px 4px; }
+
+  /* ── Right: controls / narration ───────────────────────────── */
+  .side {
+    flex: 1; padding: 22px 28px; overflow-y: auto; background: var(--bg);
+  }
+  .side h1 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .side .lede { font-size: 12px; color: var(--mu); margin-bottom: 18px; max-width: 520px; }
+
+  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .preset-btn {
+    font: inherit; font-size: 11.5px; padding: 6px 12px;
+    border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+    background: var(--input-bg); cursor: pointer; color: var(--mu);
+  }
+  .preset-btn:hover { border-color: var(--pr); color: var(--pr); }
+  .preset-btn.active { background: var(--pr); color: var(--on-pr); border-color: var(--pr-dk); }
+
+  .legend { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+  .legend-item { display: flex; gap: 10px; align-items: flex-start; }
+  .legend-swatch {
+    width: 10px; height: 10px; border-radius: 3px; margin-top: 3px; flex-shrink: 0;
+  }
+  .legend-item h3 { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .legend-item p { font-size: 11.5px; color: var(--mu); line-height: 1.5; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--bd-dk); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+
+<script>
+(() => {
+  /* ────────────────────────────────────────────────────────────
+     Fixture data — modeled on real analyses in your fixtures/
+     (playfair-roman-analysis.json) plus synthetic examples for
+     format 2 (Melange-style range), format 4 (Nouveau-style
+     combination presets), and a registration mismatch case
+     (Milgram-style) called out in the outline.
+  ──────────────────────────────────────────────────────────── */
+
+  const FILES = {
+    playfairRoman: {
+      label: 'Playfair Roman',
+      subtitle: 'PlayfairRomanVF.woff2',
+      elidedFallback: 'Regular',
+      gridFormula: { parts: [12, 3, 6], total: 216 },
+      warnings: [],
+      axes: [
+        {
+          tag: 'opsz', name: 'Optical size', lane: 'variation',
+          min: 5, default: 5, max: 1200, inGrid: true, namingOn: true,
+          stops: [
+            { format: 1, value: 5, name: 'Micro', elidable: false },
+            { format: 1, value: 6, name: 'Minuscule', elidable: false },
+            { format: 1, value: 7, name: 'Miniature', elidable: false },
+            { format: 1, value: 8, name: 'Caption', elidable: false },
+            { format: 1, value: 12, name: 'Pica', elidable: true },
+            { format: 1, value: 16, name: 'SubHead', elidable: false },
+            { format: 1, value: 21, name: 'Trumpet', elidable: false },
+            { format: 1, value: 32, name: 'Headline', elidable: false },
+            { format: 1, value: 48, name: 'Display', elidable: false },
+            { format: 1, value: 72, name: 'Titling', elidable: false },
+            { format: 1, value: 96, name: 'Hairline', elidable: false },
+            { format: 1, value: 1200, name: 'Needlepoint', elidable: false },
+          ],
+        },
+        {
+          tag: 'wdth', name: 'Width', lane: 'variation',
+          min: 88, default: 88, max: 113, inGrid: true, namingOn: true,
+          stops: [
+            { format: 1, value: 88, name: 'SemiCond', elidable: false },
+            { format: 1, value: 100, name: 'Normal', elidable: true },
+            { format: 1, value: 113, name: 'SemiExp', elidable: false },
+          ],
+        },
+        {
+          tag: 'wght', name: 'Weight', lane: 'variation',
+          min: 360, default: 360, max: 900, inGrid: true, namingOn: true,
+          stops: [
+            { format: 1, value: 360, name: 'SemiLight', elidable: false },
+            { format: 3, value: 400, name: 'Regular', elidable: true, linkedValue: 700, linkedName: 'Bold' },
+            { format: 1, value: 500, name: 'Medium', elidable: false },
+            { format: 1, value: 600, name: 'SemiBold', elidable: false },
+            { format: 1, value: 700, name: 'Bold', elidable: false },
+            { format: 1, value: 800, name: 'ExBold', elidable: false },
+            { format: 1, value: 900, name: 'Black', elidable: false },
+          ],
+        },
+        {
+          tag: 'GRAD', name: 'Grade', lane: 'pinned',
+          min: -50, default: 0, max: 50, inGrid: false, namingOn: false,
+          stops: [
+            { format: 1, value: 0, name: 'Grade 0', elidable: true },
+          ],
+        },
+        {
+          tag: 'ital', name: 'Italic', lane: 'registration', namingOn: true,
+          resolved: { value: 0, name: 'Roman', mismatch: false },
+          stops: [
+            { format: 3, value: 0, name: 'Roman', elidable: true, linkedValue: 1, linkedName: 'Italic' },
+          ],
+        },
+      ],
+      comboStyles: [],
+    },
+
+    melangeCondensed: {
+      label: 'Melange Condensed',
+      subtitle: 'MelangeVF.ttf — format 2 ranges',
+      elidedFallback: 'Regular',
+      gridFormula: { parts: [1, 5], total: 5 },
+      warnings: [
+        { level: 'warn', text: 'wdth: nominal 75.0 sits inside range but is not included in the instance grid — enable “Include nominal” below to generate that instance.' },
+      ],
+      axes: [
+        {
+          tag: 'wdth', name: 'Width', lane: 'variation',
+          min: 62, default: 100, max: 106, inGrid: true, namingOn: true,
+          stops: [
+            { format: 2, name: 'Condensed', rangeMin: 62, nominal: 75, rangeMax: 87, includeNominal: false, olderSibling: true },
+            { format: 2, name: 'Normal', rangeMin: 87, nominal: 100, rangeMax: 106, includeNominal: true, elidable: true },
+          ],
+        },
+        {
+          tag: 'wght', name: 'Weight', lane: 'variation',
+          min: 300, default: 400, max: 700, inGrid: true, namingOn: true,
+          stops: [
+            { format: 1, value: 300, name: 'Light', elidable: false },
+            { format: 1, value: 400, name: 'Regular', elidable: true },
+            { format: 1, value: 700, name: 'Bold', elidable: false },
+          ],
+        },
+      ],
+      comboStyles: [],
+    },
+
+    nouveauRegular: {
+      label: 'Nouveau Regular',
+      subtitle: 'NouveauVF.ttf — format 4 combination styles',
+      elidedFallback: 'Regular',
+      gridFormula: { parts: [4, 4], total: 16 },
+      warnings: [
+        { level: 'info', text: 'TRM1 and TRM2 are custom axes with no independent STAT names — their combinations are named via 2 format 4 presets below.' },
+      ],
+      axes: [
+        {
+          tag: 'wght', name: 'Weight', lane: 'variation',
+          min: 300, default: 400, max: 900, inGrid: true, namingOn: true,
+          stops: [
+            { format: 1, value: 300, name: 'Light', elidable: false },
+            { format: 1, value: 400, name: 'Regular', elidable: true },
+            { format: 1, value: 700, name: 'Bold', elidable: false },
+            { format: 1, value: 900, name: 'Black', elidable: false },
+          ],
+        },
+        {
+          tag: 'TRM1', name: 'Trim 1', lane: 'pinned',
+          min: 0, default: 0, max: 1000, inGrid: false, namingOn: false,
+          stops: [],
+        },
+        {
+          tag: 'TRM2', name: 'Trim 2', lane: 'pinned',
+          min: 0, default: 0, max: 1000, inGrid: false, namingOn: false,
+          stops: [],
+        },
+      ],
+      comboStyles: [
+        { name: 'Florid', coords: { TRM1: 250, TRM2: 1000 } },
+        { name: 'Ornate', coords: { TRM1: 750, TRM2: 250 } },
+      ],
+    },
+
+    milgramRoman: {
+      label: 'Milgram Roman',
+      subtitle: 'MilgramRoman.ttf — registration mismatch',
+      elidedFallback: 'Regular',
+      gridFormula: { parts: [6], total: 6 },
+      warnings: [
+        { level: 'error', text: 'ital: this file resolves to Italic (1) from its STAT stop, but the filename and post italic angle both indicate an upright (Roman) style. Likely should be 0, or the file should carry a format 3 pair.' },
+      ],
+      axes: [
+        {
+          tag: 'wght', name: 'Weight', lane: 'variation',
+          min: 400, default: 400, max: 900, inGrid: true, namingOn: true,
+          stops: [
+            { format: 1, value: 400, name: 'Regular', elidable: true },
+            { format: 1, value: 700, name: 'Bold', elidable: false },
+          ],
+        },
+        {
+          tag: 'ital', name: 'Italic', lane: 'registration', namingOn: true,
+          resolved: { value: 1, name: 'Italic', mismatch: true },
+          stops: [
+            { format: 1, value: 1, name: 'Italic', elidable: false },
+          ],
+        },
+      ],
+      comboStyles: [],
+    },
+  };
+
+  const LANE_LABEL = { variation: 'Variation', pinned: 'Pinned', registration: 'Registration' };
+
+  const state = {
+    fileKey: 'playfairRoman',
+    expanded: new Set(['opsz', 'wdth', 'wght', 'ital']),
+    selectedStop: null,
+    comboOpen: false,
+  };
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function fmt(n) {
+    if (n === null || n === undefined) return '';
+    if (Number.isInteger(n)) return String(n);
+    return String(n).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  function currentFile() { return FILES[state.fileKey]; }
+
+  function axisRangeText(axis) {
+    if (axis.min == null || axis.max == null) return 'No fvar scale';
+    if (axis.default != null) return `${fmt(axis.min)} – ${fmt(axis.default)} – ${fmt(axis.max)}`;
+    return `${fmt(axis.min)} – ${fmt(axis.max)}`;
+  }
+
+  function renderStopRow(axis, stop, idx) {
+    const key = `${axis.tag}:${idx}`;
+    const selected = state.selectedStop === key;
+    const isRegistration = axis.lane === 'registration';
+
+    if (stop.format === 2) {
+      return `
+        <div class="stop-row format2" data-key="${key}">
+          <div class="f2-top">
+            <span class="val-num">${fmt(stop.rangeMin)}–${fmt(stop.rangeMax)}</span>
+            <span class="val-name">${esc(stop.name)}</span>
+            <div class="val-badges">
+              ${stop.olderSibling ? '<span class="badge sibling">Sibling default</span>' : ''}
+            </div>
+            <div class="elide-chk">
+              <input type="checkbox" ${stop.elidable ? 'checked' : ''} data-action="toggle-elide" data-key="${key}" />
+            </div>
+          </div>
+          <div class="f2-range">min ${fmt(stop.rangeMin)} · nominal <span class="mid">${fmt(stop.nominal)}</span> · max ${fmt(stop.rangeMax)}</div>
+          <label class="f2-nominal-toggle">
+            <input type="checkbox" ${stop.includeNominal ? 'checked' : ''} data-action="toggle-nominal" data-key="${key}" />
+            Include nominal in instance grid
+          </label>
+        </div>`;
+    }
+
+    if (stop.format === 3) {
+      return `
+        <div class="stop-row format3 ${selected ? 'selected' : ''}" data-key="${key}" data-action="select-stop">
+          <span class="val-num">${fmt(stop.value)}</span>
+          <span class="val-name">${esc(stop.name)} <span class="link-arrow">↔</span> <span class="link-name">${esc(stop.linkedName)}</span></span>
+          <div class="val-badges"><span class="badge linked">Linked</span></div>
+          <div class="elide-chk">
+            <input type="checkbox" ${stop.elidable ? 'checked' : ''} data-action="toggle-elide" data-key="${key}" title="Elidable applies to the primary name only" />
+          </div>
+        </div>
+        <div class="f3-values">${fmt(stop.value)} · linked <span class="lv">${fmt(stop.linkedValue)}</span></div>`;
+    }
+
+    // format 1 (default)
+    return `
+      <div class="stop-row ${selected ? 'selected' : ''}" data-key="${key}" data-action="select-stop">
+        <span class="val-num">${fmt(stop.value)}</span>
+        <span class="val-name">${esc(stop.name)}</span>
+        <div class="val-badges"></div>
+        <div class="elide-chk">
+          <input type="checkbox" ${stop.elidable ? 'checked' : ''} data-action="toggle-elide" data-key="${key}" />
+        </div>
+      </div>`;
+  }
+
+  function renderAxis(axis) {
+    const expanded = state.expanded.has(axis.tag);
+    const lane = axis.lane;
+    const valueColLabel = lane === 'registration' ? 'STAT' : 'Value';
+
+    let controlsHtml = '';
+    if (lane !== 'registration') {
+      controlsHtml += `
+        <label class="ctrl-toggle">
+          <input type="checkbox" ${axis.inGrid ? 'checked' : ''} data-action="toggle-grid" data-tag="${axis.tag}" />
+          Instance grid
+        </label>`;
+    }
+    const namingDisabled = lane === 'variation'; // variation axes always contribute via grid, toggle is for pinned/registration relevance
+    controlsHtml += `
+      <label class="ctrl-toggle ${lane === 'registration' ? 'disabled' : ''}">
+        <input type="checkbox" ${axis.namingOn ? 'checked' : ''} ${lane === 'registration' ? 'disabled' : ''} data-action="toggle-naming" data-tag="${axis.tag}" />
+        Naming registration
+      </label>`;
+
+    let resolverHtml = '';
+    if (lane === 'registration' && axis.resolved) {
+      const mismatch = axis.resolved.mismatch;
+      resolverHtml = `
+        <div class="resolver-line ${mismatch ? 'mismatch' : ''}">
+          <span class="resolver-label">This file →</span>
+          <span class="resolver-val">${esc(axis.resolved.name)} <span class="n">(${fmt(axis.resolved.value)})</span></span>
+          <span class="resolver-badge ${mismatch ? 'mismatch' : ''}">${mismatch ? 'Mismatch' : 'Resolved'}</span>
+        </div>`;
+    }
+
+    const stopsHtml = axis.stops.length
+      ? `
+        <div class="stop-cols">
+          <span class="c-val">${valueColLabel}</span>
+          <span class="c-name">Name</span>
+          <span class="c-elide">Elidable</span>
+        </div>
+        ${axis.stops.map((s, i) => renderStopRow(axis, s, i)).join('')}
+      `
+      : `<div class="empty-stops">No STAT stops on this axis</div>`;
+
+    const addStopHtml = lane === 'variation'
+      ? `<button class="add-stop" data-action="add-stop" data-tag="${axis.tag}"><span style="font-size:13px;line-height:1">+</span> Add stop</button>`
+      : '';
+
+    return `
+      <div class="axis-block">
+        <button type="button" class="axis-head ${expanded ? '' : 'collapsed'}" data-action="toggle-axis" data-tag="${axis.tag}">
+          <span class="chev">▼</span>
+          <span class="ax-tag lane-${lane}">${esc(axis.tag)}</span>
+          <div class="ax-titles">
+            <span class="ax-name">${esc(axis.name)}</span>
+            <span class="ax-sub">${esc(axisRangeText(axis))}</span>
+          </div>
+          <div class="ax-spacer"></div>
+          <span class="lane-pill lane-${lane}">${LANE_LABEL[lane]}</span>
+          <span class="stop-count">${axis.stops.length}</span>
+        </button>
+        ${expanded ? `
+          <div class="axis-detail">
+            <div class="axis-controls">${controlsHtml}</div>
+            ${resolverHtml}
+            ${stopsHtml}
+            ${addStopHtml}
+          </div>
+        ` : ''}
+      </div>
+      <hr class="axis-divider" />`;
+  }
+
+  function renderComboSection(file) {
+    if (!file.comboStyles.length) return '';
+    return `
+      <div class="combo-section">
+        <button type="button" class="combo-head" data-action="toggle-combo">
+          <span class="chev" style="transform:${state.comboOpen ? 'none' : 'rotate(-90deg)'}">▼</span>
+          <span class="combo-title">Combination styles</span>
+          <span class="combo-sub">${file.comboStyles.length} preset${file.comboStyles.length !== 1 ? 's' : ''} · format 4</span>
+        </button>
+        ${state.comboOpen ? `
+          <div class="combo-list">
+            ${file.comboStyles.map(c => `
+              <div class="combo-row">
+                <span class="combo-name">${esc(c.name)}</span>
+                <span class="combo-coords">${Object.entries(c.coords).map(([t, v]) => `${t}=${fmt(v)}`).join(' ')}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>`;
+  }
+
+  function renderWarnings(file) {
+    if (!file.warnings.length) return '';
+    return `
+      <div class="warnings-box">
+        ${file.warnings.map(w => `
+          <div class="warning-line ${w.level === 'error' ? 'error' : ''}">
+            <span class="ic">${w.level === 'error' ? '✕' : '⚠'}</span>
+            <span>${esc(w.text)}</span>
+          </div>
+        `).join('')}
+      </div>`;
+  }
+
+  function renderPanel() {
+    const file = currentFile();
+    const partsStr = file.gridFormula.parts.join(' <span class="op">×</span> ');
+    return `
+      <div class="panel-col">
+        <div class="panel-head">Axis Tree <span class="count">${file.axes.length} axes</span></div>
+        <div class="summary-band">
+          <div class="summary-row">
+            <span class="summary-key">Instance grid</span>
+            <span class="summary-val">${partsStr} <span class="op">=</span> <span class="total">${file.gridFormula.total}</span></span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-key">Elided fallback</span>
+            <span class="summary-val fallback">${esc(file.elidedFallback)}</span>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${renderWarnings(file)}
+          ${file.axes.map(renderAxis).join('')}
+          ${renderComboSection(file)}
+        </div>
+      </div>`;
+  }
+
+  function renderSide() {
+    return `
+      <div class="side">
+        <h1>Axis Tree — lane redesign</h1>
+        <p class="lede">
+          One tree, one stop-row spine — row content and axis chrome now adapt to which of the
+          three lanes an axis belongs to, instead of a single misleading "STAT only" toggle.
+          Switch between fixture files to see how each lane and STAT format renders.
+        </p>
+        <div class="preset-row">
+          ${Object.entries(FILES).map(([key, f]) => `
+            <button class="preset-btn ${state.fileKey === key ? 'active' : ''}" data-action="switch-file" data-key="${key}">
+              ${esc(f.label)}
+            </button>
+          `).join('')}
+        </div>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:var(--lane-variation)"></span>
+            <div><h3>Variation</h3><p>In fvar and in the instance grid. Value column shows the fvar coordinate; stops are editable within range. Drives instance generation.</p></div>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:var(--lane-pinned)"></span>
+            <div><h3>Pinned</h3><p>In fvar but excluded from the grid — every generated instance uses this axis's default. STAT labels still apply if present.</p></div>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:var(--lane-registration)"></span>
+            <div><h3>Registration</h3><p>No fvar scale. Column header reads "STAT" instead of "Value." Each file resolves to one stop on this axis — shown in the resolver line, with a mismatch flag when the resolved value disagrees with other signals (filename, italic angle).</p></div>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:var(--pr)"></span>
+            <div><h3>Format 3 — linked</h3><p>Rendered as <em>Name ↔ LinkedName</em> on one row with a "Linked" badge, replacing the old ambiguous "Bold" column. Elidable applies to the primary name only.</p></div>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:var(--am)"></span>
+            <div><h3>Format 2 — range</h3><p>One row, name on top, min–nominal–max on a compact second line, with an explicit toggle for whether the nominal value should generate an instance.</p></div>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:var(--mu)"></span>
+            <div><h3>Format 4 — combination</h3><p>Not shoehorned into any single axis. Collapsed "Combination styles" section at the bottom of the tree, scoped to only appear when presets exist.</p></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    document.getElementById('stage').innerHTML = renderPanel() + renderSide();
+    bind();
+  }
+
+  function bind() {
+    document.querySelectorAll('[data-action="switch-file"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.fileKey = btn.dataset.key;
+        const f = currentFile();
+        state.expanded = new Set(f.axes.filter(a => a.lane !== 'pinned' || a.stops.length).map(a => a.tag));
+        state.selectedStop = null;
+        state.comboOpen = false;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-axis"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        if (e.target.closest('input')) return;
+        const tag = btn.dataset.tag;
+        if (state.expanded.has(tag)) state.expanded.delete(tag);
+        else state.expanded.add(tag);
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-grid"]').forEach(cb => {
+      cb.addEventListener('click', e => e.stopPropagation());
+      cb.addEventListener('change', () => {
+        const axis = currentFile().axes.find(a => a.tag === cb.dataset.tag);
+        if (axis) axis.inGrid = cb.checked;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-naming"]').forEach(cb => {
+      cb.addEventListener('click', e => e.stopPropagation());
+      cb.addEventListener('change', () => {
+        const axis = currentFile().axes.find(a => a.tag === cb.dataset.tag);
+        if (axis) axis.namingOn = cb.checked;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="select-stop"]').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.closest('input')) return;
+        const key = row.dataset.key;
+        state.selectedStop = state.selectedStop === key ? null : key;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-elide"]').forEach(cb => {
+      cb.addEventListener('click', e => e.stopPropagation());
+      cb.addEventListener('change', () => {
+        const [tag, idx] = cb.dataset.key.split(':');
+        const axis = currentFile().axes.find(a => a.tag === tag);
+        if (axis) axis.stops[+idx].elidable = cb.checked;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-nominal"]').forEach(cb => {
+      cb.addEventListener('click', e => e.stopPropagation());
+      cb.addEventListener('change', () => {
+        const [tag, idx] = cb.dataset.key.split(':');
+        const axis = currentFile().axes.find(a => a.tag === tag);
+        if (axis) axis.stops[+idx].includeNominal = cb.checked;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-combo"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.comboOpen = !state.comboOpen;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="add-stop"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const axis = currentFile().axes.find(a => a.tag === btn.dataset.tag);
+        if (!axis) return;
+        const v = prompt(`New stop value for ${axis.name} (${axis.min}–${axis.max}):`);
+        if (!v || isNaN(Number(v))) return;
+        const n = prompt('Name for this stop:');
+        if (!n) return;
+        axis.stops.push({ format: 1, value: Number(v), name: n.trim(), elidable: false });
+        axis.stops.sort((a, b) => (a.value ?? 0) - (b.value ?? 0));
+        render();
+      });
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

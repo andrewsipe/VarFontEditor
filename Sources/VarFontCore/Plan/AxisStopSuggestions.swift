@@ -19,6 +19,17 @@ public enum AxisStopSuggestions {
             candidate >= minV - 0.0001 && candidate <= maxV + 0.0001
         }
 
+        if (axis.referenceMapping ?? .identity) != .identity,
+           let reference = AxisReferenceMapping.nextCanonicalReferenceStop(
+               for: axis,
+               excluding: existing
+           ) {
+            let native = AxisReferenceMapping.referenceToNative(reference, axis: axis)
+            if inRange(native), !isTaken(native) {
+                return AxisCoordinateFormat.canonical(native)
+            }
+        }
+
         if existing.isEmpty {
             let seed = axis.default ?? minV
             if !isTaken(seed), inRange(seed) { return seed }

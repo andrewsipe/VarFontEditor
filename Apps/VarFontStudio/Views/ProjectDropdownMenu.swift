@@ -254,11 +254,19 @@ private struct ProjectMenuFileRow: View {
                 }
             ) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(name)
-                        .font(StudioTypography.bodyMedium)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        if editor.isMasterFont(fontID: font.id, projectID: openProject.id),
+                           openProject.document.fonts.count > 1 {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(StudioColors.computedHighlight)
+                        }
+                        Text(name)
+                            .font(StudioTypography.bodyMedium)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    }
 
                     Text(editor.shortenedPath(font.sourcePath))
                         .font(StudioTypography.monoMeta)
@@ -282,44 +290,24 @@ private struct ProjectMenuFileRow: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         .onHover { isHovered = $0 }
+        .contextMenu {
+            ProjectFileContextMenu(
+                font: font,
+                projectID: openProject.id,
+                projectFontCount: openProject.document.fonts.count,
+                onDismiss: onDismiss
+            )
+        }
     }
 
     private var fileActionsMenu: some View {
         StudioToolbarIconMenu {
-            Button {
-                editor.activateProject(id: openProject.id)
-                editor.selectFont(id: font.id)
-                editor.revealFontInFinder(fontID: font.id, projectID: openProject.id)
-            } label: {
-                Label("Reveal in Finder", systemImage: "arrow.up.forward.app")
-            }
-
-            if editor.openProjects.count > 1 {
-                Button {
-                    onDismiss()
-                    editor.presentMoveFontPicker(fontID: font.id, fromProjectID: openProject.id)
-                } label: {
-                    Label("Move to…", systemImage: "arrow.right.circle")
-                }
-            }
-
-            if openProject.document.fonts.count > 1 {
-                Button {
-                    onDismiss()
-                    editor.requestSplitFontToNewProject(fontID: font.id, fromProjectID: openProject.id)
-                } label: {
-                    Label("Move to new project…", systemImage: "arrow.up.right.square")
-                }
-            }
-
-            Divider()
-
-            Button(role: .destructive) {
-                onDismiss()
-                editor.requestRemoveFont(projectID: openProject.id, fontID: font.id)
-            } label: {
-                Label("Remove", systemImage: "minus.circle")
-            }
+            ProjectFileContextMenu(
+                font: font,
+                projectID: openProject.id,
+                projectFontCount: openProject.document.fonts.count,
+                onDismiss: onDismiss
+            )
         }
     }
 }

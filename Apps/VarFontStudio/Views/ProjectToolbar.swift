@@ -17,6 +17,17 @@ struct ProjectMenuTabRectKey: PreferenceKey {
     }
 }
 
+struct ProjectMenuSizePreferenceKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
+    }
+}
+
 struct ProjectToolbar: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
@@ -106,41 +117,39 @@ private struct ProjectTabChip: View {
     }
 
     var body: some View {
-        WorkspaceDraggableContainer(
-            item: .project(projectID: openProject.id, label: tabLabel),
-            isDragEnabled: editor.canDragProjectForCombine,
-            helpText: "Drag to another project tab to combine projects",
-            onBegin: { openMenuProjectID = nil },
-            onTap: {
-                if isActive && isOpen {
-                    openMenuProjectID = nil
-                } else {
-                    editor.activateProject(id: openProject.id)
-                    openMenuProjectID = openProject.id
-                }
-            }
+        StudioTabChip(
+            isSelected: isActive || isOpen,
+            isHighlighted: isHoverTarget,
+            shape: .roundedRect
         ) {
-            StudioTabChip(
-                isSelected: isActive || isOpen,
-                isHighlighted: isHoverTarget,
-                shape: .roundedRect
+            WorkspaceDraggableContainer(
+                item: .project(projectID: openProject.id, label: tabLabel),
+                isDragEnabled: editor.canDragProjectForCombine,
+                helpText: "Drag to another project tab to combine projects",
+                onBegin: { openMenuProjectID = nil }
             ) {
                 Text(tabLabel)
                     .font(StudioTypography.caption)
                     .fontWeight(.semibold)
                     .lineLimit(1)
                     .frame(maxWidth: 160, alignment: .leading)
-            } trailing: {
-                Text("\(openProject.document.fonts.count)")
-                    .font(StudioTypography.monoMeta)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(.quaternary.opacity(0.5), in: Capsule())
-
-                Image(systemName: "chevron.down")
-                    .font(StudioTypography.iconGlyph)
-                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+                    .gesture(tabActivationGesture)
             }
+        } trailing: {
+            Text("\(openProject.document.fonts.count)")
+                .font(StudioTypography.monoMeta)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(.quaternary.opacity(0.5), in: Capsule())
+
+            Button {
+                toggleProjectMenu()
+            } label: {
+                StudioSquareDisclosureChevron(isExpanded: isOpen)
+            }
+            .buttonStyle(.plain)
+            .help(isOpen ? "Close project menu" : "Open project menu")
         }
         .background {
             GeometryReader { geometry in
@@ -152,6 +161,27 @@ private struct ProjectTabChip: View {
         }
         .anchorPreference(key: ProjectTabAnchorKey.self, value: .bounds) { anchor in
             [openProject.id: anchor]
+        }
+    }
+
+    private var tabActivationGesture: some Gesture {
+        TapGesture(count: 2)
+            .onEnded { toggleProjectMenu() }
+            .exclusively(before: TapGesture(count: 1).onEnded { activateProjectOnly() })
+    }
+
+    private func activateProjectOnly() {
+        guard !isActive else { return }
+        openMenuProjectID = nil
+        editor.activateProject(id: openProject.id)
+    }
+
+    private func toggleProjectMenu() {
+        editor.activateProject(id: openProject.id)
+        if isOpen {
+            openMenuProjectID = nil
+        } else {
+            openMenuProjectID = openProject.id
         }
     }
 }

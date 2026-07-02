@@ -47,7 +47,7 @@ public enum ProjectImporter {
 
   public static func axisDefinition(from axis: FontAnalysis.AnalyzedAxis) -> AxisDefinition {
     let isDesignRecordOnly = axis.roleInferred == .designRecordOnly
-    return AxisDefinition(
+    var definition = AxisDefinition(
       tag: axis.tag,
       displayName: axis.displayName,
       min: isDesignRecordOnly ? nil : axis.min,
@@ -68,6 +68,16 @@ public enum ProjectImporter {
         )
       }
     )
+    let inferredMapping = AxisReferenceMapping.inferKind(for: definition)
+    definition.referenceMappingInferred = inferredMapping
+    definition.referenceMapping = inferredMapping
+    definition.referenceAnchors = AxisReferenceMapping.inferAnchors(for: definition)
+    if !AxisLadderAlignment.supportsAlignment(definition.tag) {
+      definition.referenceMapping = .identity
+      definition.referenceMappingInferred = .identity
+      definition.referenceAnchors = []
+    }
+    return definition
   }
 
   private static func fontDocument(
@@ -112,7 +122,8 @@ public enum ProjectImporter {
       options: CommitOptions(familyPSPrefix: analysis.source.familyPSPrefix),
       includedInstanceKeys: [],
       excludedInstanceKeys: [],
-      overrides: InstanceOverrides()
+      overrides: InstanceOverrides(),
+      fileStatRegistration: RegistrationAxisSupport.inferFileStatRegistration(axes: axes)
     )
   }
 

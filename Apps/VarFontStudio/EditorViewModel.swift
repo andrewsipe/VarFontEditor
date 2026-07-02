@@ -353,13 +353,21 @@ final class EditorViewModel: ObservableObject {
         guard let target else { return }
 
         switch (item, target) {
+        case let (.font(fontID, fromProjectID, _), .reorderFont(projectID, beforeFontID)):
+            guard fromProjectID == projectID else { return }
+            reorderFont(draggedID: fontID, before: beforeFontID, projectID: projectID)
+        case let (.font(fontID, fromProjectID, _), .reorderFontEnd(projectID)):
+            guard fromProjectID == projectID else { return }
+            moveFontToEnd(draggedID: fontID, projectID: projectID)
         case let (.font(fontID, fromProjectID, _), .project(targetID)):
             requestMoveFont(fontID: fontID, fromProjectID: fromProjectID, toProjectID: targetID)
         case let (.font(fontID, fromProjectID, _), .newProject):
             requestSplitFontToNewProject(fontID: fontID, fromProjectID: fromProjectID)
         case let (.project(sourceID, _), .project(targetID)):
             requestCombineProjects(sourceID: sourceID, intoTargetID: targetID)
-        case (.project, .newProject):
+        case (.project, .newProject),
+             (.project, .reorderFont),
+             (.project, .reorderFontEnd):
             break
         }
     }
@@ -1379,6 +1387,7 @@ final class EditorViewModel: ObservableObject {
 
     func removeFont(id fontID: String, fromProjectID projectID: String) {
         guard let pIdx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        let removedWasMaster = masterFontID(for: projectID) == fontID
         openProjects[pIdx].document.fonts.removeAll { $0.id == fontID }
         removeSourceBookmark(fontID: fontID)
 
@@ -1386,6 +1395,10 @@ final class EditorViewModel: ObservableObject {
             closeProject(id: projectID, force: true)
             postStatusMessage("Project closed — no files remaining")
             return
+        }
+
+        if removedWasMaster {
+            promoteFirstFontToMaster(projectIndex: pIdx)
         }
 
         if openProjects[pIdx].selectedFontID == fontID {
@@ -1397,6 +1410,47 @@ final class EditorViewModel: ObservableObject {
         refreshCanSave()
         regeneratePlan()
         postStatusMessage("Removed font from project")
+    }
+
+    func isMasterFont(fontID: String, projectID: String) -> Bool {
+        masterFontID(for: projectID) == fontID
+    }
+
+    func reorderFont(draggedID: String, before anchorID: String, projectID: String) {
+        guard draggedID != anchorID,
+              let pIdx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        var fonts = openProjects[pIdx].document.fonts
+        guard let fromIndex = fonts.firstIndex(where: { $0.id == draggedID }),
+              let anchorIndex = fonts.firstIndex(where: { $0.id == anchorID }) else { return }
+        let insertIndex = fromIndex < anchorIndex ? anchorIndex - 1 : anchorIndex
+        guard fromIndex != insertIndex else { return }
+
+        pushUndoSnapshot()
+        let item = fonts.remove(at: fromIndex)
+        fonts.insert(item, at: insertIndex)
+        openProjects[pIdx].document.fonts = fonts
+        openProjects[pIdx].document.modified = Date()
+        promoteFirstFontToMaster(projectIndex: pIdx)
+        publishOpenProjects()
+        refreshCanSave()
+        regeneratePlan()
+    }
+
+    func moveFontToEnd(draggedID: String, projectID: String) {
+        guard let pIdx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        var fonts = openProjects[pIdx].document.fonts
+        guard let fromIndex = fonts.firstIndex(where: { $0.id == draggedID }),
+              fromIndex < fonts.count - 1 else { return }
+
+        pushUndoSnapshot()
+        let item = fonts.remove(at: fromIndex)
+        fonts.append(item)
+        openProjects[pIdx].document.fonts = fonts
+        openProjects[pIdx].document.modified = Date()
+        promoteFirstFontToMaster(projectIndex: pIdx)
+        publishOpenProjects()
+        refreshCanSave()
+        regeneratePlan()
     }
 
     func presentMoveFontPicker(fontID: String, fromProjectID: String) {
@@ -1912,21 +1966,31 @@ final class EditorViewModel: ObservableObject {
     func setFontAsMaster(fontID: String) {
         guard var project else { return }
         pushUndoSnapshot()
-        for index in project.fonts.indices {
-            if project.fonts[index].id == fontID {
-                project.fonts[index].fileRole = .master()
-            } else {
-                var role = project.fonts[index].fileRole ?? .variant(masterFontID: fontID)
-                role.kind = .variant
-                role.masterFontID = fontID
-                project.fonts[index].fileRole = role
-            }
-            project.fonts[index].dirty = true
-        }
+        applyMasterFont(fontID: fontID, to: &project)
         project.modified = Date()
         self.project = project
         canSave = true
         regeneratePlan()
+    }
+
+    private func promoteFirstFontToMaster(projectIndex: Int) {
+        guard let firstID = openProjects[projectIndex].document.fonts.first?.id else { return }
+        guard masterFontID(for: openProjects[projectIndex].id) != firstID else { return }
+        applyMasterFont(fontID: firstID, to: &openProjects[projectIndex].document)
+    }
+
+    private func applyMasterFont(fontID: String, to document: inout ProjectDocument) {
+        for index in document.fonts.indices {
+            if document.fonts[index].id == fontID {
+                document.fonts[index].fileRole = .master()
+            } else {
+                var role = document.fonts[index].fileRole ?? .variant(masterFontID: fontID)
+                role.kind = .variant
+                role.masterFontID = fontID
+                document.fonts[index].fileRole = role
+            }
+            document.fonts[index].dirty = true
+        }
     }
 
     func setFileClarifiers(_ clarifiers: [FileClarifier], for fontID: String) {
@@ -2080,6 +2144,9 @@ final class EditorViewModel: ObservableObject {
                 if syncRoles {
                     existing.role = masterAxis.role
                 }
+                existing.referenceMapping = masterAxis.referenceMapping
+                existing.referenceMappingInferred = masterAxis.referenceMappingInferred
+                existing.referenceAnchors = masterAxis.referenceAnchors
                 merged.append(existing)
             } else {
                 var imported = masterAxis
@@ -2159,6 +2226,123 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
+    func updateAxisStopRangeMin(axisTag: String, stopID: String, rangeMin: Double) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            let axis = font.axes[axisIndex]
+            var clamped = rangeMin
+            if let min = axis.min { clamped = max(clamped, min) }
+            if let max = axis.max { clamped = min(clamped, max) }
+            font.axes[axisIndex].values[stopIndex].rangeMin = clamped
+        }
+    }
+
+    func updateAxisStopRangeMax(axisTag: String, stopID: String, rangeMax: Double) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            let axis = font.axes[axisIndex]
+            var clamped = rangeMax
+            if let min = axis.min { clamped = max(clamped, min) }
+            if let max = axis.max { clamped = min(clamped, max) }
+            font.axes[axisIndex].values[stopIndex].rangeMax = clamped
+        }
+    }
+
+    func updateAxisStopStatFormat(
+        axisTag: String,
+        stopID: String,
+        format: Int,
+        linkTargetStopID: String? = nil
+    ) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            var stop = font.axes[axisIndex].values[stopIndex]
+            stop.statFormat = format
+            switch format {
+            case 2:
+                stop.linkedValue = nil
+                if stop.rangeMin == nil {
+                    stop.rangeMin = max((font.axes[axisIndex].min ?? stop.value) , stop.value - 20)
+                }
+                if stop.rangeMax == nil {
+                    stop.rangeMax = min((font.axes[axisIndex].max ?? stop.value + 20), stop.value + 20)
+                }
+            case 3:
+                stop.rangeMin = nil
+                stop.rangeMax = nil
+                if let linkTargetStopID,
+                   let target = font.axes[axisIndex].values.first(where: { $0.id == linkTargetStopID }) {
+                    stop.linkedValue = target.value
+                }
+            default:
+                stop.statFormat = 1
+                stop.rangeMin = nil
+                stop.rangeMax = nil
+                stop.linkedValue = nil
+            }
+            font.axes[axisIndex].values[stopIndex] = stop
+        }
+    }
+
+    var coordinateDisplayMode: CoordinateDisplayMode {
+        project?.coordinateDisplay ?? .reference
+    }
+
+    func setCoordinateDisplay(_ mode: CoordinateDisplayMode) {
+        guard var project else { return }
+        project.coordinateDisplay = mode
+        self.project = project
+    }
+
+    func displayStopValue(for axis: AxisDefinition, native: Double) -> Double {
+        guard coordinateDisplayMode == .reference,
+              AxisLadderAlignment.supportsAlignment(axis.tag),
+              (axis.referenceMapping ?? .identity) != .identity else {
+            return native
+        }
+        return AxisReferenceMapping.nativeToReference(native, axis: axis)
+    }
+
+    func showsNativeFootnote(for axis: AxisDefinition, native: Double) -> Bool {
+        guard coordinateDisplayMode == .reference,
+              AxisLadderAlignment.supportsAlignment(axis.tag),
+              (axis.referenceMapping ?? .identity) != .identity else {
+            return false
+        }
+        let reference = AxisReferenceMapping.nativeToReference(native, axis: axis)
+        return !AxisCoordinate.valuesEqual(reference, native)
+    }
+
+    func commitStopDisplayValue(axisTag: String, stopID: String, displayValue: Double) {
+        guard let axis = selectedFont?.axes.first(where: { $0.tag == axisTag }) else { return }
+        let native = nativeStopValue(fromDisplayValue: displayValue, for: axis)
+        updateAxisStopValue(axisTag: axisTag, stopID: stopID, value: native)
+    }
+
+    func nativeStopValue(fromDisplayText text: String, for axis: AxisDefinition) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let display = Double(trimmed) else { return nil }
+        return nativeStopValue(fromDisplayValue: display, for: axis)
+    }
+
+    func nativeStopValue(fromDisplayValue display: Double, for axis: AxisDefinition) -> Double {
+        if coordinateDisplayMode == .reference,
+           AxisLadderAlignment.supportsAlignment(axis.tag),
+           (axis.referenceMapping ?? .identity) != .identity {
+            return AxisReferenceMapping.referenceToNative(display, axis: axis)
+        }
+        return display
+    }
+
+    func setFixFvarDefault(_ enabled: Bool, for fontID: String) {
+        mutateFont(id: fontID) { font in
+            font.options.fixFvarDefault = enabled
+        }
+    }
+
     func toggleAxisStopElidable(axisTag: String, stopID: String) {
         guard let axis = selectedFont?.axes.first(where: { $0.tag == axisTag }),
               let stop = axis.values.first(where: { $0.id == stopID }) else { return }
@@ -2214,17 +2398,33 @@ final class EditorViewModel: ObservableObject {
         AxisStopSuggestions.suggestedValue(for: axis, excludingStopIDs: [excludingStopID])
     }
 
-    func insertAxisStop(axisTag: String, value: Double, name: String) {
+    func insertAxisStop(
+        axisTag: String,
+        value: Double,
+        name: String,
+        statFormat: Int = 1,
+        rangeMin: Double? = nil,
+        rangeMax: Double? = nil,
+        linkedStopID: String? = nil
+    ) {
         var addedStopID: String?
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
             let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
+            var linkedValue: Double?
+            if statFormat == 3, let linkedStopID,
+               let target = font.axes[axisIndex].values.first(where: { $0.id == linkedStopID }) {
+                linkedValue = target.value
+            }
             let stop = AxisValue(
                 id: stopID,
                 value: value,
                 name: name,
                 elidable: false,
-                statFormat: 1
+                statFormat: statFormat,
+                rangeMin: rangeMin,
+                rangeMax: rangeMax,
+                linkedValue: linkedValue
             )
             font.axes[axisIndex].values.append(stop)
             font.axes[axisIndex].values.sort { $0.value < $1.value }

@@ -17,6 +17,7 @@ struct CommitDiffReviewView: View {
         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
             header
             fileClarifiersBanner
+            commitOptionsBanner
             if let summary = session.preflight.summary {
                 summaryMetrics(summary, diffReport: session.diffReport)
             }
@@ -96,6 +97,29 @@ struct CommitDiffReviewView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var commitOptionsBanner: some View {
+        Toggle(isOn: fixFvarDefaultBinding) {
+            Text("Align fvar default with elidable stop")
+                .font(StudioTypography.caption)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .help("When enabled, vfcommit sets each fvar axis default to the elidable STAT stop on that axis.")
+    }
+
+    private var fixFvarDefaultBinding: Binding<Bool> {
+        Binding(
+            get: {
+                editor.project?.fonts.first(where: { $0.id == session.fontID })?.options.fixFvarDefault ?? false
+            },
+            set: { newValue in
+                editor.setFixFvarDefault(newValue, for: session.fontID)
+                editor.refreshCommitDiffPreview(forProjectID: session.projectID, fontID: session.fontID)
+            }
+        )
     }
 
     @ViewBuilder

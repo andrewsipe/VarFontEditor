@@ -29,7 +29,7 @@ public enum CommitDiffBuilder {
         let projectTags = Set(font.axes.map(\.tag))
         var beforeByKey: [String: FontAnalysis.StatValueRecord] = [:]
         for record in analysis.statValues {
-            let key = statKey(tag: record.tag, value: record.value ?? record.nominal ?? 0)
+            let key = statKey(tag: record.tag, record: record)
             beforeByKey[key] = record
         }
 
@@ -42,25 +42,25 @@ public enum CommitDiffBuilder {
 
         let plannedByKey = Dictionary(
             uniqueKeysWithValues: (diff?.statValuesPlanned ?? []).map { item in
-                (statKey(tag: item.tag, value: item.value), item)
+                (statKey(tag: item.tag, planned: item), item)
             }
         )
 
         let plannedNameIDs = Dictionary(
             uniqueKeysWithValues: (diff?.statValuesPlanned ?? []).compactMap { item -> (String, Int)? in
                 guard let nameID = item.nameID else { return nil }
-                return (statKey(tag: item.tag, value: item.value), nameID)
+                return (statKey(tag: item.tag, planned: item), nameID)
             }
         )
 
-        var keys = Set(afterStops.map { statKey(tag: $0.tag, value: $0.stop.value) })
+        var keys = Set(afterStops.map { statKey(tag: $0.tag, stop: $0.stop) })
         for (key, before) in beforeByKey where projectTags.contains(before.tag) {
             keys.insert(key)
         }
 
         return keys.sorted().map { key in
             let before = beforeByKey[key]
-            let afterItem = afterStops.first { statKey(tag: $0.tag, value: $0.stop.value) == key }
+            let afterItem = afterStops.first { statKey(tag: $0.tag, stop: $0.stop) == key }
             let planned = plannedByKey[key]
             let afterName = planned?.name ?? afterItem?.stop.name
             let afterNameID = plannedNameIDs[key]
@@ -70,9 +70,8 @@ public enum CommitDiffBuilder {
                 afterName: afterName,
                 afterNameID: afterNameID
             )
-            let parts = key.split(separator: ":", maxSplits: 1)
-            let tag = String(parts.first ?? "")
-            let value = Double(parts.last ?? "0") ?? 0
+            let tag = afterItem?.tag ?? before?.tag ?? key.split(separator: ":").first.map(String.init) ?? ""
+            let value = afterItem?.stop.value ?? before?.value ?? before?.nominal ?? 0
             return CommitDiffStatRow(
                 tag: tag,
                 value: value,
@@ -221,8 +220,55 @@ public enum CommitDiffBuilder {
         }
     }
 
-    private static func statKey(tag: String, value: Double) -> String {
-        let formatted = value.rounded() == value ? String(Int(value)) : String(value)
+    private static func statKey(tag: String, stop: AxisValue) -> String {
+        statKey(
+            tag: tag,
+            value: stop.value,
+            statFormat: stop.statFormat,
+            rangeMin: stop.rangeMin,
+            rangeMax: stop.rangeMax
+        )
+    }
+
+    private static func statKey(tag: String, record: FontAnalysis.StatValueRecord) -> String {
+        statKey(
+            tag: tag,
+            value: record.value ?? record.nominal ?? 0,
+            statFormat: record.format,
+            rangeMin: record.rangeMin,
+            rangeMax: record.rangeMax
+        )
+    }
+
+    private static func statKey(tag: String, planned: CommitDiffStatValuePlanned) -> String {
+        statKey(
+            tag: tag,
+            value: planned.value,
+            statFormat: planned.statFormat,
+            rangeMin: planned.rangeMin,
+            rangeMax: planned.rangeMax
+        )
+    }
+
+    private static func statKey(
+        tag: String,
+        value: Double,
+        statFormat: Int,
+        rangeMin: Double?,
+        rangeMax: Double?
+    ) -> String {
+        let formatted = formatCoord(value)
+        if statFormat == 2, let rangeMin, let rangeMax {
+            return "\(tag):\(formatted)@\(formatCoord(rangeMin))-\(formatCoord(rangeMax))"
+        }
         return "\(tag):\(formatted)"
+    }
+
+    private static func formatCoord(_ value: Double) -> String {
+        value.rounded() == value ? String(Int(value)) : String(value)
+    }
+
+    private static func statKey(tag: String, value: Double) -> String {
+        statKey(tag: tag, value: value, statFormat: 1, rangeMin: nil, rangeMax: nil)
     }
 }
