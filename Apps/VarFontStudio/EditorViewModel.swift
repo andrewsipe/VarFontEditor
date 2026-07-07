@@ -184,8 +184,12 @@ final class EditorViewModel: ObservableObject {
 
     func selectSaveReviewFont(projectID: String, fontID: String) {
         saveReviewSelectedFontIDByProjectID[projectID] = fontID
-        if saveReviewSession(forProjectID: projectID, fontID: fontID) == nil,
-           canPreviewSaveReview(forProjectID: projectID, fontID: fontID) {
+        guard canPreviewSaveReview(forProjectID: projectID, fontID: fontID) else { return }
+        let isDirty = openProjects
+            .first(where: { $0.id == projectID })?
+            .document.fonts.first(where: { $0.id == fontID })?
+            .dirty ?? false
+        if saveReviewSession(forProjectID: projectID, fontID: fontID) == nil || isDirty {
             refreshCommitDiffPreview(forProjectID: projectID, fontID: fontID)
         }
     }
@@ -3065,8 +3069,28 @@ final class EditorViewModel: ObservableObject {
                 return session
             }
             let message = result.errors.first?.message ?? "Save preview failed."
+            var writeRequest = CommitRequestBuilder.make(
+                font: font,
+                naming: projectDoc.naming,
+                plan: plan,
+                outputPath: outputPath,
+                dryRun: false
+            )
+            writeRequest.sourcePath = dryRunRequest.sourcePath
+            let failedSession = CommitPreflightSession(
+                projectID: targetProjectID,
+                fontID: font.id,
+                dryRunRequest: dryRunRequest,
+                baseRequest: writeRequest,
+                preflight: result,
+                diffReport: CommitDiffBuilder.empty
+            )
+            saveReviewSessionsByKey[sessionKey] = failedSession
             postStatusMessage(message)
-            return nil
+            if presentSheet {
+                presentCommitDiffSheet = true
+            }
+            return failedSession
         } catch {
             postStatusMessage(commitFailureMessage(error))
             return nil

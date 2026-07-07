@@ -96,6 +96,7 @@ def apply_table_edits(
     instance_axis_defs: List[AxisDef] | None = None,
     pinned_coords: dict[str, float] | None = None,
     compound_defs: List[CompoundStatValueDef] | None = None,
+    included_instance_keys: List[str] | None = None,
 ) -> None:
     """
     Write all changes to the font in memory. Does not save.
@@ -125,6 +126,7 @@ def apply_table_edits(
         plan,
         elided_fallback_name,
         pinned_coords=pinned_coords,
+        included_instance_keys=included_instance_keys,
     )
     _write_stat(
         font,
@@ -232,17 +234,28 @@ def _write_fvar_instances(
     elided_fallback_name: str = "Regular",
     *,
     pinned_coords: dict[str, float] | None = None,
+    included_instance_keys: List[str] | None = None,
 ) -> None:
+    from vfcommit_lib.request_bridge import instance_key
+
     fvar = font["fvar"]
     fvar.instances = []
 
     value_lists = [ad.values for ad in axis_defs]
     tag_list = [ad.tag for ad in axis_defs]
+    allowed = set(included_instance_keys) if included_instance_keys else None
+    pinned = pinned_coords or {}
 
     for combo in itertools.product(*value_lists):
         coords = {tag: float(av.value) for tag, av in zip(tag_list, combo)}
         if pinned_coords:
             coords.update(pinned_coords)
+        if allowed is not None:
+            merged = dict(coords)
+            for tag, value in pinned.items():
+                merged.setdefault(tag, float(value))
+            if instance_key(merged) not in allowed:
+                continue
         composed = compose_instance_name(
             combo,
             elided_fallback_name,

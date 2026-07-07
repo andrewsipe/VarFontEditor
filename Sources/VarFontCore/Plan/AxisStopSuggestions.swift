@@ -89,4 +89,60 @@ public enum AxisStopSuggestions {
         if text.last == "." { text.removeLast() }
         return text
     }
+
+    /// Evenly spaced stops from axis `min` through `max` (inclusive). Requires at least two stops.
+    public static func evenlySpacedValues(for axis: AxisDefinition, count: Int) -> [Double]? {
+        guard count >= 2,
+              let minV = axis.min,
+              let maxV = axis.max,
+              maxV > minV else { return nil }
+
+        var values: [Double] = []
+        for index in 0..<count {
+            let fraction = Double(index) / Double(count - 1)
+            values.append(AxisCoordinateFormat.canonical(minV + (maxV - minV) * fraction))
+        }
+        return deduplicatedSorted(values)
+    }
+
+    /// Stops at a fixed interval from a grid-aligned start through `max` (e.g. 0, 100, 200).
+    public static func steppedValues(for axis: AxisDefinition, step: Double) -> [Double]? {
+        guard step > 0,
+              let minV = axis.min,
+              let maxV = axis.max,
+              maxV >= minV else { return nil }
+
+        let start: Double = (minV <= 0 && 0 <= maxV) ? 0 : minV
+        var values: [Double] = []
+        var value = start
+        while value <= maxV + 0.0001 {
+            if value >= minV - 0.0001 {
+                values.append(AxisCoordinateFormat.canonical(value))
+            }
+            value += step
+        }
+        let deduped = deduplicatedSorted(values)
+        return deduped.count >= 2 ? deduped : nil
+    }
+
+    /// Round step for interval fills (e.g. 0–200 → 100).
+    public static func suggestedIntervalStep(for axis: AxisDefinition) -> Double? {
+        guard let minV = axis.min,
+              let maxV = axis.max,
+              maxV > minV else { return nil }
+        let range = maxV - minV
+        guard range > 0 else { return nil }
+        let magnitude = pow(10.0, floor(log10(range)))
+        return magnitude >= 1 ? magnitude : range / 2
+    }
+
+    private static func deduplicatedSorted(_ values: [Double]) -> [Double] {
+        var result: [Double] = []
+        for value in values {
+            if !result.contains(where: { AxisCoordinate.valuesEqual($0, value) }) {
+                result.append(value)
+            }
+        }
+        return result.sorted()
+    }
 }

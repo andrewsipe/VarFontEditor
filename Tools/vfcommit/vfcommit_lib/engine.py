@@ -87,6 +87,8 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         axes_json=axes_json,
         file_stat_registration=file_stat_registration,
         compound_defs=compound_defs,
+        included_instance_keys=included_keys,
+        pinned_coords=pinned,
     )
     collisions = check_for_collisions(plan, font)
     if collisions:
@@ -113,7 +115,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     protected_ids = build_protected_name_ids(font, ot_label_ids)
-    instances_to_write = count_included_instances(grid_axes, included_keys)
+    instances_to_write = count_included_instances(grid_axes, included_keys, pinned_coords=pinned)
     stat_values_written = sum(len(axis.values) for axis in axis_defs) + len(compound_defs)
     wiped_instances = len(font["fvar"].instances) if "fvar" in font else 0
 
@@ -161,6 +163,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             instance_axis_defs=grid_axes,
             pinned_coords=pinned,
             compound_defs=compound_defs,
+            included_instance_keys=included_keys,
         )
         working.save(output_path)
 

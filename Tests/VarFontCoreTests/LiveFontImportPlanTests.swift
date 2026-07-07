@@ -3,9 +3,8 @@ import XCTest
 
 final class LiveFontImportPlanTests: XCTestCase {
     func testPlayfairRomanLiveImportProducesInstances() throws {
-        let path = NSHomeDirectory() + "/Downloads/PlayfairRomanVF.woff2"
-        guard FileManager.default.fileExists(atPath: path) else {
-            throw XCTSkip("Playfair not in Downloads")
+        guard let path = LiveFontFixture.playfairRomanPath else {
+            throw XCTSkip("Playfair not found — see fixtures/fonts/README.md")
         }
         let project = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
         let font = try XCTUnwrap(project.fonts.first)
@@ -17,10 +16,8 @@ final class LiveFontImportPlanTests: XCTestCase {
     }
 
     func testRobotoFlexLiveImportProducesInstances() throws {
-        let path = NSHomeDirectory()
-            + "/Downloads/RobotoFlex-VariableFont_GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght.ttf"
-        guard FileManager.default.fileExists(atPath: path) else {
-            throw XCTSkip("Roboto not in Downloads")
+        guard let path = LiveFontFixture.robotoFlexPath else {
+            throw XCTSkip("Roboto Flex not found — see fixtures/fonts/README.md")
         }
         let project = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
         let font = try XCTUnwrap(project.fonts.first)

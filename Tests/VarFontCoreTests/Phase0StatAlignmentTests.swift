@@ -74,15 +74,16 @@ final class StatParserFormat4Tests: XCTestCase {
         appendUInt16(1)
         appendUInt32(22)
         appendUInt16(1)
-        appendUInt16(0)
         appendUInt32(30)
+        appendUInt16(0)
+
         appendUInt16(0)
 
         data.append(contentsOf: [0x77, 0x67, 0x68, 0x74])
         appendUInt16(256)
         appendUInt16(0)
 
-        appendUInt16(32)
+        appendUInt16(2)
 
         appendUInt16(4)
         appendUInt16(1)

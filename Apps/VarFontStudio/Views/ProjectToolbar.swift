@@ -128,11 +128,20 @@ private struct ProjectTabChip: View {
                     }
             }
         } trailing: {
-            Text("\(openProject.document.fonts.count)")
-                .font(StudioTypography.monoMeta)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(.quaternary.opacity(0.5), in: Capsule())
+            HStack(spacing: 4) {
+                Text("\(openProject.document.fonts.count)")
+                    .font(StudioTypography.monoMeta)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(.quaternary.opacity(0.5), in: Capsule())
+
+                StudioToolbarIconMenu(help: "Project actions") {
+                    ProjectTabContextMenu(projectID: openProject.id)
+                }
+            }
+        }
+        .contextMenu {
+            ProjectTabContextMenu(projectID: openProject.id)
         }
         .background {
             GeometryReader { geometry in
@@ -141,6 +150,19 @@ private struct ProjectTabChip: View {
                     value: [openProject.id: geometry.frame(in: .global)]
                 )
             }
+        }
+    }
+}
+
+private struct ProjectTabContextMenu: View {
+    @EnvironmentObject private var editor: EditorViewModel
+    let projectID: String
+
+    var body: some View {
+        Button(role: .destructive) {
+            editor.requestCloseProject(id: projectID)
+        } label: {
+            Label("Remove project", systemImage: "xmark.circle")
         }
     }
 }

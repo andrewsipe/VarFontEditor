@@ -89,6 +89,7 @@ def grid_axis_defs(axis_defs: List[AxisDef], axes_json: List[Dict[str, Any]]) ->
 def count_included_instances(
     grid_axes: List[AxisDef],
     included_keys: List[str],
+    pinned_coords: Dict[str, float] | None = None,
 ) -> int:
     """Count fvar instances after optional key filter."""
     if not grid_axes:
@@ -102,9 +103,20 @@ def count_included_instances(
     allowed = set(included_keys)
     count = 0
     for coords in _coord_combinations(grid_axes):
-        if instance_key(coords) in allowed:
+        if _instance_key_with_pinned(coords, pinned_coords) in allowed:
             count += 1
     return count
+
+
+def _instance_key_with_pinned(
+    coords: Dict[str, float],
+    pinned_coords: Dict[str, float] | None,
+) -> str:
+    merged = dict(coords)
+    if pinned_coords:
+        for tag, value in pinned_coords.items():
+            merged.setdefault(tag, float(value))
+    return instance_key(merged)
 
 
 def _coord_combinations(grid_axes: List[AxisDef]):

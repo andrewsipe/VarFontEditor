@@ -50,31 +50,19 @@ enum StatParser {
         let axisValueCount: Int
         let axisValueArrayOffset: Int
         let elidedFallbackNameID: Int?
-        let offsetsRelativeToArrayBase: Bool
 
         if version >= 0x0001_0001 {
-            guard data.count >= 22 else { return nil }
+            guard data.count >= 20 else { return nil }
             designAxisOffset = Int(OpenTypeBinary.readUInt32(data, 8))
             axisValueCount = Int(OpenTypeBinary.readUInt16(data, 12))
-            let offset32 = Int(OpenTypeBinary.readUInt32(data, 16))
-            if offset32 > 0, offset32 < data.count {
-                axisValueArrayOffset = offset32
-                let id = Int(OpenTypeBinary.readUInt16(data, 20))
-                elidedFallbackNameID = id > 0 ? id : nil
-            } else {
-                // Some production fonts pack offset (uint16) + elided fallback (uint16) at 16–19
-                // instead of a full Offset32 at 16 and NameID at 20.
-                axisValueArrayOffset = Int(OpenTypeBinary.readUInt16(data, 16))
-                let id = Int(OpenTypeBinary.readUInt16(data, 18))
-                elidedFallbackNameID = id > 0 ? id : nil
-            }
-            offsetsRelativeToArrayBase = version < 0x0001_0002
+            axisValueArrayOffset = Int(OpenTypeBinary.readUInt32(data, 14))
+            let id = Int(OpenTypeBinary.readUInt16(data, 18))
+            elidedFallbackNameID = id > 0 ? id : nil
         } else {
             designAxisOffset = Int(OpenTypeBinary.readUInt16(data, 8))
             axisValueCount = Int(OpenTypeBinary.readUInt16(data, 10))
             axisValueArrayOffset = Int(OpenTypeBinary.readUInt16(data, 12))
             elidedFallbackNameID = nil
-            offsetsRelativeToArrayBase = true
         }
 
         guard designAxisCount > 0, designAxisSize >= 8 else {
@@ -115,9 +103,8 @@ enum StatParser {
         for index in 0..<axisValueCount {
             let rawOffset = Int(OpenTypeBinary.readUInt16(data, axisValueArrayOffset + index * 2))
             guard rawOffset > 0 else { continue }
-            let recordOffset = offsetsRelativeToArrayBase
-                ? axisValueArrayOffset + rawOffset
-                : rawOffset
+            // AxisValue offsets are relative to the AxisValue offset array (fontTools convention).
+            let recordOffset = axisValueArrayOffset + rawOffset
             guard recordOffset + 6 <= data.count else { continue }
             if let parsed = parseAxisValue(data: data, offset: recordOffset) {
                 values.append(parsed)

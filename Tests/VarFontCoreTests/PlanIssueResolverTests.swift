@@ -292,7 +292,7 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertNotNil(PlanIssueResolver.recommendedProposal(for: warning, font: font))
     }
 
-    func testEmptyInstanceAxisProposals() {
+    func testEmptyInstanceAxisProposalsWithoutScaleFallsBackToStatOnly() {
         let font = FontDocument(
             id: "empty",
             sourcePath: "/tmp/empty.ttf",
@@ -306,11 +306,45 @@ final class PlanIssueResolverTests: XCTestCase {
             message: "Instance axis 'wdth' has no stops."
         )
         let proposals = PlanIssueResolver.proposals(for: warning, font: font)
-        XCTAssertEqual(proposals.first?.title, "Switch to STAT-only")
+        XCTAssertEqual(proposals.first(where: \.isRecommended)?.title, "Switch to STAT-only")
         XCTAssertTrue(proposals.contains { proposal in
             if case .insertAxisStop(let tag, _, _) = proposal.action { return tag == "wdth" }
             return false
         })
+    }
+
+    func testEmptyInstanceAxisOffersFillPlannerOptions() throws {
+        let axis = AxisDefinition(tag: "wght", min: 0, default: 0, max: 200, role: .instance, values: [])
+        let options = try XCTUnwrap(AxisStopFillPlanner.options(for: axis))
+        XCTAssertEqual(options.recommendedCounts, [3, 6, 9, 12])
+        XCTAssertEqual(options.defaultCount, 6)
+    }
+
+    func testEmptyInstanceAxisApplyInteractiveFillValues() {
+        var font = FontDocument(
+            id: "empty",
+            sourcePath: "/tmp/Flux.ttf",
+            axes: [
+                AxisDefinition(tag: "wght", min: 0, default: 0, max: 200, role: .instance, values: []),
+            ]
+        )
+        let values = AxisStopFillPlanner.values(for: font.axes[0], count: 5) ?? []
+        PlanIssueResolver.apply(.insertAxisStops(axisTag: "wght", values: values), to: &font)
+        XCTAssertEqual(font.axes[0].values.map(\.value), [0, 50, 100, 150, 200])
+        XCTAssertEqual(font.axes[0].values.map(\.name), ["0", "50", "100", "150", "200"])
+    }
+
+    func testEmptyInstanceAxisApplyIntervalFillValues() {
+        var font = FontDocument(
+            id: "empty",
+            sourcePath: "/tmp/Flux.ttf",
+            axes: [
+                AxisDefinition(tag: "wght", min: 0, default: 0, max: 200, role: .instance, values: []),
+            ]
+        )
+        let values = AxisStopFillPlanner.values(for: font.axes[0], interval: 100) ?? []
+        PlanIssueResolver.apply(.insertAxisStops(axisTag: "wght", values: values), to: &font)
+        XCTAssertEqual(font.axes[0].values.map(\.value), [0, 100, 200])
     }
 
     func testEmptyInstanceAxisApplyAddsStop() {

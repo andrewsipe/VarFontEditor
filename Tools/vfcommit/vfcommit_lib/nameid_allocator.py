@@ -356,17 +356,30 @@ def enumerate_instance_names(
     clarifiers: Optional[Dict[str, str]] = None,
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
+    included_instance_keys: Optional[List[str]] = None,
+    pinned_coords: Optional[Dict[str, float]] = None,
 ) -> List[str]:
     """Cartesian product of axis values into composed instance subfamily names."""
     if not axis_defs:
         return []
 
+    from vfcommit_lib.request_bridge import instance_key
+
     value_lists = [ad.values for ad in axis_defs]
     tag_list = [ad.tag for ad in axis_defs]
     names: List[str] = []
     seen: Set[str] = set()
+    allowed = set(included_instance_keys) if included_instance_keys else None
+    pinned = pinned_coords or {}
 
     for combo in itertools.product(*value_lists):
+        coords = {tag: float(av.value) for tag, av in zip(tag_list, combo)}
+        if allowed is not None:
+            merged = dict(coords)
+            for tag, value in pinned.items():
+                merged.setdefault(tag, float(value))
+            if instance_key(merged) not in allowed:
+                continue
         composed = compose_instance_name(
             combo,
             elided_fallback_name,
@@ -397,6 +410,8 @@ def build_allocation_plan(
     axes_json: List[dict] | None = None,
     file_stat_registration: Dict[str, float] | None = None,
     compound_defs: List[CompoundStatValueDef] | None = None,
+    included_instance_keys: List[str] | None = None,
+    pinned_coords: Dict[str, float] | None = None,
 ) -> NameIDPlan:
     """Produce nameID allocation plan without modifying the font."""
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
@@ -476,6 +491,8 @@ def build_allocation_plan(
         clarifiers=clarifier_map,
         axes_json=axes_payload,
         file_stat_registration=registration,
+        included_instance_keys=included_instance_keys,
+        pinned_coords=pinned_coords,
     ):
         if composed_name not in instance_ids:
             instance_ids[composed_name] = alloc_id()

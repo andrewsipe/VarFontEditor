@@ -226,24 +226,24 @@ Registration, orphan F3 links, and `ital` name/value convention warnings now sha
 
 - [ ] Context formula bar (`12 × 3 × 7 = 252`) with bulk actions
 - [ ] Toolbar pills: total / included / pruned / duplicates
-- [ ] Filter instance list by clicking axis stop in tree
+- [x] Filter instance list by clicking axis stop in tree
 - [ ] Matrix view when exactly two varying axes
 
-### Commit / round-trip (next phase)
+### Commit / round-trip
 
-- [ ] Fix save issues found in manual test copies
-- [ ] Round-trip tests: edit → vfcommit → re-analyze → match
+- [x] Round-trip tests: edit → vfcommit → re-analyze fvar (`CommitRoundTripTests`, `test_round_trip_write.py`)
+- [x] vfcommit honors `included_instance_keys` on write (not just dry-run summary)
+- [ ] Fix save issues found in manual test copies (Font Book / re-import grid hydration)
 - [ ] Full table-trust session (name reflow, byte-level parity goals)
 - [ ] Name table reflow strategy — see `EXPORT_DESIGN_NOTES.md`
 
+See [`docs/SAVE_ROUND_TRIP_LOG.md`](docs/SAVE_ROUND_TRIP_LOG.md).
+
 ### Engine / tests
 
-- [ ] **7 failing tests** (as of 2026-07-03) — mostly fixture drift after `ital` registration in naming chain:
-  - `DesignRecordAxisTests` — grid formula expects `[3,3,3]` vs `[12,3,7]` (fixture not updated for opsz?)
-  - `InstancePlannerTests` — naming chain fixtures lack `ital` segment
-  - `ReferenceMappingTests` — Playfair width round-trip at 75
-  - `InstancePlannerTests.testCommitServiceDryRun` — dry-run expectation
-- [ ] Reconcile fixtures with current naming order + registration behavior
+- [x] **Test health (2026-07-07):** `swift test` — 153 tests, 0 failures (2 skipped without live fonts); vfcommit `unittest` — 12 tests OK
+- [x] Live font path resolution via `LiveFontFixture.swift` (multi-path `~/Downloads` candidates)
+- [ ] Reconcile static JSON fixtures with live Playfair axis counts where tests still use snapshots only
 
 ### Format / axis tree (smaller gaps)
 
@@ -497,7 +497,7 @@ Documented so future layout tweaks don’t repeat solved bugs.
 - **Magic offsets** use named constants with intent (`removeButtonTrailingOffset`), not bare `4`.
 - **Axis block states** — check new combinations against `AxisBlockStateSpec` in `AxisTreePanel.swift` before adding branches.
 - **Add Stop** — full-width CTA outside Fmt/Value/Elid grid; leading inset aligns with Name column only (documented in code).
-- **Format 3** — link shown as SF Symbol `link`, not `↔`; inline link **editing** still outstanding.
+- **Format 3** — link shown as SF Symbol `link`, not `↔`; inline link editing in axis tree.
 
 ---
 
@@ -561,9 +561,10 @@ FontVault is a separate native app (font library). VarFont Studio is the **varia
 
 ## Suggested next work (when resuming)
 
-1. **Fix or update failing tests** to match registration naming (quick hygiene).
-2. **Elided fallback** — read-only display in naming chrome mirroring STAT (if not already complete).
-3. **Save round-trip session** — only after registration + naming model are acceptable.
+1. **Manual Save Copy checklist** on Playfair — Font Book + re-open in Studio (see `docs/SAVE_ROUND_TRIP_LOG.md`).
+2. **Re-import grid hydration** — patched fonts should rebuild full instance plan on open.
+3. **Name reflow session** — `EXPORT_DESIGN_NOTES.md` pipeline when OT label collisions appear.
+4. **`.varfont` Save/Open Project** — session persistence.
 
 Do **not** add more axis tree layout tweaks unless fixing a clear bug.
 

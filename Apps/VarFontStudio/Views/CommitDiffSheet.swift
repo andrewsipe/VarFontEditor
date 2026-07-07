@@ -716,9 +716,24 @@ struct SaveReviewWindow: View {
             }
 
             if let session {
-                ScrollView {
-                    CommitDiffReviewView(session: session, scrollMaxHeight: nil)
+                if session.preflight.ok {
+                    ScrollView {
+                        CommitDiffReviewView(session: session, scrollMaxHeight: nil)
+                            .padding(20)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+                            preflightFailureHeader(session: session)
+                            if !session.preflight.errors.isEmpty {
+                                preflightErrorsCard(session.preflight.errors)
+                            }
+                            if !session.preflight.warnings.isEmpty {
+                                preflightWarningsCard(session.preflight.warnings)
+                            }
+                        }
                         .padding(20)
+                    }
                 }
                 Divider()
                 windowFooter(session: session)
@@ -790,6 +805,57 @@ struct SaveReviewWindow: View {
 
     private func windowFooter(session: CommitPreflightSession) -> some View {
         SaveReviewActionFooter(session: session, projectID: projectID)
+    }
+
+    private func preflightFailureHeader(session: CommitPreflightSession) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Save preview failed")
+                .font(StudioTypography.emphasis)
+            Text("Fix the issues below, then use Refresh to rebuild the diff.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+            if let code = session.preflight.errors.first?.code {
+                Text("Code: \(code)")
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private func preflightErrorsCard(_ errors: [CommitError]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Cannot save")
+                .font(StudioTypography.sectionLabel)
+                .foregroundStyle(.secondary)
+            ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
+                Text(error.message)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(StudioColors.errorForeground)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: StudioRadius.chip)
+                .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+        )
+    }
+
+    private func preflightWarningsCard(_ warnings: [PlanWarning]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Warnings")
+                .font(StudioTypography.sectionLabel)
+                .foregroundStyle(.secondary)
+            ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
+                StudioWarningMessage(message: warning.message)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: StudioRadius.chip)
+                .strokeBorder(StudioColors.warningStroke, lineWidth: 1)
+        )
     }
 }
 

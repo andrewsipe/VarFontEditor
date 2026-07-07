@@ -1,6 +1,12 @@
 import Foundation
 
 public enum CommitDiffBuilder {
+    public static let empty = CommitDiffReport(
+        statRows: [],
+        instanceRows: [],
+        nameIDRows: []
+    )
+
     public static func build(
         analysis: FontAnalysis,
         font: FontDocument,

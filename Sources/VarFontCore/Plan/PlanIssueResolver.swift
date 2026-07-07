@@ -31,6 +31,7 @@ public enum PlanIssueAction: Equatable, Sendable {
     case clearAllElidable(axisTag: String)
     case setAxisRole(axisTag: String, role: AxisRole)
     case insertAxisStop(axisTag: String, value: Double, name: String)
+    case insertAxisStops(axisTag: String, values: [Double])
     case openAxisConflicts(axisTag: String?)
     case acknowledgeIssue(issueKey: String)
     case compound([PlanIssueAction])
@@ -110,6 +111,9 @@ public enum PlanIssueResolver {
             guard !axis.isDesignRecordOnly else { return false }
             return axis.role != role
         case .insertAxisStop(let axisTag, _, _):
+            guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
+            return axis.role == .instance && axis.values.isEmpty && !axis.isDesignRecordOnly
+        case .insertAxisStops(let axisTag, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
             return axis.role == .instance && axis.values.isEmpty && !axis.isDesignRecordOnly
         case .openAxisConflicts:
@@ -195,6 +199,26 @@ public enum PlanIssueResolver {
             )
             font.axes[axisIndex].values.append(stop)
             font.axes[axisIndex].values.sort { $0.value < $1.value }
+        case let .insertAxisStops(axisTag, values):
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
+            guard font.axes[axisIndex].role == .instance,
+                  font.axes[axisIndex].values.isEmpty,
+                  !font.axes[axisIndex].isDesignRecordOnly else { return }
+            for value in values {
+                let canonical = AxisCoordinateFormat.canonical(value)
+                let stop = AxisValue(
+                    id: "\(axisTag)-\(UUID().uuidString.prefix(8))",
+                    value: canonical,
+                    name: AxisStopSuggestions.formatValue(canonical),
+                    elidable: false,
+                    statFormat: 1,
+                    rangeMin: nil,
+                    rangeMax: nil,
+                    linkedValue: nil
+                )
+                font.axes[axisIndex].values.append(stop)
+            }
+            font.axes[axisIndex].values.sort { $0.value < $1.value }
         case .openAxisConflicts:
             break
         case let .acknowledgeIssue(issueKey):
@@ -266,7 +290,7 @@ public enum PlanIssueResolver {
         case .setFileRegistration, .revalueStop:
             return true
         case .convertStopToFormat1, .renameStop, .acknowledgeIssue, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .openAxisConflicts:
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops, .openAxisConflicts:
             return false
         case .compound(let actions):
             return actions.allSatisfy(isSafeAutoFixAction)
@@ -276,7 +300,7 @@ public enum PlanIssueResolver {
     private static func isChainableAction(_ action: PlanIssueAction) -> Bool {
         switch action {
         case .setFileRegistration, .revalueStop, .convertStopToFormat1, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop:
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops:
             return true
         case .renameStop, .acknowledgeIssue, .openAxisConflicts:
             return false
@@ -525,27 +549,37 @@ public enum PlanIssueResolver {
         let placeholderStop = AxisValue(id: "preview", value: value, name: "", elidable: false)
         let name = AxisStopNamingDefaults.suggestedName(for: placeholderStop, axisTag: tag)
 
-        return [
-            PlanIssueProposal(
-                id: "empty-axis-stat-only-\(tag)",
-                title: "Switch to STAT-only",
-                detail: "Takes \(label) off the instance grid so composed names no longer require stops on this axis.",
-                action: .setAxisRole(axisTag: tag, role: .statOnly),
-                isRecommended: true
-            ),
+        var proposals: [PlanIssueProposal] = []
+
+        proposals.append(
             PlanIssueProposal(
                 id: "empty-axis-add-stop-\(tag)",
                 title: "Add a default stop",
                 detail: "Adds a stop at \(valueText) named “\(name)” on \(label).",
                 action: .insertAxisStop(axisTag: tag, value: value, name: name)
-            ),
+            )
+        )
+
+        proposals.append(
+            PlanIssueProposal(
+                id: "empty-axis-stat-only-\(tag)",
+                title: "Switch to STAT-only",
+                detail: "Takes \(label) off the instance grid so composed names no longer require stops on this axis.",
+                action: .setAxisRole(axisTag: tag, role: .statOnly),
+                isRecommended: AxisStopFillPlanner.options(for: axis) == nil
+            )
+        )
+
+        proposals.append(
             PlanIssueProposal(
                 id: "empty-axis-keep-\(tag)",
                 title: "Keep as-is",
                 detail: "Leave this axis empty on the instance grid.",
                 action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
-            ),
-        ]
+            )
+        )
+
+        return proposals
     }
 
     private static func noAutomaticNamingFixProposals(for warning: PlanWarning) -> [PlanIssueProposal] {

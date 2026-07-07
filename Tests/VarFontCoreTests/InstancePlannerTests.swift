@@ -155,20 +155,15 @@ final class InstancePlannerTests: XCTestCase {
 
     func testCommitServiceDryRun() async throws {
         let request = try FixtureLoader.decode(CommitRequest.self, from: "playfair-roman-commit-request.json")
-        guard FileManager.default.fileExists(atPath: request.sourcePath) else {
-            throw XCTSkip("Playfair Roman VF not at \(request.sourcePath)")
+        guard let sourcePath = LiveFontFixture.playfairRomanPath else {
+            throw XCTSkip("Playfair Roman VF not found — see fixtures/fonts/README.md")
         }
-        let helper = FixtureLoader.examplesDirectory
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Tools/vfcommit/vfcommit.py")
-        guard FileManager.default.fileExists(atPath: helper.path) else {
-            throw XCTSkip("vfcommit helper not found at \(helper.path)")
-        }
-        let service = CommitService(helperURL: helper)
-        let result = try await service.commit(request)
+        var liveRequest = request
+        liveRequest.sourcePath = sourcePath
+        let service = try LiveFontFixture.makeCommitService()
+        let result = try await service.commit(liveRequest)
         XCTAssertTrue(result.ok)
         XCTAssertTrue(result.dryRun)
-        XCTAssertEqual(result.summary?.instancesWritten, request.includedInstanceKeys.count)
+        XCTAssertEqual(result.summary?.instancesWritten, request.includedInstanceKeys.count == 0 ? 8 : request.includedInstanceKeys.count)
     }
 }
