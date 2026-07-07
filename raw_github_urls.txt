@@ -75,6 +75,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisLane.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisPinPolicy.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisReferenceMapping.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopFillPlanner.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopNamingDefaults.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopSuggestions.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopValidator.swift
@@ -107,20 +108,25 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisLadderAlignmentTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisLaneTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisNamingWarningTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisStopDistributionTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisStopFillPlannerTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisStopNamingDefaultsTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisTreeReviewQueueTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisTreeReviewSessionStateTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitDiffBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitRequestBuilderTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitRoundTripTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ComposedNameWarningRollupTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/DesignRecordAxisTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FileClarifierInferenceTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FixtureLoader.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/Flux1965ReimportTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FontAnalysisReaderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/Format2StopTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/Format3StopTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstanceKeyBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstancePlannerTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontFixture.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontImportPlanTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerClarifierTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerTests.swift
@@ -145,6 +151,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/t
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_nameid_allocator.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_registration_naming.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_request_bridge.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_round_trip_write.py
 
 # Tools/vfcommit/tests/__pycache__/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314-pytest-9.0.1.pyc
@@ -155,6 +162,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/t
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_registration_naming.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_round_trip_write.cpython-314.pyc
 
 # Tools/vfcommit/vfcommit_lib/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__init__.py
@@ -183,6 +191,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 # VarFontStudio.xcworkspace/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/VarFontStudio.xcworkspace/contents.xcworkspacedata
 
+# docs/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/docs/SAVE_ROUND_TRIP_LOG.md
+
 # fixtures/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/README.md
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/generate_analysis_fixtures.py
@@ -197,6 +208,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/example
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/playfair-roman-instance-plan.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/roboto-flex-analysis.json
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/examples/roboto-flex-project-snippet.json
+
+# fixtures/fonts/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/fonts/README.md
 
 # prototype mockups/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/axis-tree-lanes-prototype.html
