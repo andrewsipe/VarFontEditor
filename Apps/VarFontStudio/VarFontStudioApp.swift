@@ -93,6 +93,14 @@ struct VarFontStudioApp: App {
                 .disabled(!editor.canRedo)
             }
 
+            CommandGroup(after: .textEditing) {
+                Button("Find Instances…") {
+                    editor.requestInstanceSearchFocus()
+                }
+                .keyboardShortcut("f", modifiers: .command)
+                .disabled(editor.selectedFont == nil)
+            }
+
             CommandGroup(replacing: .sidebar) {
                 Toggle("Axis Tree", isOn: $layout.showAxisTree)
                     .keyboardShortcut("1", modifiers: [.command, .control])

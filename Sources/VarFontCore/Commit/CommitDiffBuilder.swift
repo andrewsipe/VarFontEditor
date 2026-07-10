@@ -109,9 +109,6 @@ public enum CommitDiffBuilder {
             return .added
         }
         if beforeName == afterName {
-            if beforeNameID != afterNameID {
-                return .changed
-            }
             return .unchanged
         }
         if beforeNameID == 2 || beforeName == "Regular" {
@@ -232,7 +229,7 @@ public enum CommitDiffBuilder {
 
         for index in rows.indices {
             guard let afterString = normalized(rows[index].afterString) else { continue }
-            guard rows[index].change == .added || rows[index].change == .unchanged else { continue }
+            guard rows[index].change == .added else { continue }
 
             let candidates = beforeStringToIDs[afterString, default: []]
             guard let sourceID = candidates.first(where: { $0 != rows[index].id && !consumedSourceIDs.contains($0) })

@@ -169,6 +169,10 @@ def generate_ttx_additions(
 def _write_name_records(font: TTFont, axis_defs: List[AxisDef], plan: NameIDPlan) -> None:
     name_table = font["name"]
 
+    prefix = (plan.family_ps_prefix or "").strip()
+    if prefix:
+        name_table.setName(prefix, 25, 3, 1, 0x0409)
+
     # Order matches allocation: DesignAxis → AxisValues → compounds → EFB → fvar (+ PS).
     for tag, nid in plan.axis_name_ids.items():
         name_table.setName(plan.axis_names.get(tag, tag), nid, 3, 1, 0x0409)

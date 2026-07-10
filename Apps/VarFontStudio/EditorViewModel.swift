@@ -92,6 +92,7 @@ final class EditorViewModel: ObservableObject {
     @Published private(set) var saveReviewExplicitlyOpenedProjectIDs: Set<String> = []
     @Published var saveReviewUIStateByProjectID: [String: SaveReviewUIState] = [:]
     @Published var searchText = ""
+    @Published private(set) var instanceSearchFocusToken: UUID?
     @Published var instanceFilter: InstanceFilter = .all
     @Published var instancePlan: InstancePlan?
     @Published private(set) var planRevision = 0
@@ -230,7 +231,12 @@ final class EditorViewModel: ObservableObject {
         let fontID = saveReviewSelectedFontID(forProjectID: targetID)
         refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID, presentSheet: false)
         saveReviewExplicitlyOpenedProjectIDs.insert(targetID)
+        resetSaveReviewUIState(forProjectID: targetID)
         saveReviewOpenRequest = SaveReviewOpenRequest(projectID: targetID, token: UUID())
+    }
+
+    private func resetSaveReviewUIState(forProjectID projectID: String) {
+        saveReviewUIStateByProjectID[projectID] = SaveReviewUIState()
     }
 
     /// Drop save-review payload when quitting or closing a restored auxiliary window.
@@ -1454,9 +1460,23 @@ final class EditorViewModel: ObservableObject {
         return rows
     }
 
-    func showDuplicateInstances(matching instance: PlannedInstance) {
+    func showAllDuplicateInstances() {
         instanceFilter = .duplicates
-        searchText = instance.composedName
+        searchText = ""
+    }
+
+    func showDuplicateInstances(matchingName name: String) {
+        instanceFilter = .duplicates
+        searchText = name
+    }
+
+    func showDuplicateInstances(matching instance: PlannedInstance) {
+        showDuplicateInstances(matchingName: instance.composedName)
+    }
+
+    func requestInstanceSearchFocus() {
+        StudioFieldFocus.resignIfEditing()
+        instanceSearchFocusToken = UUID()
     }
 
     func suggestedNewStopValue(for axis: AxisDefinition) -> Double {
@@ -1649,10 +1669,29 @@ final class EditorViewModel: ObservableObject {
 
     func renameProject(id: String, displayName: String) {
         guard let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
-        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        openProjects[idx].document.displayName = trimmed.isEmpty ? nil : trimmed
+        pushUndoSnapshot()
+        syncProjectDisplayNameAndPrefix(
+            normalizedProjectNaming(displayName),
+            on: &openProjects[idx].document
+        )
         openProjects[idx].document.modified = Date()
         publishOpenProjects()
+        canSave = true
+        regeneratePlan()
+    }
+
+    /// Inspector subtitle after file count — paired master PostScript prefix when set.
+    func projectNamingSubtitle(for openProject: OpenProject) -> String {
+        let prefix = masterFamilyPSPrefix(for: openProject.id)
+        if !prefix.isEmpty { return prefix }
+        if let name = openProject.document.displayName, !name.isEmpty { return name }
+        return openProject.document.familyLabel
+    }
+
+    func masterFamilyPSPrefix(for projectID: String) -> String {
+        guard let masterID = masterFontID(for: projectID),
+              let font = font(forProjectID: projectID, fontID: masterID) else { return "" }
+        return font.options.familyPSPrefix ?? ""
     }
 
     func projectTabLabel(for openProject: OpenProject) -> String {
@@ -2307,6 +2346,7 @@ final class EditorViewModel: ObservableObject {
         guard var project else { return }
         pushUndoSnapshot()
         applyMasterFont(fontID: fontID, to: &project)
+        syncProjectNameFromMaster(on: &project, masterFontID: fontID)
         project.modified = Date()
         self.project = project
         canSave = true
@@ -2317,6 +2357,8 @@ final class EditorViewModel: ObservableObject {
         guard let firstID = openProjects[projectIndex].document.fonts.first?.id else { return }
         guard masterFontID(for: openProjects[projectIndex].id) != firstID else { return }
         applyMasterFont(fontID: firstID, to: &openProjects[projectIndex].document)
+        syncProjectNameFromMaster(on: &openProjects[projectIndex].document, masterFontID: firstID)
+        openProjects[projectIndex].document.modified = Date()
     }
 
     private func applyMasterFont(fontID: String, to document: inout ProjectDocument) {
@@ -2400,19 +2442,15 @@ final class EditorViewModel: ObservableObject {
     }
 
     func setFamilyPSPrefix(_ value: String, for fontID: String) {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolved: String? = trimmed.isEmpty ? nil : trimmed
-        guard var project else { return }
+        let resolved = normalizedProjectNaming(value)
+        guard var project, let projectID = activeProjectID else { return }
 
-        // Master is the clean shared stem — edit pushes to every file in the project.
-        // Variant edits stay file-local (same authority split as clarifiers).
-        let isMaster = isMasterFont(fontID: fontID, projectID: activeProjectID ?? "")
+        // Master is the clean shared stem — edit pushes to every file in the project
+        // and stays paired with the project display name.
+        let isMaster = isMasterFont(fontID: fontID, projectID: projectID)
         if isMaster {
             pushUndoSnapshot()
-            for index in project.fonts.indices {
-                project.fonts[index].options.familyPSPrefix = resolved
-                project.fonts[index].dirty = true
-            }
+            syncProjectDisplayNameAndPrefix(resolved, on: &project)
             project.modified = Date()
             self.project = project
             canSave = true
@@ -2531,6 +2569,35 @@ final class EditorViewModel: ObservableObject {
         self.project = project
         canSave = true
         regeneratePlan()
+    }
+
+    private func normalizedProjectNaming(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func applySharedFamilyPSPrefix(_ prefix: String?, to document: inout ProjectDocument) {
+        for index in document.fonts.indices {
+            document.fonts[index].options.familyPSPrefix = prefix
+            document.fonts[index].dirty = true
+        }
+    }
+
+    private func syncProjectDisplayNameAndPrefix(_ name: String?, on document: inout ProjectDocument) {
+        document.displayName = name
+        applySharedFamilyPSPrefix(name, to: &document)
+    }
+
+    /// When master changes, project name follows the new master's prefix and pushes downstream.
+    private func syncProjectNameFromMaster(on document: inout ProjectDocument, masterFontID: String) {
+        guard let master = document.fonts.first(where: { $0.id == masterFontID }) else { return }
+        if let prefix = normalizedProjectNaming(master.options.familyPSPrefix ?? "") {
+            syncProjectDisplayNameAndPrefix(prefix, on: &document)
+            return
+        }
+        if let displayName = document.displayName, !displayName.isEmpty {
+            applySharedFamilyPSPrefix(displayName, to: &document)
+        }
     }
 
     func updateAxisRole(tag: String, role: AxisRole) {

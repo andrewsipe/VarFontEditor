@@ -241,6 +241,76 @@ def audit_nameids(font: TTFont, ot_labels: List[OTLabelRecord]) -> Dict[int, str
     return used
 
 
+def _stat_slot_key(tag: str, value: float) -> Tuple[str, float]:
+    """Normalize axis coordinate for STAT slot lookup."""
+    if float(value).is_integer():
+        return (tag, float(int(value)))
+    return (tag, float(value))
+
+
+def _snapshot_role_name_ids(font: TTFont) -> Dict[str, object]:
+    """
+    Existing nameIDs bound to semantic roles in STAT/fvar.
+
+    Used to reuse stable IDs when strings are unchanged (avoids false reflow on review).
+    """
+    axis_name_ids: Dict[str, int] = {}
+    axis_value_ids: Dict[Tuple[str, float], int] = {}
+    elided_fallback_id: Optional[int] = None
+    fvar_instances: Dict[str, Tuple[int, Optional[int]]] = {}
+
+    if "STAT" in font:
+        stat = font["STAT"].table
+        idx_to_tag: Dict[int, str] = {}
+        design = getattr(stat, "DesignAxisRecord", None)
+        if design and design.Axis:
+            for index, ax in enumerate(design.Axis):
+                idx_to_tag[index] = ax.AxisTag
+                axis_name_ids[ax.AxisTag] = ax.AxisNameID
+
+        efb = getattr(stat, "ElidedFallbackNameID", 0) or 0
+        if efb >= 256:
+            elided_fallback_id = efb
+
+        avarray = getattr(stat, "AxisValueArray", None)
+        if avarray and avarray.AxisValue:
+            for av in avarray.AxisValue:
+                fmt = av.Format
+                if fmt == 4:
+                    continue
+                tag = idx_to_tag.get(av.AxisIndex)
+                if not tag:
+                    continue
+                if fmt == 1:
+                    value = float(av.Value)
+                elif fmt == 2:
+                    value = float(av.NominalValue)
+                elif fmt == 3:
+                    value = float(av.Value)
+                else:
+                    continue
+                axis_value_ids[_stat_slot_key(tag, value)] = av.ValueNameID
+
+    if "fvar" in font:
+        for inst in font["fvar"].instances:
+            sf_id = inst.subfamilyNameID
+            ps_raw = getattr(inst, "postscriptNameID", 0xFFFF)
+            ps_id = None if ps_raw in (0xFFFF, 0, None) else int(ps_raw)
+            sf_name = (font["name"].getDebugName(sf_id) or "").strip()
+            if sf_name and sf_id >= 256:
+                fvar_instances[sf_name] = (
+                    sf_id,
+                    ps_id if ps_id and ps_id >= 256 else None,
+                )
+
+    return {
+        "axis_names": axis_name_ids,
+        "axis_values": axis_value_ids,
+        "elided_fallback": elided_fallback_id,
+        "fvar_instances": fvar_instances,
+    }
+
+
 def preserved_design_axis_name_ids(font: TTFont, rebuilt_tags: Set[str]) -> Set[int]:
     """
     STAT DesignAxisRecord name IDs for axes not rebuilt by this commit.
@@ -432,15 +502,48 @@ def build_allocation_plan(
         if nid in used:
             protected[nid] = used[nid]
 
+    role_snapshot = _snapshot_role_name_ids(font)
+    snapshot_axis_names: Dict[str, int] = role_snapshot["axis_names"]  # type: ignore[assignment]
+    snapshot_axis_values: Dict[Tuple[str, float], int] = role_snapshot["axis_values"]  # type: ignore[assignment]
+    snapshot_elided_fallback: Optional[int] = role_snapshot["elided_fallback"]  # type: ignore[assignment]
+    snapshot_fvar_instances: Dict[str, Tuple[int, Optional[int]]] = role_snapshot["fvar_instances"]  # type: ignore[assignment]
+
     cursor = 256
+    claimed_ids: Set[int] = set()
+
+    def _name_matches(nid: int, expected: str) -> bool:
+        actual = font["name"].getDebugName(nid) or ""
+        return actual.strip() == expected.strip()
+
+    def _can_reuse(nid: Optional[int], expected: str) -> bool:
+        if not nid or nid < 256:
+            return False
+        if nid in claimed_ids:
+            return False
+        if nid in ot_protected_ids:
+            return False
+        if nid in preserved_axis_name_ids:
+            return False
+        return _name_matches(nid, expected)
 
     def alloc_id() -> int:
         nonlocal cursor
-        while cursor in ot_protected_ids or cursor in preserved_axis_name_ids:
+        while (
+            cursor in ot_protected_ids
+            or cursor in preserved_axis_name_ids
+            or cursor in claimed_ids
+        ):
             cursor += 1
         nid = cursor
+        claimed_ids.add(nid)
         cursor += 1
         return nid
+
+    def alloc_or_reuse(reuse_nid: Optional[int], expected: str) -> int:
+        if _can_reuse(reuse_nid, expected):
+            claimed_ids.add(reuse_nid)
+            return reuse_nid
+        return alloc_id()
 
     free_start = cursor
 
@@ -457,8 +560,12 @@ def build_allocation_plan(
     axis_names: Dict[str, str] = {}
     for axis_def in axis_defs:
         if axis_def.tag not in axis_name_ids:
-            axis_name_ids[axis_def.tag] = alloc_id()
-            axis_names[axis_def.tag] = axis_def.display_name or axis_def.tag
+            label = axis_def.display_name or axis_def.tag
+            axis_name_ids[axis_def.tag] = alloc_or_reuse(
+                snapshot_axis_names.get(axis_def.tag),
+                label,
+            )
+            axis_names[axis_def.tag] = label
 
     # 2. STAT axis value names — use the axis-tree stop label as-is.
     # Instance-style composition (clarifiers, registration, elided-fallback) belongs
@@ -470,11 +577,14 @@ def build_allocation_plan(
         for av_def in axis_def.values:
             key = (axis_def.tag, av_def.value)
             if key not in axis_value_ids:
-                axis_value_ids[key] = alloc_id()
                 label = (av_def.name or "").strip()
                 if not label:
                     value = av_def.value
                     label = str(int(value)) if float(value).is_integer() else str(value)
+                axis_value_ids[key] = alloc_or_reuse(
+                    snapshot_axis_values.get(_stat_slot_key(axis_def.tag, av_def.value)),
+                    label,
+                )
                 stat_value_labels[key] = label
 
     compound_value_ids: Dict[str, int] = {}
@@ -484,7 +594,10 @@ def build_allocation_plan(
         compound_value_names[compound.id] = compound.name
 
     # 3. Elided fallback — always its own ID, never aliased to an instance nameID.
-    elided_fallback_id = alloc_id()
+    elided_fallback_id = alloc_or_reuse(
+        snapshot_elided_fallback,
+        elided_fallback_name,
+    )
 
     # 4. fvar instance names (+ PostScript)
     if allocate_postscript_names:
@@ -507,7 +620,8 @@ def build_allocation_plan(
         pinned_coords=pinned_coords,
     ):
         if composed_name not in instance_ids:
-            instance_ids[composed_name] = alloc_id()
+            reuse_sf, _ = snapshot_fvar_instances.get(composed_name, (None, None))
+            instance_ids[composed_name] = alloc_or_reuse(reuse_sf, composed_name)
 
         if not allocate_postscript_names:
             continue
@@ -515,7 +629,8 @@ def build_allocation_plan(
         ps_name = compose_postscript_instance_name(family_prefix, composed_name)
         instance_postscript_names[composed_name] = ps_name
         # Unique ID per instance slot even when the PS string text coincides.
-        instance_postscript_ids[composed_name] = alloc_id()
+        _, reuse_ps = snapshot_fvar_instances.get(composed_name, (None, None))
+        instance_postscript_ids[composed_name] = alloc_or_reuse(reuse_ps, ps_name)
 
     if cursor <= free_start:
         free_end = free_start - 1

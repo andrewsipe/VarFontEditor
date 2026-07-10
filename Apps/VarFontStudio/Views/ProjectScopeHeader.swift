@@ -93,13 +93,15 @@ struct ProjectScopeHeader: View {
             .transaction { $0.animation = nil }
 
             HStack(spacing: 0) {
-                Text("\(openProject.document.fonts.count)")
+                let fileCount = liveProject?.document.fonts.count ?? openProject.document.fonts.count
+                Text("\(fileCount)")
                     .foregroundStyle(StudioColors.computedHighlight)
-                Text(" file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
+                Text(" file\(fileCount == 1 ? "" : "s") · \(editor.projectNamingSubtitle(for: liveProject ?? openProject))")
                     .foregroundStyle(.secondary)
             }
             .font(StudioTypography.caption)
             .lineLimit(2)
+            .help("PostScript prefix shared for instance names in this project")
         }
     }
 

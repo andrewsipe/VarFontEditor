@@ -25,6 +25,16 @@ public enum SaveReviewDisplayCategory: String, CaseIterable, Sendable, Codable {
     public static let filterOrder: [SaveReviewDisplayCategory] = [
         .same, .protected, .reflow, .renamed, .added, .removed,
     ]
+
+    /// Tab badge numerator — rows that need review attention (not unchanged or read-only).
+    public var countsTowardTabChanges: Bool {
+        switch self {
+        case .same, .protected:
+            return false
+        case .reflow, .renamed, .added, .removed:
+            return true
+        }
+    }
 }
 
 public enum SaveReviewTableTab: String, Sendable, Codable, CaseIterable {

@@ -45,6 +45,12 @@ struct StudioPanelSplitView: View {
                         maxHeight: .infinity,
                         alignment: .topLeading
                     )
+                    .modifier(
+                        TrackResizableWidth(
+                            range: StudioPanelMetrics.inspectorMin...StudioPanelMetrics.inspectorMax,
+                            storedWidth: $layout.inspectorWidth
+                        )
+                    )
                     .registerPanelFrame(InspectorPanelFrameKey.self) { frame in
                         editor.workspaceDrag.setInspectorPanelFrame(frame)
                     }
@@ -83,6 +89,12 @@ struct StudioPanelSplitView: View {
                     maxHeight: .infinity,
                     alignment: .topLeading
                 )
+                .modifier(
+                    TrackResizableWidth(
+                        range: StudioPanelMetrics.axisTreeMin...StudioPanelMetrics.axisTreeMax,
+                        storedWidth: $layout.axisTreeWidth
+                    )
+                )
         }
     }
 
@@ -112,6 +124,29 @@ private extension View {
         .onPreferenceChange(key) { frame in
             onChange(frame)
         }
+    }
+}
+
+private struct TrackResizableWidth: ViewModifier {
+    let range: ClosedRange<CGFloat>
+    @Binding var storedWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content.background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { persist(geometry.size.width) }
+                    .onChange(of: geometry.size.width) { _, width in
+                        persist(width)
+                    }
+            }
+        }
+    }
+
+    private func persist(_ width: CGFloat) {
+        let clamped = min(max(width, range.lowerBound), range.upperBound)
+        guard abs(storedWidth - clamped) > 0.5 else { return }
+        storedWidth = clamped
     }
 }
 

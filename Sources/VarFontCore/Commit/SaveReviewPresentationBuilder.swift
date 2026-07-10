@@ -443,7 +443,7 @@ public enum SaveReviewPresentationBuilder {
     sections: [SaveReviewSectionPresentation]
   ) -> SaveReviewTabPresentation {
     let rows = sections.flatMap(\.rows)
-    let changed = rows.filter { $0.category != .same }.count
+    let changed = rows.filter(\.category.countsTowardTabChanges).count
     return SaveReviewTabPresentation(
       id: id,
       label: label,

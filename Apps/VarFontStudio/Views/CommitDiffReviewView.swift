@@ -51,8 +51,6 @@ struct CommitDiffReviewView: View {
         }
         .preferredColorScheme(.dark)
         .frame(maxHeight: fillsAvailableHeight ? .infinity : nil, alignment: .top)
-        .onAppear { autoSelectTabIfNeeded() }
-        .onChange(of: session.id) { _, _ in autoSelectTabIfNeeded() }
     }
 
     // MARK: - Pinned chrome
@@ -343,16 +341,6 @@ struct CommitDiffReviewView: View {
 
     private func visibleRowCount(in tab: SaveReviewTabPresentation) -> Int {
         filteredSections(for: tab).reduce(0) { $0 + $1.rows.count }
-    }
-
-    private func autoSelectTabIfNeeded() {
-        guard !uiState.userPickedTableTab else { return }
-        guard let best = session.presentation.tabs.max(by: { $0.changedCount < $1.changedCount }),
-              best.changedCount > 0
-        else { return }
-        editor.updateSaveReviewUIState(forProjectID: projectID) {
-            $0.selectedTableTab = best.id
-        }
     }
 
     // MARK: - Cards

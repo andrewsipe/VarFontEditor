@@ -25,7 +25,7 @@ struct SaveReviewOpenRequest: Equatable {
 struct SaveReviewUIState: Equatable {
     var selectedTableTab: SaveReviewTableTab = .stat
     var userPickedTableTab: Bool = false
-    var hiddenCategories: Set<SaveReviewDisplayCategory> = [.same]
+    var hiddenCategories: Set<SaveReviewDisplayCategory> = []
     var isolateCategory: SaveReviewDisplayCategory? = nil
     var searchQuery: String = ""
 }

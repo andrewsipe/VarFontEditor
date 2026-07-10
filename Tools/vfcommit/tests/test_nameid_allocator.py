@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
@@ -16,6 +17,7 @@ from vfcommit_lib.nameid_allocator import (
     enumerate_instance_names,
 )
 from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
+from vfcommit_lib.stat_builder import apply_table_edits, build_protected_name_ids
 from vfcommit_lib.request_bridge import axis_defs_from_request
 
 _MILGRAM = Path("/Users/skymacbook/Downloads/~Untitled/Milgram-Variable.ttf")
@@ -328,6 +330,90 @@ class NameIDAllocatorTests(unittest.TestCase):
             font["name"].getDebugName(ital_name_id),
             "Italic",
         )
+
+    def test_stable_plan_reuses_role_bound_name_ids(self) -> None:
+        if not _MILGRAM.is_file():
+            self.skipTest("Milgram test font not on disk")
+
+        font = TTFont(str(_MILGRAM), lazy=False)
+        ot_labels = scan_ot_label_nameids(font)
+        axes_json = [
+            {
+                "tag": "wght",
+                "display_name": "Weight",
+                "min": 300,
+                "default": 400,
+                "max": 900,
+                "role": "instance",
+                "values": [
+                    {"id": "w1", "value": 300, "name": "Light", "elidable": False, "stat_format": 1},
+                    {"id": "w2", "value": 400, "name": "Regular", "elidable": True, "stat_format": 1},
+                    {"id": "w3", "value": 700, "name": "Bold", "elidable": False, "stat_format": 1},
+                ],
+            }
+        ]
+        axis_defs = axis_defs_from_request(axes_json)
+        kwargs = dict(
+            elided_fallback_name="Regular",
+            allocate_postscript_names=True,
+            instance_axis_defs=axis_defs,
+            family_ps_prefix="Milgram",
+        )
+        plan1 = build_allocation_plan(font, ot_labels, axis_defs, **kwargs)
+        working = deepcopy(font)
+        apply_table_edits(
+            working,
+            axis_defs,
+            plan1,
+            elided_fallback_name="Regular",
+            protected_ids=build_protected_name_ids(font, {rec.name_id for rec in ot_labels}),
+            confirm_wipe=False,
+            instance_axis_defs=axis_defs,
+        )
+        plan2 = build_allocation_plan(working, ot_labels, axis_defs, **kwargs)
+        self.assertEqual(plan2.axis_value_ids, plan1.axis_value_ids)
+        self.assertEqual(plan2.elided_fallback_id, plan1.elided_fallback_id)
+
+    def test_writes_family_prefix_to_name_id_25(self) -> None:
+        if not _MILGRAM.is_file():
+            self.skipTest("Milgram test font not on disk")
+
+        font = TTFont(str(_MILGRAM), lazy=False)
+        ot_labels = scan_ot_label_nameids(font)
+        axes_json = [
+            {
+                "tag": "wght",
+                "display_name": "Weight",
+                "min": 300,
+                "default": 400,
+                "max": 900,
+                "role": "instance",
+                "values": [
+                    {"id": "w1", "value": 400, "name": "Regular", "elidable": True, "stat_format": 1},
+                ],
+            }
+        ]
+        axis_defs = axis_defs_from_request(axes_json)
+        plan = build_allocation_plan(
+            font,
+            ot_labels,
+            axis_defs,
+            elided_fallback_name="Regular",
+            allocate_postscript_names=True,
+            instance_axis_defs=axis_defs,
+            family_ps_prefix="Nouveau",
+        )
+        working = deepcopy(font)
+        apply_table_edits(
+            working,
+            axis_defs,
+            plan,
+            elided_fallback_name="Regular",
+            protected_ids=build_protected_name_ids(font, {rec.name_id for rec in ot_labels}),
+            confirm_wipe=False,
+            instance_axis_defs=axis_defs,
+        )
+        self.assertEqual(working["name"].getDebugName(25), "Nouveau")
 
 
 if __name__ == "__main__":

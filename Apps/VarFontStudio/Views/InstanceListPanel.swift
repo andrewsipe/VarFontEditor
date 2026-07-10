@@ -4,7 +4,9 @@ import VarFontCore
 
 struct InstanceListPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var layout: EditorLayoutPreferences
     @AppStorage("instanceListHideElided") private var hideElidedNames = false
+    @FocusState private var isSearchFocused: Bool
 
     /// Matches list row checkbox column: list inset + row horizontal padding.
     private static let checkboxLeading = StudioSpacing.listInset + StudioSpacing.rowHorizontal
@@ -42,6 +44,20 @@ struct InstanceListPanel: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            focusSearchFieldIfRequested()
+        }
+        .onChange(of: editor.instanceSearchFocusToken) { _, token in
+            guard token != nil else { return }
+            focusSearchFieldIfRequested()
+        }
+    }
+
+    private func focusSearchFieldIfRequested() {
+        guard editor.instanceSearchFocusToken != nil else { return }
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
     }
 
     private var visibleInstanceCount: Int {
@@ -117,6 +133,7 @@ struct InstanceListPanel: View {
             isIncluded: display.includedByKey[instance.key] ?? true,
             isSelected: editor.activeInstanceSelection.contains(instance.key),
             hideElidedNames: hideElidedNames,
+            isDuplicate: instance.duplicate,
             hasConflict: hasConflict,
             onSelect: { extend in
                 editor.selectInstance(key: instance.key, extend: extend)
@@ -132,6 +149,10 @@ struct InstanceListPanel: View {
                 if let bundle = editor.primaryConflictAxis(for: instance) {
                     editor.presentConflictResolver(bundle: bundle)
                 }
+            } : nil,
+            onDuplicateTap: instance.duplicate ? {
+                layout.showInstances = true
+                editor.showDuplicateInstances(matching: instance)
             } : nil
         )
     }
@@ -207,7 +228,8 @@ struct InstanceListPanel: View {
     private var searchField: some View {
         StudioSearchField(
             text: $editor.searchText,
-            placeholder: "Search names or coordinates"
+            placeholder: "Search names or coordinates",
+            isFocused: $isSearchFocused
         )
     }
 
@@ -298,15 +320,40 @@ private struct InstanceRowView: View {
     let isIncluded: Bool
     let isSelected: Bool
     var hideElidedNames: Bool = false
+    var isDuplicate: Bool = false
     var hasConflict: Bool = false
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
     let onSetSelectionIncluded: (Bool) -> Void
     var onWarningTap: (() -> Void)?
+    var onDuplicateTap: (() -> Void)?
 
     @State private var isHovered = false
 
     var body: some View {
+        rowContent
+            .opacity(isIncluded ? 1 : 0.45)
+            .background {
+                StudioRowBackground(
+                    isSelected: isSelected,
+                    isHovered: isHovered,
+                    isWarning: isDuplicate
+                )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+            .onTapGesture {
+                onSelect(NSEvent.modifierFlags.contains(.command))
+            }
+            .contextMenu {
+                InstanceSelectionContextMenu(
+                    includeAction: { onSetSelectionIncluded(true) },
+                    excludeAction: { onSetSelectionIncluded(false) }
+                )
+            }
+            .onHover { isHovered = $0 }
+    }
+
+    private var rowContent: some View {
         HStack(spacing: StudioSpacing.rowGap + 1) {
             StudioIncludeCheckbox(isOn: isIncluded) {
                 onIncludedChange(!isIncluded)
@@ -327,6 +374,10 @@ private struct InstanceRowView: View {
                         StudioWarningBadge(help: "Naming conflict — show in inspector") {
                             onWarningTap?()
                         }
+                    } else if isDuplicate {
+                        StudioWarningBadge(help: "Duplicate composed name — show matching instances") {
+                            onDuplicateTap?()
+                        }
                     }
                 }
 
@@ -340,24 +391,5 @@ private struct InstanceRowView: View {
         }
         .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
         .studioRowInsets()
-        .opacity(isIncluded ? 1 : 0.45)
-        .background {
-            StudioRowBackground(
-                isSelected: isSelected,
-                isHovered: isHovered,
-                isWarning: false
-            )
-        }
-        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
-        .onTapGesture {
-            onSelect(NSEvent.modifierFlags.contains(.command))
-        }
-        .contextMenu {
-            InstanceSelectionContextMenu(
-                includeAction: { onSetSelectionIncluded(true) },
-                excludeAction: { onSetSelectionIncluded(false) }
-            )
-        }
-        .onHover { isHovered = $0 }
     }
 }

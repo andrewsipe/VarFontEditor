@@ -180,6 +180,10 @@ struct MainEditorView: View {
                 Text(editor.splitFontConfirmationMessage(for: request))
             }
         }
+        .onChange(of: editor.instanceSearchFocusToken) { _, token in
+            guard token != nil else { return }
+            layout.showInstances = true
+        }
     }
 
     private var projectTargetPickerBinding: Binding<ProjectTargetPickerMode?> {

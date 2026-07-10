@@ -1056,9 +1056,14 @@ struct StudioTextField: View {
     var onSubmit: (() -> Void)? = nil
     var onCancel: (() -> Void)? = nil
     var submitBehavior: StudioTextSubmitBehavior = .commit
+    var focusBinding: FocusState<Bool>.Binding? = nil
 
-    @FocusState private var isFocused: Bool
+    @FocusState private var internalFocus: Bool
     @Environment(\.isEnabled) private var isEnabled
+
+    private var activeFocus: FocusState<Bool>.Binding {
+        focusBinding ?? $internalFocus
+    }
 
     var body: some View {
         TextField(
@@ -1085,7 +1090,7 @@ struct StudioTextField: View {
                         .strokeBorder(borderColor, lineWidth: 0.5)
                 }
             }
-            .focused($isFocused)
+            .focused(activeFocus)
             .modifier(StudioFocusRingSuppression())
             .onSubmit { handleSubmit() }
             .onExitCommand { handleCancel() }
@@ -1094,13 +1099,13 @@ struct StudioTextField: View {
     private func handleSubmit() {
         onSubmit?()
         guard submitBehavior == .commit else { return }
-        isFocused = false
+        activeFocus.wrappedValue = false
         StudioFieldFocus.resignIfEditing()
     }
 
     private func handleCancel() {
         onCancel?()
-        isFocused = false
+        activeFocus.wrappedValue = false
         StudioFieldFocus.resignIfEditing()
     }
 
@@ -1111,11 +1116,11 @@ struct StudioTextField: View {
     }
 
     private var fieldBackground: Color {
-        isFocused ? Color(nsColor: .textBackgroundColor) : Color.primary.opacity(0.05)
+        activeFocus.wrappedValue ? Color(nsColor: .textBackgroundColor) : Color.primary.opacity(0.05)
     }
 
     private var borderColor: Color {
-        isFocused ? Color.primary.opacity(0.22) : Color.secondary.opacity(0.28)
+        activeFocus.wrappedValue ? Color.primary.opacity(0.22) : Color.secondary.opacity(0.28)
     }
 }
 
@@ -1123,6 +1128,13 @@ struct StudioTextField: View {
 struct StudioSearchField: View {
     @Binding var text: String
     var placeholder: String = "Search"
+    var isFocused: FocusState<Bool>.Binding? = nil
+
+    @FocusState private var internalFocus: Bool
+
+    private var activeFocus: FocusState<Bool>.Binding {
+        isFocused ?? $internalFocus
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -1133,7 +1145,8 @@ struct StudioSearchField: View {
             StudioTextField(
                 placeholder: placeholder,
                 text: $text,
-                showsFieldChrome: false
+                showsFieldChrome: false,
+                focusBinding: activeFocus
             )
 
             if !text.isEmpty {

@@ -4,6 +4,7 @@ import VarFontCore
 /// Instance-scoped inspector content (composed name, chain, coordinates, name table).
 struct InstanceInspectorContent: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var layout: EditorLayoutPreferences
     @State private var showPlannedWrites = true
 
     var body: some View {
@@ -63,6 +64,16 @@ struct InstanceInspectorContent: View {
                     name: instance.composedName,
                     isDuplicate: instance.duplicate
                 )
+
+                if instance.duplicate {
+                    StudioConflictAlert(
+                        message: "This composed name is shared by other instances.",
+                        actionTitle: "Show duplicates…"
+                    ) {
+                        layout.showInstances = true
+                        editor.showDuplicateInstances(matching: instance)
+                    }
+                }
 
                 inclusionSection(instance)
                 namingChainSection(instance)

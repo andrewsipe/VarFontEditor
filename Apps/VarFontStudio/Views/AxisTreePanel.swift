@@ -265,6 +265,19 @@ struct AxisTreePanel: View {
                             .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: StudioSpacing.controlGap)
+                        if warning.code == "duplicate_composed_name" {
+                            Button("Show in list…") {
+                                layout.showInstances = true
+                                if let name = warning.name {
+                                    editor.showDuplicateInstances(matchingName: name)
+                                } else {
+                                    editor.showAllDuplicateInstances()
+                                }
+                            }
+                            .font(StudioTypography.meta)
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                        }
                         if PlanIssueCodes.resolvable.contains(warning.code), issueCount > 0 {
                             Button("Review…") {
                                 editor.startReviewSession(jumpingTo: warning)
