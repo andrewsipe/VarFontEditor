@@ -47,8 +47,10 @@ public enum FontAnalysisReader {
         let postData = CTFontCopyTable(font, postTag, []) as Data?
 
         var isItalicFont = false
+        var postItalicAngle: Double?
         if let postData, postData.count >= 8 {
             let angle = OpenTypeBinary.readFixed(postData, 4)
+            postItalicAngle = angle
             isItalicFont = abs(angle) > 0.5
         }
 
@@ -172,7 +174,8 @@ public enum FontAnalysisReader {
                     ordering: orderMap[axis.tag],
                     roleInferred: role,
                     variesInExistingInstances: gridAxisTags.contains(axis.tag),
-                    valuesExisting: valuesExisting
+                    valuesExisting: valuesExisting,
+                    fvarHidden: axis.isHidden
                 )
             )
         }
@@ -273,8 +276,10 @@ public enum FontAnalysisReader {
             inferred: FontAnalysis.InferredAnalysis(
                 isItalicFont: isItalicFont,
                 gridAxisTags: gridAxisTags,
-                namingOrderSuggested: namingOrderSuggested
-            )
+                namingOrderSuggested: namingOrderSuggested,
+                postItalicAngle: postItalicAngle
+            ),
+            designAxisTags: (stat?.designAxes ?? []).map(\.tag)
         )
     }
 

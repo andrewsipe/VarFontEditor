@@ -6,6 +6,7 @@ import VarFontCore
 /// convention in the Instance scope — a Divider marks the fixed/scroll seam.
 struct ProjectInspectorPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var isFileNamingExpanded = true
 
     var body: some View {
@@ -91,10 +92,26 @@ struct ProjectInspectorPanel: View {
                                 && editor.selectedFontID == font.id
                         )
                     }
+
+                    Color.clear
+                        .frame(height: 8)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: FileChipFrameKey.self,
+                                    value: ["\(openProject.id):__end__": geometry.frame(in: .global)]
+                                )
+                            }
+                        }
                 }
                 .padding(.trailing, StudioSpacing.scrollGutter)
                 .padding(.bottom, StudioSpacing.controlGap)
+                .onPreferenceChange(FileChipFrameKey.self) { frames in
+                    guard !workspaceDrag.isActive else { return }
+                    editor.workspaceDrag.setFontChipFrames(frames, source: .inspectorFiles)
+                }
             }
+            .scrollDisabled(workspaceDrag.isActive)
             .frame(maxHeight: .infinity)
         }
         .frame(maxHeight: .infinity, alignment: .top)

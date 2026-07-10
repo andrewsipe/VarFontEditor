@@ -27,8 +27,16 @@ struct FileNamingFields: View {
                 text: psPrefixBinding(for: fontID),
                 filledForeground: StudioColors.clarifierForeground
             )
-            .help("Prefix for fvar instance PostScript names — from name ID 25, or ID 6 before the first hyphen")
+            .help(psPrefixHelp(for: fontID))
         }
+    }
+
+    private func psPrefixHelp(for fontID: String) -> String {
+        let isMaster = editor.isMasterFont(fontID: fontID, projectID: editor.activeProjectID ?? "")
+        if isMaster {
+            return "Prefix for fvar instance PostScript names. Editing the master updates every file in this project."
+        }
+        return "Prefix for fvar instance PostScript names on this file only. Edit the master file to push a shared prefix to the whole project."
     }
 
     @ViewBuilder

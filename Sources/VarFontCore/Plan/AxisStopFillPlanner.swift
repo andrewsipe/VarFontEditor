@@ -44,13 +44,24 @@ public enum AxisStopFillPlanner {
     public static let maxStopCount = 12
     public static let minStopCount = 2
 
-    public static func options(for axis: AxisDefinition) -> AxisStopFillOptions? {
+    /// Below this span, evenly-spaced/interval fills don't produce meaningful design choices
+    /// (e.g. a boolean-style axis like `ital` running 0–1). The axis tree still supports adding
+    /// single stops manually; quick fill just doesn't offer to subdivide a range this narrow.
+    public static let minimumRangeForFill: Double = 2
+
+    /// True when the axis is eligible for quick fill, regardless of whether it currently has stops.
+    public static func supportsFill(_ axis: AxisDefinition) -> Bool {
         guard axis.role == .instance,
               !axis.isDesignRecordOnly,
-              axis.values.isEmpty,
               let minV = axis.min,
-              let maxV = axis.max,
-              maxV > minV else { return nil }
+              let maxV = axis.max else { return false }
+        return maxV - minV >= minimumRangeForFill
+    }
+
+    public static func options(for axis: AxisDefinition) -> AxisStopFillOptions? {
+        guard supportsFill(axis),
+              let minV = axis.min,
+              let maxV = axis.max else { return nil }
 
         let countRange = evenCountRange(min: minV, max: maxV)
         let recommended = recommendedCounts(min: minV, max: maxV, within: countRange)
@@ -127,10 +138,14 @@ public enum AxisStopFillPlanner {
         return range.upperBound
     }
 
+    /// Bounds are snapped to "nice" numbers (1/2/5 × a power of ten) so every reachable slider
+    /// position — which SwiftUI computes as `lowerBound + n × step` — stays a clean value instead
+    /// of inheriting a repeating decimal like `170 / 11 = 15.454545...`.
     private static func intervalRange(min minV: Double, max maxV: Double) -> ClosedRange<Double> {
         let range = maxV - minV
-        let minStep = max(range / Double(maxStopCount - 1), 0.001)
-        let maxStep = range
+        let rawMinStep = range / Double(maxStopCount - 1)
+        let minStep = niceStep(atLeast: rawMinStep)
+        let maxStep = max(minStep, niceStep(atMost: range))
         return minStep...maxStep
     }
 
@@ -142,17 +157,39 @@ public enum AxisStopFillPlanner {
     ) -> Double {
         let rangeSpan = maxV - minV
         let evenStep = rangeSpan / Double(max(preferredCount - 1, 1))
-        let snapped = snapInterval(evenStep, within: range)
+        let snapped = snapInterval(niceStep(atLeast: evenStep), within: range)
         if let stepped = steppedValues(min: minV, max: maxV, step: snapped),
-           stepped.count >= minStopCount {
+           stepped.count >= minStopCount, stepped.count <= maxStopCount {
             return snapped
         }
-        return snapInterval(range.lowerBound, within: range)
+        return range.lowerBound
     }
 
     private static func snapInterval(_ step: Double, within range: ClosedRange<Double>) -> Double {
-        let clamped = min(max(step, range.lowerBound), range.upperBound)
-        return AxisCoordinateFormat.canonical(clamped)
+        min(max(step, range.lowerBound), range.upperBound)
+    }
+
+    /// Smallest "nice" step (1/2/5 × 10^n) that is ≥ `value`, so counts never exceed the cap.
+    private static func niceStep(atLeast value: Double) -> Double {
+        guard value > 0 else { return 1 }
+        let magnitude = pow(10.0, floor(log10(value)))
+        for multiplier in [1.0, 2.0, 5.0, 10.0] {
+            let candidate = magnitude * multiplier
+            if candidate >= value - 1e-9 { return candidate }
+        }
+        return magnitude * 10
+    }
+
+    /// Largest "nice" step (1/2/5 × 10^n) that is ≤ `value`, so the upper bound is clean too.
+    private static func niceStep(atMost value: Double) -> Double {
+        guard value > 0 else { return 1 }
+        let magnitude = pow(10.0, floor(log10(value)))
+        var best = magnitude
+        for multiplier in [1.0, 2.0, 5.0, 10.0] {
+            let candidate = magnitude * multiplier
+            if candidate <= value + 1e-9 { best = candidate }
+        }
+        return best
     }
 
     private static func evenlySpacedValues(min minV: Double, max maxV: Double, count: Int) -> [Double] {

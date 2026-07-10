@@ -36,7 +36,7 @@ struct ProjectFileSubBar: View {
                         }
                         .onPreferenceChange(FileChipFrameKey.self) { frames in
                             guard !workspaceDrag.isActive else { return }
-                            editor.workspaceDrag.setFontChipFrames(frames)
+                            editor.workspaceDrag.setFontChipFrames(frames, source: .fileSubBar)
                         }
                     }
                     .scrollDisabled(workspaceDrag.isActive)

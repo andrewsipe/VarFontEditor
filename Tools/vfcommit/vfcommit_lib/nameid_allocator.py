@@ -26,6 +26,7 @@ CLARIFIER_TOKEN_TO_CATEGORY: Dict[str, str] = {
 
 REGISTRATION_AXIS_TO_CLARIFIER_CATEGORY: Dict[str, str] = {
     "ital": "slope",
+    "slnt": "slope",
     "wdth": "width",
     "opsz": "optical",
 }
@@ -443,6 +444,14 @@ def build_allocation_plan(
 
     free_start = cursor
 
+    # Allocation order (OT feature labels ≥256 stay pinned; we flow around them):
+    #   1. DesignAxisRecord names
+    #   2. AxisValueArray names (+ preserved format-4 compounds)
+    #   3. ElidedFallbackNameID
+    #   4. fvar instance subfamily (+ PostScript) names
+    # Each slot gets its own nameID — duplicate string text never shares an ID across
+    # roles, so a later rename can't cascade through STAT / EFB / instances.
+
     # 1. Axis display names (reallocated fresh at 256+, decoupled from 2/6/17)
     axis_name_ids: Dict[str, int] = {}
     axis_names: Dict[str, str] = {}
@@ -451,7 +460,10 @@ def build_allocation_plan(
             axis_name_ids[axis_def.tag] = alloc_id()
             axis_names[axis_def.tag] = axis_def.display_name or axis_def.tag
 
-    # 2. STAT axis value names
+    # 2. STAT axis value names — use the axis-tree stop label as-is.
+    # Instance-style composition (clarifiers, registration, elided-fallback) belongs
+    # on fvar instance names only. Writing composed strings here is what turned
+    # Playfair Italic's "Medium" / elided "Normal" into "Medium Italic" / "Italic".
     axis_value_ids: Dict[Tuple[str, float], int] = {}
     stat_value_labels: Dict[Tuple[str, float], str] = {}
     for axis_def in axis_defs:
@@ -459,14 +471,11 @@ def build_allocation_plan(
             key = (axis_def.tag, av_def.value)
             if key not in axis_value_ids:
                 axis_value_ids[key] = alloc_id()
-                stat_value_labels[key] = compose_name_from_order(
-                    order,
-                    {axis_def.tag: av_def},
-                    clarifier_map,
-                    elided_fallback_name,
-                    axes_json=axes_payload,
-                    file_stat_registration=registration,
-                )
+                label = (av_def.name or "").strip()
+                if not label:
+                    value = av_def.value
+                    label = str(int(value)) if float(value).is_integer() else str(value)
+                stat_value_labels[key] = label
 
     compound_value_ids: Dict[str, int] = {}
     compound_value_names: Dict[str, str] = {}
@@ -474,6 +483,10 @@ def build_allocation_plan(
         compound_value_ids[compound.id] = alloc_id()
         compound_value_names[compound.id] = compound.name
 
+    # 3. Elided fallback — always its own ID, never aliased to an instance nameID.
+    elided_fallback_id = alloc_id()
+
+    # 4. fvar instance names (+ PostScript)
     if allocate_postscript_names:
         override = (family_ps_prefix or "").strip()
         family_prefix = override or derive_family_ps_prefix(font)
@@ -482,7 +495,6 @@ def build_allocation_plan(
     instance_ids: Dict[str, int] = {}
     instance_postscript_names: Dict[str, str] = {}
     instance_postscript_ids: Dict[str, int] = {}
-    ps_string_to_id: Dict[str, int] = {}
 
     for composed_name in enumerate_instance_names(
         grid_axes,
@@ -502,16 +514,8 @@ def build_allocation_plan(
 
         ps_name = compose_postscript_instance_name(family_prefix, composed_name)
         instance_postscript_names[composed_name] = ps_name
-        if ps_name not in ps_string_to_id:
-            ps_string_to_id[ps_name] = alloc_id()
-        instance_postscript_ids[composed_name] = ps_string_to_id[ps_name]
-
-    # Elided fallback name: reuse the all-elided instance ID when present,
-    # otherwise allocate a dedicated 256+ ID. Never falls back to ID 2.
-    if elided_fallback_name in instance_ids:
-        elided_fallback_id = instance_ids[elided_fallback_name]
-    else:
-        elided_fallback_id = alloc_id()
+        # Unique ID per instance slot even when the PS string text coincides.
+        instance_postscript_ids[composed_name] = alloc_id()
 
     if cursor <= free_start:
         free_end = free_start - 1
@@ -564,6 +568,25 @@ def check_for_collisions(plan: NameIDPlan, font: TTFont) -> List[str]:
             collisions.append(
                 f"nameID {nid} planned for '{description}' "
                 f"but protected as: {plan.protected[nid]}"
+            )
+    # Every planned slot must own a distinct ID (STAT stop vs EFB vs instance, etc.).
+    owners: Dict[int, List[str]] = {}
+    for (tag, val), nid in plan.axis_value_ids.items():
+        owners.setdefault(nid, []).append(f"STAT {tag}={val}")
+    for tag, nid in plan.axis_name_ids.items():
+        owners.setdefault(nid, []).append(f"axis name [{tag}]")
+    for compound_id, nid in plan.compound_value_ids.items():
+        owners.setdefault(nid, []).append(f"compound [{compound_id}]")
+    if plan.elided_fallback_id:
+        owners.setdefault(plan.elided_fallback_id, []).append("elided fallback")
+    for name, nid in plan.instance_ids.items():
+        owners.setdefault(nid, []).append(f"instance '{name}'")
+    for composed, nid in plan.instance_postscript_ids.items():
+        owners.setdefault(nid, []).append(f"PS '{composed}'")
+    for nid, roles in owners.items():
+        if len(roles) > 1:
+            collisions.append(
+                f"nameID {nid} shared by: {', '.join(roles)}"
             )
     return collisions
 

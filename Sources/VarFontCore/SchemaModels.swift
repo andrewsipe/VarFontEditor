@@ -126,6 +126,8 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
     public var referenceMapping: ReferenceMappingKind?
     public var referenceMappingInferred: ReferenceMappingKind?
     public var referenceAnchors: [ReferenceAnchor]
+    /// fvar HIDDEN_AXIS flag from source (recommend axis stay out of user-facing UIs).
+    public var fvarHidden: Bool
 
     public var id: String { tag }
 
@@ -138,6 +140,7 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         case referenceMapping = "reference_mapping"
         case referenceMappingInferred = "reference_mapping_inferred"
         case referenceAnchors = "reference_anchors"
+        case fvarHidden = "fvar_hidden"
     }
 
     public init(
@@ -151,7 +154,8 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         values: [AxisValue] = [],
         referenceMapping: ReferenceMappingKind? = nil,
         referenceMappingInferred: ReferenceMappingKind? = nil,
-        referenceAnchors: [ReferenceAnchor] = []
+        referenceAnchors: [ReferenceAnchor] = [],
+        fvarHidden: Bool = false
     ) {
         self.tag = tag
         self.displayName = displayName
@@ -164,6 +168,7 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         self.referenceMapping = referenceMapping
         self.referenceMappingInferred = referenceMappingInferred
         self.referenceAnchors = referenceAnchors
+        self.fvarHidden = fvarHidden
     }
 
     public init(from decoder: Decoder) throws {
@@ -179,6 +184,7 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
         referenceMapping = try c.decodeIfPresent(ReferenceMappingKind.self, forKey: .referenceMapping)
         referenceMappingInferred = try c.decodeIfPresent(ReferenceMappingKind.self, forKey: .referenceMappingInferred)
         referenceAnchors = try c.decodeIfPresent([ReferenceAnchor].self, forKey: .referenceAnchors) ?? []
+        fvarHidden = try c.decodeIfPresent(Bool.self, forKey: .fvarHidden) ?? false
     }
 
     /// True when this axis exists only in STAT DesignAxisRecord (no fvar scale).
@@ -408,6 +414,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
     public var instancesExistingMeta: InstancesMeta?
     public var nameAudit: NameAudit
     public var inferred: InferredAnalysis
+    /// STAT DesignAxisRecord tags in table order (fvar parity checks).
+    public var designAxisTags: [String]
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -418,6 +426,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         case instancesExistingMeta = "instances_existing_meta"
         case nameAudit = "name_audit"
         case inferred
+        case designAxisTags = "design_axis_tags"
     }
 
     public struct SourceInfo: Codable, Equatable, Sendable {
@@ -465,6 +474,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var roleInferred: AxisRole
         public var variesInExistingInstances: Bool
         public var valuesExisting: [StatValueSnapshot]
+        public var fvarHidden: Bool?
 
         public var id: String { tag }
 
@@ -475,6 +485,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
             case roleInferred = "role_inferred"
             case variesInExistingInstances = "varies_in_existing_instances"
             case valuesExisting = "values_existing"
+            case fvarHidden = "fvar_hidden"
         }
     }
 
@@ -663,11 +674,14 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var isItalicFont: Bool
         public var gridAxisTags: [String]
         public var namingOrderSuggested: [String]
+        /// post.italicAngle when present (counter-clockwise degrees; matches slnt scale).
+        public var postItalicAngle: Double?
 
         enum CodingKeys: String, CodingKey {
             case isItalicFont = "is_italic_font"
             case gridAxisTags = "grid_axis_tags"
             case namingOrderSuggested = "naming_order_suggested"
+            case postItalicAngle = "post_italic_angle"
         }
     }
 
@@ -681,7 +695,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         instancesExisting: [ExistingInstance],
         instancesExistingMeta: InstancesMeta? = nil,
         nameAudit: NameAudit,
-        inferred: InferredAnalysis
+        inferred: InferredAnalysis,
+        designAxisTags: [String] = []
     ) {
         self.schemaVersion = schemaVersion
         self.source = source
@@ -693,6 +708,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         self.instancesExistingMeta = instancesExistingMeta
         self.nameAudit = nameAudit
         self.inferred = inferred
+        self.designAxisTags = designAxisTags
     }
 
     public init(from decoder: Decoder) throws {
@@ -707,6 +723,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         instancesExistingMeta = try c.decodeIfPresent(InstancesMeta.self, forKey: .instancesExistingMeta)
         nameAudit = try c.decode(NameAudit.self, forKey: .nameAudit)
         inferred = try c.decode(InferredAnalysis.self, forKey: .inferred)
+        designAxisTags = try c.decodeIfPresent([String].self, forKey: .designAxisTags) ?? []
     }
 }
 
@@ -832,6 +849,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var dismissedPlanIssues: [String]
     /// Preserved STAT format 4 compound entries (read-only in Phase 0).
     public var compoundStatValues: [CompoundStatValue]
+    /// STAT DesignAxisRecord tags captured at import (fvar parity checks).
+    public var statDesignAxisTags: [String]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -848,6 +867,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case inferredIsItalicFile = "inferred_is_italic_file"
         case dismissedPlanIssues = "dismissed_plan_issues"
         case compoundStatValues = "compound_stat_values"
+        case statDesignAxisTags = "stat_design_axis_tags"
     }
 
     public init(
@@ -865,7 +885,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         fileStatRegistration: [String: Double] = [:],
         inferredIsItalicFile: Bool? = nil,
         dismissedPlanIssues: [String] = [],
-        compoundStatValues: [CompoundStatValue] = []
+        compoundStatValues: [CompoundStatValue] = [],
+        statDesignAxisTags: [String] = []
     ) {
         self.id = id
         self.sourcePath = sourcePath
@@ -882,6 +903,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         self.inferredIsItalicFile = inferredIsItalicFile
         self.dismissedPlanIssues = dismissedPlanIssues
         self.compoundStatValues = compoundStatValues
+        self.statDesignAxisTags = statDesignAxisTags
     }
 
     public init(from decoder: Decoder) throws {
@@ -901,6 +923,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         inferredIsItalicFile = try c.decodeIfPresent(Bool.self, forKey: .inferredIsItalicFile)
         dismissedPlanIssues = try c.decodeIfPresent([String].self, forKey: .dismissedPlanIssues) ?? []
         compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
+        statDesignAxisTags = try c.decodeIfPresent([String].self, forKey: .statDesignAxisTags) ?? []
     }
 }
 
@@ -1156,6 +1179,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
     public var elidedFallbackID: Int?
     public var nameIDRange: [Int]?
     public var nameRecordsPlanned: [CommitNameRecordPlanned]
+    /// Write-order name records (axis → stat → elided → instances). Prefer for Save Review sequencing.
+    public var nameRecordsSequenced: [CommitNameRecordPlanned]
     public var statValuesPlanned: [CommitDiffStatValuePlanned]
     public var instancesPlanned: [CommitDiffInstancePlanned]
 
@@ -1165,6 +1190,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         case elidedFallbackID = "elided_fallback_id"
         case nameIDRange = "name_id_range"
         case nameRecordsPlanned = "name_records_planned"
+        case nameRecordsSequenced = "name_records_sequenced"
         case statValuesPlanned = "stat_values_planned"
         case instancesPlanned = "instances_planned"
     }
@@ -1175,6 +1201,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         elidedFallbackID: Int? = nil,
         nameIDRange: [Int]? = nil,
         nameRecordsPlanned: [CommitNameRecordPlanned] = [],
+        nameRecordsSequenced: [CommitNameRecordPlanned] = [],
         statValuesPlanned: [CommitDiffStatValuePlanned] = [],
         instancesPlanned: [CommitDiffInstancePlanned] = []
     ) {
@@ -1183,8 +1210,22 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         self.elidedFallbackID = elidedFallbackID
         self.nameIDRange = nameIDRange
         self.nameRecordsPlanned = nameRecordsPlanned
+        self.nameRecordsSequenced = nameRecordsSequenced.isEmpty ? nameRecordsPlanned : nameRecordsSequenced
         self.statValuesPlanned = statValuesPlanned
         self.instancesPlanned = instancesPlanned
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        familyPSPrefix = try c.decodeIfPresent(String.self, forKey: .familyPSPrefix)
+        elidedFallbackName = try c.decodeIfPresent(String.self, forKey: .elidedFallbackName)
+        elidedFallbackID = try c.decodeIfPresent(Int.self, forKey: .elidedFallbackID)
+        nameIDRange = try c.decodeIfPresent([Int].self, forKey: .nameIDRange)
+        nameRecordsPlanned = try c.decodeIfPresent([CommitNameRecordPlanned].self, forKey: .nameRecordsPlanned) ?? []
+        nameRecordsSequenced = try c.decodeIfPresent([CommitNameRecordPlanned].self, forKey: .nameRecordsSequenced)
+            ?? nameRecordsPlanned
+        statValuesPlanned = try c.decodeIfPresent([CommitDiffStatValuePlanned].self, forKey: .statValuesPlanned) ?? []
+        instancesPlanned = try c.decodeIfPresent([CommitDiffInstancePlanned].self, forKey: .instancesPlanned) ?? []
     }
 }
 
@@ -1274,6 +1315,48 @@ public struct CommitDiffNameIDRow: Codable, Equatable, Sendable, Identifiable {
     public var afterString: String?
     public var afterRole: String?
     public var change: CommitDiffChangeKind
+    /// Prior slot when the same string moved to this name ID.
+    public var reflowedFromNameID: Int?
+    /// Hidden from Save Review when consumed as reflow source/target pair.
+    public var reflowSuppressed: Bool
+
+    public init(
+        id: Int,
+        beforeDescription: String? = nil,
+        beforeString: String? = nil,
+        afterString: String? = nil,
+        afterRole: String? = nil,
+        change: CommitDiffChangeKind,
+        reflowedFromNameID: Int? = nil,
+        reflowSuppressed: Bool = false
+    ) {
+        self.id = id
+        self.beforeDescription = beforeDescription
+        self.beforeString = beforeString
+        self.afterString = afterString
+        self.afterRole = afterRole
+        self.change = change
+        self.reflowedFromNameID = reflowedFromNameID
+        self.reflowSuppressed = reflowSuppressed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, beforeDescription, beforeString, afterString, afterRole, change
+        case reflowedFromNameID = "reflowed_from_name_id"
+        case reflowSuppressed = "reflow_suppressed"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        beforeDescription = try c.decodeIfPresent(String.self, forKey: .beforeDescription)
+        beforeString = try c.decodeIfPresent(String.self, forKey: .beforeString)
+        afterString = try c.decodeIfPresent(String.self, forKey: .afterString)
+        afterRole = try c.decodeIfPresent(String.self, forKey: .afterRole)
+        change = try c.decode(CommitDiffChangeKind.self, forKey: .change)
+        reflowedFromNameID = try c.decodeIfPresent(Int.self, forKey: .reflowedFromNameID)
+        reflowSuppressed = try c.decodeIfPresent(Bool.self, forKey: .reflowSuppressed) ?? false
+    }
 }
 
 public struct CommitDiffReport: Codable, Equatable, Sendable {

@@ -24,7 +24,7 @@ struct ProjectInspectorFileRow: View {
             WorkspaceDraggableContainer(
                 item: .font(fontID: font.id, fromProjectID: openProject.id, label: name),
                 isDragEnabled: editor.canDragFont(forProjectID: openProject.id),
-                helpText: "Drag to a project tab to move, or to the toolbar to start a new project",
+                helpText: "Drag onto another file to reorder, to a project tab to move, or to the toolbar to start a new project",
                 onTap: {
                     editor.selectFont(id: font.id)
                     editor.focusInspectorProjectScope()
@@ -72,6 +72,14 @@ struct ProjectInspectorFileRow: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         .onHover { isHovered = $0 }
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: FileChipFrameKey.self,
+                    value: ["\(openProject.id):\(font.id)": geometry.frame(in: .global)]
+                )
+            }
+        }
         .contextMenu {
             ProjectFileContextMenu(
                 font: font,

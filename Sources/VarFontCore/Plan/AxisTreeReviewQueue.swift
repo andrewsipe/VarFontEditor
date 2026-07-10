@@ -17,8 +17,14 @@ public enum AxisTreeReviewItem: Equatable, Sendable {
 public enum AxisTreeReviewQueue {
     private static func planIssuePriority(_ code: String) -> Int {
         switch code {
-        case "orphan_stat_link", "ital_value_name_mismatch":
+        case "orphan_stat_link", "ital_value_name_mismatch", "ital_format1_upgrade", "wght_format1_upgrade":
             return 5
+        case "fvar_missing_from_stat", "stat_missing_from_fvar", "default_instance_excluded", "default_instance_not_in_grid":
+            return 6
+        case "ital_slnt_coexistence":
+            return 7
+        case "opsz_format2_suggest":
+            return 14
         case "registration_mismatch", "registration_value_missing":
             return 8
         case "empty_instance_axis":

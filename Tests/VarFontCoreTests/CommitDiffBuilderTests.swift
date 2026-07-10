@@ -203,4 +203,92 @@ final class CommitDiffBuilderTests: XCTestCase {
         XCTAssertEqual(report.nameIDRows.first { $0.id == 257 }?.change, .added)
         XCTAssertEqual(report.nameIDRows.first { $0.id == 258 }?.change, .removed)
     }
+
+    func testInstanceRowsFollowPlanOrder() {
+        let analysis = FontAnalysis(
+            schemaVersion: 1,
+            source: .init(path: "/t.ttf", format: "ttf", familyName: "Test", fullName: "Test", isVariable: true),
+            readiness: .init(hasFvar: true, hasStat: true, hasDesignAxisRecord: true, writable: true, blockers: []),
+            axes: [],
+            statValues: [],
+            instancesExisting: [
+                .init(key: "wght:400", composedName: "Regular", coords: ["wght": 400], subfamilyNameID: 2, postscriptNameID: 0xFFFF),
+                .init(key: "wght:300", composedName: "Light", coords: ["wght": 300], subfamilyNameID: 2, postscriptNameID: 0xFFFF),
+            ],
+            instancesExistingMeta: .init(total: 2, sampleCount: 2),
+            nameAudit: .init(freeStart: 256, used: [], elidedFallbackID: nil, elidedFallbackName: nil),
+            inferred: .init(isItalicFont: false, gridAxisTags: [], namingOrderSuggested: ["wght"])
+        )
+
+        let font = FontDocument(
+            id: "f1", sourcePath: "/t.ttf", outputPath: nil, analysisSnapshotID: nil,
+            dirty: true, axes: [], options: CommitOptions(),
+            includedInstanceKeys: [], excludedInstanceKeys: [], overrides: InstanceOverrides()
+        )
+
+        let plan = InstancePlan(
+            schemaVersion: 1, fontID: "f1",
+            formula: .init(parts: [], totalGenerated: 2, totalIncluded: 2, totalExcluded: 0),
+            instances: [
+                PlannedInstance(key: "wght:700", composedName: "Bold", coords: ["wght": 700], included: true, duplicate: false, namingChain: []),
+                PlannedInstance(key: "wght:400", composedName: "Regular", coords: ["wght": 400], included: true, duplicate: false, namingChain: []),
+            ],
+            warnings: [], namePlanSummary: nil
+        )
+
+        let result = CommitResult(
+            schemaVersion: 1, requestID: "x", ok: true, outputPath: nil, dryRun: true,
+            summary: nil, diff: nil, warnings: [], errors: []
+        )
+
+        let report = CommitDiffBuilder.build(analysis: analysis, font: font, plan: plan, result: result)
+        XCTAssertEqual(report.instanceRows.map(\.key), ["wght:700", "wght:400", "wght:300"])
+    }
+
+    func testNameIDReflowDetection() {
+        let analysis = FontAnalysis(
+            schemaVersion: 1,
+            source: .init(path: "/t.ttf", format: "ttf", familyName: "Test", fullName: "Test", isVariable: true),
+            readiness: .init(hasFvar: true, hasStat: true, hasDesignAxisRecord: true, writable: true, blockers: []),
+            axes: [],
+            statValues: [],
+            instancesExisting: [],
+            instancesExistingMeta: .init(total: 0, sampleCount: 0),
+            nameAudit: .init(
+                freeStart: 256,
+                used: [.init(id: 258, description: "STAT", string: "Medium")],
+                elidedFallbackID: nil, elidedFallbackName: nil
+            ),
+            inferred: .init(isItalicFont: false, gridAxisTags: [], namingOrderSuggested: [])
+        )
+
+        let result = CommitResult(
+            schemaVersion: 1, requestID: "x", ok: true, outputPath: nil, dryRun: true,
+            summary: nil,
+            diff: CommitDiff(
+                nameRecordsPlanned: [.init(id: 257, string: "Medium", role: "stat_axis_value")]
+            ),
+            warnings: [], errors: []
+        )
+
+        let report = CommitDiffBuilder.build(
+            analysis: analysis,
+            font: FontDocument(
+                id: "f1", sourcePath: "/t.ttf", outputPath: nil, analysisSnapshotID: nil,
+                dirty: true, axes: [], options: CommitOptions(),
+                includedInstanceKeys: [], excludedInstanceKeys: [], overrides: InstanceOverrides()
+            ),
+            plan: InstancePlan(
+                schemaVersion: 1, fontID: "f1",
+                formula: .init(parts: [], totalGenerated: 0, totalIncluded: 0, totalExcluded: 0),
+                instances: [], warnings: [], namePlanSummary: nil
+            ),
+            result: result
+        )
+
+        let added = report.nameIDRows.first { $0.id == 257 }
+        let removed = report.nameIDRows.first { $0.id == 258 }
+        XCTAssertEqual(added?.reflowedFromNameID, 258)
+        XCTAssertTrue(removed?.reflowSuppressed == true)
+    }
 }

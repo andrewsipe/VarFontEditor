@@ -66,7 +66,7 @@ enum StudioRadius {
 /// ## Stable Chrome style guide
 /// - Pair every `StudioTextField` with a `StudioFieldLabel` at the **same** `rowHeight` when toggling display ↔ edit.
 /// - Use `StudioFieldMetrics.*RowHeight` — never ad-hoc `.padding(.vertical)` on `TextField` alone.
-/// - Return accepts and resigns focus (`.commit`); axis-grid cells opt into `.advance` for tab-like flow.
+/// - Return accepts and resigns focus (`.commit`). Use `.advance` only where Return should move to the next field (e.g. Add Stop sheet).
 /// - Escape runs optional `onCancel`, then resigns focus.
 /// - Forbidden outside this file: `.textFieldStyle(.roundedBorder)`, raw `TextField`, `.padding(.top, 1)` toolbar hacks.
 /// - Selection: default `StudioRowSelectionStyle.fillOnly` — no stroke on list rows.
@@ -417,25 +417,33 @@ struct StudioMetricCard: View {
     let value: String
     let label: String
     var minWidth: CGFloat = 72
+    var accentValue: Bool = false
+    /// When true, the visible card (background + border included) stretches to
+    /// fill its column instead of hugging its content and floating in extra
+    /// invisible frame space — use for equal-width metric rows (Save Review cards).
+    var fillsWidth: Bool = false
+    /// Save Review summary row — prototype `.card .n` scale (20pt bold value).
+    var prominent: Bool = false
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: prominent ? 3 : 2) {
             Text(value)
-                .font(StudioTypography.statValue)
+                .font(prominent ? .system(size: 20, weight: .bold) : StudioTypography.statValue)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
+                .foregroundStyle(accentValue ? StudioColors.computedHighlight : .primary)
             Text(label)
-                .font(StudioTypography.gridSummaryValue)
+                .font(prominent ? .system(size: 10, weight: .medium) : StudioTypography.gridSummaryValue)
                 .textCase(.uppercase)
-                .tracking(0.4)
+                .tracking(prominent ? 0.35 : 0.4)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
-        .frame(minWidth: minWidth)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(minWidth: minWidth, maxWidth: fillsWidth ? .infinity : nil)
+        .padding(.horizontal, prominent ? 6 : 12)
+        .padding(.vertical, prominent ? 10 : 8)
         .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
@@ -540,6 +548,259 @@ struct StudioDiffRow: View {
             return StudioColors.warningForeground
         case .unchanged:
             return .primary
+        }
+    }
+}
+
+// MARK: - Save Review (streamlined diff)
+
+/// Spacing tokens aligned with `save-review-prototype.html`.
+enum SaveReviewLayout {
+    static let horizontalPadding: CGFloat = 22
+    static let summaryCardGap: CGFloat = 8
+    static let chromeSectionGap: CGFloat = 12
+    static let filterBadgeGap: CGFloat = 6
+    static let fieldColumnWidth: CGFloat = 200
+    static let rowVerticalPadding: CGFloat = 9
+    static let gutterWidth: CGFloat = 3
+    static let gutterLeadingPadding: CGFloat = 22
+    static let gutterTrailingPadding: CGFloat = 12
+
+    /// Prototype `--bg` / row canvas — opaque so sticky headers don't show scroll-through.
+    static let canvasBackground = Color(red: 0.11, green: 0.11, blue: 0.118)
+    /// Prototype `.phase` band — opaque sticky header fill.
+    static let phaseHeaderBackground = Color(red: 0.133, green: 0.133, blue: 0.141)
+}
+
+extension SaveReviewDisplayCategory {
+    var pillStyle: StudioDiffPillStyle {
+        switch self {
+        case .same: .unchanged
+        case .protected: .protected
+        case .reflow: .reflowed
+        case .renamed: .changed
+        case .added: .added
+        case .removed: .removed
+        }
+    }
+}
+
+struct StudioFilterBadge: View {
+    let category: SaveReviewDisplayCategory
+    let count: Int
+    var isHidden: Bool
+    var isIsolated: Bool
+    let action: (_ commandClick: Bool) -> Void
+
+    var body: some View {
+        Button {
+            action(NSEvent.modifierFlags.contains(.command))
+        } label: {
+            Text("\(category.filterLabel.uppercased()) \(count)")
+                .font(.system(size: 8.5, weight: .bold))
+                .tracking(0.3)
+                .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(category.pillStyle.foreground))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    isHidden ? Color.clear : category.pillStyle.background,
+                    in: RoundedRectangle(cornerRadius: 3)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 3)
+                        .strokeBorder(
+                            isIsolated ? Color.primary.opacity(0.22) : (isHidden ? Color.clear : category.pillStyle.border),
+                            lineWidth: isIsolated ? 1 : 0.5
+                        )
+                }
+                .opacity(isHidden ? 0.32 : 1)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct StudioSaveReviewTabBar: View {
+    let tabs: [SaveReviewTabPresentation]
+    @Binding var selectedTab: SaveReviewTableTab
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(tabs, id: \.tabID) { tab in
+                let isSelected = selectedTab == tab.id
+                let hasChanges = tab.changedCount > 0
+                Button {
+                    selectedTab = tab.id
+                } label: {
+                    HStack(spacing: 7) {
+                        Text(tab.label)
+                            .font(StudioTypography.bodyMedium.weight(isSelected ? .semibold : .regular))
+                        Text("\(tab.changedCount) of \(tab.totalCount)")
+                            .font(.system(size: 10, weight: .medium))
+                            .monospacedDigit()
+                            .foregroundStyle(hasChanges ? StudioColors.warningForeground : Color.secondary.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.08), in: Capsule())
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .background(
+                        isSelected ? StudioColors.surfaceLight : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
+                    .shadow(color: isSelected ? Color.black.opacity(0.2) : .clear, radius: 2, y: 1)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
+        )
+    }
+}
+
+struct StudioSaveReviewPhaseHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.5)
+            .foregroundStyle(.tertiary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, SaveReviewLayout.horizontalPadding)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .background(SaveReviewLayout.phaseHeaderBackground)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(StudioColors.surfaceStroke)
+                    .frame(height: 0.5)
+            }
+            .zIndex(1)
+    }
+}
+
+struct StudioSaveReviewCategoryTag: View {
+    let category: SaveReviewDisplayCategory
+
+    var body: some View {
+        Text(category.filterLabel.uppercased())
+            .font(.system(size: 8.5, weight: .bold))
+            .tracking(0.3)
+            .foregroundStyle(category.pillStyle.foreground)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 3))
+            .padding(.top, 1)
+    }
+}
+
+struct StudioSaveReviewRoleBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9, weight: .regular, design: .default))
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: 3))
+    }
+}
+
+struct StudioStreamlinedDiffRow: View {
+    let row: SaveReviewRowPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(gutterColor)
+                .frame(width: SaveReviewLayout.gutterWidth)
+                .padding(.leading, SaveReviewLayout.gutterLeadingPadding)
+                .padding(.trailing, SaveReviewLayout.gutterTrailingPadding)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.fieldTitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(2)
+                if !row.fieldSubtitle.isEmpty {
+                    Text(row.fieldSubtitle)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(2)
+                }
+            }
+            .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .leading)
+            .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 3) {
+                if let afterValue = row.afterValue, !afterValue.isEmpty {
+                    HStack(alignment: .top, spacing: 8) {
+                        StudioSaveReviewCategoryTag(category: row.category)
+                        Text(afterValue)
+                            .font(.system(size: 11.5, design: .monospaced))
+                            .foregroundStyle(valueColor)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let roleLabel = row.roleLabel, !roleLabel.isEmpty {
+                            StudioSaveReviewRoleBadge(text: roleLabel)
+                        }
+                    }
+                } else if row.category == .removed {
+                    HStack(alignment: .top, spacing: 8) {
+                        StudioSaveReviewCategoryTag(category: row.category)
+                        Text("—")
+                            .font(.system(size: 11.5, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                if let wasLine = row.wasLine, !wasLine.isEmpty {
+                    Text(wasLine)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
+
+                if let noteLine = row.noteLine, !noteLine.isEmpty {
+                    Text(noteLine)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                        .italic()
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, SaveReviewLayout.rowVerticalPadding)
+        .padding(.trailing, SaveReviewLayout.horizontalPadding)
+        .background(SaveReviewLayout.canvasBackground)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(StudioColors.surfaceStroke)
+                .frame(height: 0.5)
+                .padding(.leading, SaveReviewLayout.horizontalPadding)
+        }
+    }
+
+    private var gutterColor: Color {
+        if row.category == .same {
+            return Color.primary.opacity(0.12)
+        }
+        return row.category.pillStyle.foreground
+    }
+
+    private var valueColor: Color {
+        switch row.category {
+        case .same: .secondary
+        case .protected: StudioColors.diffProtected
+        default: row.category.pillStyle.foreground
         }
     }
 }
@@ -769,7 +1030,7 @@ struct StudioKeyValueRow: View {
 enum StudioTextSubmitBehavior {
     /// Return accepts the edit and resigns focus — default for forms and inspector fields.
     case commit
-    /// Return runs `onSubmit` without resigning — axis-grid and Add Stop tab order.
+    /// Return runs `onSubmit` without resigning — multi-field sheets (Add Stop) that sequence fields on Return.
     case advance
 }
 

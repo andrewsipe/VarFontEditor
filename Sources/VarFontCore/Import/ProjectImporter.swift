@@ -85,6 +85,7 @@ public enum ProjectImporter {
       definition.referenceMappingInferred = .identity
       definition.referenceAnchors = []
     }
+    definition.fvarHidden = axis.fvarHidden ?? false
     return definition
   }
 
@@ -132,8 +133,11 @@ public enum ProjectImporter {
         analysis: analysis,
         sourcePath: sourceURL.path
       ),
-      compoundStatValues: compoundStatValues(from: analysis)
+      compoundStatValues: compoundStatValues(from: analysis),
+      statDesignAxisTags: analysis.designAxisTags
     )
+    // Import preserves STAT formats from source (including ital Format 3). Safe auto-fixes
+    // never downgrade format; Format 1 → 3 upgrades surface as plan issues for user review.
     _ = PlanIssueResolver.applySafeAutoFixes(to: &font, analysis: analysis)
     return font
   }

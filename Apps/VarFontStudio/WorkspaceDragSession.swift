@@ -115,16 +115,36 @@ enum WorkspaceDragSupport {
         fontChipFrames: [String: CGRect],
         canSplitFont: Bool
     ) -> WorkspaceDropTarget? {
+        resolveInternalTarget(
+            item: item,
+            at: location,
+            tabFrames: tabFrames,
+            toolbarFrame: toolbarFrame,
+            fontChipFrameGroups: [fontChipFrames],
+            canSplitFont: canSplitFont
+        )
+    }
+
+    static func resolveInternalTarget(
+        item: WorkspaceDragItem,
+        at location: CGPoint,
+        tabFrames: [String: CGRect],
+        toolbarFrame: CGRect,
+        fontChipFrameGroups: [[String: CGRect]],
+        canSplitFont: Bool
+    ) -> WorkspaceDropTarget? {
         if case let .font(draggedID, fromProjectID, _) = item {
-            for (key, frame) in fontChipFrames where frame.contains(location) {
-                let parts = key.split(separator: ":", maxSplits: 1)
-                guard parts.count == 2, String(parts[0]) == fromProjectID else { continue }
-                let anchorID = String(parts[1])
-                if anchorID == "__end__" {
-                    return .reorderFontEnd(projectID: fromProjectID)
-                }
-                if anchorID != draggedID {
-                    return .reorderFont(projectID: fromProjectID, beforeFontID: anchorID)
+            for frames in fontChipFrameGroups {
+                for (key, frame) in frames where frame.contains(location) {
+                    let parts = key.split(separator: ":", maxSplits: 1)
+                    guard parts.count == 2, String(parts[0]) == fromProjectID else { continue }
+                    let anchorID = String(parts[1])
+                    if anchorID == "__end__" {
+                        return .reorderFontEnd(projectID: fromProjectID)
+                    }
+                    if anchorID != draggedID {
+                        return .reorderFont(projectID: fromProjectID, beforeFontID: anchorID)
+                    }
                 }
             }
         }
@@ -201,7 +221,11 @@ final class WorkspaceDragCoordinator {
     var externalDropLocation: CGPoint = .zero
 
     private var tabFrames: [String: CGRect] = [:]
-    private var fontChipFrames: [String: CGRect] = [:]
+    /// FILE sub-bar chip frames (keys `"projectID:fontID"` / `"projectID:__end__"`).
+    private var fileSubBarChipFrames: [String: CGRect] = [:]
+    /// Project inspector Files list row frames (same key scheme; kept separate so global
+    /// frames for the same font on two surfaces don't clobber each other).
+    private var inspectorFileChipFrames: [String: CGRect] = [:]
     private var toolbarFrame: CGRect = .zero
     private var fileSubBarFrame: CGRect = .zero
     private var inspectorPanelFrame: CGRect = .zero
@@ -209,9 +233,18 @@ final class WorkspaceDragCoordinator {
     private var instancesFrame: CGRect = .zero
 
     private var dragTabFrames: [String: CGRect] = [:]
-    private var dragFontChipFrames: [String: CGRect] = [:]
+    private var dragFileSubBarChipFrames: [String: CGRect] = [:]
+    private var dragInspectorFileChipFrames: [String: CGRect] = [:]
     private var dragToolbarFrame: CGRect = .zero
     private var dragCanSplitFont = false
+
+    private var liveFontChipFrameGroups: [[String: CGRect]] {
+        [fileSubBarChipFrames, inspectorFileChipFrames]
+    }
+
+    private var dragFontChipFrameGroups: [[String: CGRect]] {
+        [dragFileSubBarChipFrames, dragInspectorFileChipFrames]
+    }
 
     func setTabFrames(_ frames: [String: CGRect]) {
         guard frames != tabFrames else { return }
@@ -223,9 +256,20 @@ final class WorkspaceDragCoordinator {
         toolbarFrame = frame
     }
 
-    func setFontChipFrames(_ frames: [String: CGRect]) {
-        guard frames != fontChipFrames else { return }
-        fontChipFrames = frames
+    enum FontChipFrameSource {
+        case fileSubBar
+        case inspectorFiles
+    }
+
+    func setFontChipFrames(_ frames: [String: CGRect], source: FontChipFrameSource) {
+        switch source {
+        case .fileSubBar:
+            guard frames != fileSubBarChipFrames else { return }
+            fileSubBarChipFrames = frames
+        case .inspectorFiles:
+            guard frames != inspectorFileChipFrames else { return }
+            inspectorFileChipFrames = frames
+        }
     }
 
     func setFileSubBarFrame(_ frame: CGRect) {
@@ -252,7 +296,8 @@ final class WorkspaceDragCoordinator {
 
     func begin(item: WorkspaceDragItem, location: CGPoint, canSplitFont: Bool) {
         dragTabFrames = tabFrames
-        dragFontChipFrames = fontChipFrames
+        dragFileSubBarChipFrames = fileSubBarChipFrames
+        dragInspectorFileChipFrames = inspectorFileChipFrames
         dragToolbarFrame = toolbarFrame
         dragCanSplitFont = canSplitFont
         self.item = item
@@ -417,7 +462,7 @@ final class WorkspaceDragCoordinator {
             at: location,
             tabFrames: isActive ? dragTabFrames : tabFrames,
             toolbarFrame: isActive ? dragToolbarFrame : toolbarFrame,
-            fontChipFrames: isActive ? dragFontChipFrames : fontChipFrames,
+            fontChipFrameGroups: isActive ? dragFontChipFrameGroups : liveFontChipFrameGroups,
             canSplitFont: dragCanSplitFont
         )
     }
@@ -454,7 +499,9 @@ struct WorkspaceDraggableContainer<Content: View>: View {
             if isDragEnabled {
                 content()
                     .contentShape(Rectangle())
-                    .gesture(dragGesture)
+                    // Prefer drag over enclosing ScrollView pans so FILE chips / inspector
+                    // rows can reorder; taps still fire when the drag never starts.
+                    .highPriorityGesture(dragGesture)
                     .simultaneousGesture(
                         TapGesture().onEnded {
                             guard !dragStarted, !workspaceDrag.isActive else { return }

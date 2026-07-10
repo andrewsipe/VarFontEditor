@@ -41,6 +41,9 @@ public enum RegistrationAxisSupport {
                 inferredIsItalicFile: inferredIsItalicFile
             )
         }
+        if tag == "slnt" {
+            return inferSlntRegistration(axis: axis, analysis: analysis)
+        }
         return axis.values.first?.value
     }
 
@@ -91,12 +94,37 @@ public enum RegistrationAxisSupport {
         return nil
     }
 
+    /// Counterpart coordinate for `ital` Format 3 style linking (0↔1).
+    public static func italFormat3LinkedValue(for stopValue: Double) -> Double? {
+        if AxisCoordinate.valuesEqual(stopValue, 0) { return 1 }
+        if AxisCoordinate.valuesEqual(stopValue, 1) { return 0 }
+        return nil
+    }
+
+    public static func shouldUpgradeItalStopToFormat3(stop: AxisValue, axis: AxisDefinition) -> Bool {
+        guard axis.tag == "ital", axis.isDesignRecordOnly else { return false }
+        guard stop.statFormat == 1 else { return false }
+        return italFormat3LinkedValue(for: stop.value) != nil
+    }
+
+    public static func italFormat1UpgradeWarnings(font: FontDocument) -> [PlanWarning] {
+        guard let axis = font.axes.first(where: { $0.tag == "ital" && $0.isDesignRecordOnly }) else { return [] }
+        return StatFormat3Pairing.format1UpgradeWarnings(for: axis)
+    }
+
     public static func allRegistrationPlanWarnings(
         font: FontDocument,
         analysis: FontAnalysis? = nil
     ) -> [PlanWarning] {
         registrationWarnings(font: font, analysis: analysis)
             + italConventionWarnings(font: font)
+            + italFormat1UpgradeWarnings(font: font)
+            + wghtFormat1UpgradeWarnings(font: font)
+    }
+
+    public static func wghtFormat1UpgradeWarnings(font: FontDocument) -> [PlanWarning] {
+        guard let axis = font.axes.first(where: { $0.tag == "wght" && $0.role == .instance }) else { return [] }
+        return StatFormat3Pairing.format1UpgradeWarnings(for: axis)
     }
 
     public static func registrationWarnings(
@@ -176,6 +204,23 @@ public enum RegistrationAxisSupport {
         return axis.values.first?.value ?? 0
     }
 
+    private static func inferSlntRegistration(
+        axis: AxisDefinition,
+        analysis: FontAnalysis?
+    ) -> Double {
+        if let angle = analysis?.inferred.postItalicAngle,
+           let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: angle) {
+            return stop.value
+        }
+        if let elidable = axis.values.first(where: \.elidable) {
+            return elidable.value
+        }
+        if let upright = axis.values.first(where: { AxisCoordinate.valuesEqual($0.value, 0) }) {
+            return upright.value
+        }
+        return axis.values.first?.value ?? 0
+    }
+
     /// Clarifier categories superseded when this file has a matching design-record registration axis.
     public static func clarifierCategoriesCoveredByRegistration(font: FontDocument) -> Set<FileClarifierCategory> {
         clarifierCategoriesCoveredByRegistration(
@@ -193,7 +238,7 @@ public enum RegistrationAxisSupport {
             guard let axis = axes.first(where: { $0.tag == tag }),
                   axis.isDesignRecordOnly else { continue }
             switch tag {
-            case "ital": covered.insert(.slope)
+            case "ital", "slnt": covered.insert(.slope)
             case "wdth": covered.insert(.width)
             case "opsz": covered.insert(.optical)
             default: break

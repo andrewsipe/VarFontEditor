@@ -135,10 +135,21 @@ public enum CommitDiffBuilder {
         )
         _ = diff
 
-        var keys = Set(beforeByKey.keys)
-        keys.formUnion(afterByKey.keys)
+        var orderedKeys: [String] = []
+        var seen = Set<String>()
 
-        return keys.sorted().map { key in
+        for instance in plan.instances where instance.included {
+            if seen.insert(instance.key).inserted {
+                orderedKeys.append(instance.key)
+            }
+        }
+        for existing in analysis.instancesExisting {
+            if afterByKey[existing.key] == nil, seen.insert(existing.key).inserted {
+                orderedKeys.append(existing.key)
+            }
+        }
+
+        return orderedKeys.map { key in
             let before = beforeByKey[key]
             let after = afterByKey[key]
             let change: CommitDiffChangeKind
@@ -179,7 +190,7 @@ public enum CommitDiffBuilder {
 
         let allIDs = Set(beforeByID.keys).union(afterByID.keys).sorted()
 
-        return allIDs.map { id in
+        var rows = allIDs.map { id in
             let before = beforeByID[id]
             let after = afterByID[id]
             let isProtected = protectedNameIDs.contains(id)
@@ -198,6 +209,43 @@ public enum CommitDiffBuilder {
                 afterRole: afterRole,
                 change: change
             )
+        }
+        applyNameIDReflow(rows: &rows)
+        return rows
+    }
+
+    /// Match strings that moved between name IDs (removed@old + added@new → one reflow row).
+    private static func applyNameIDReflow(rows: inout [CommitDiffNameIDRow]) {
+        func normalized(_ string: String?) -> String? {
+            guard let string else { return nil }
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+
+        var beforeStringToIDs: [String: [Int]] = [:]
+        for row in rows {
+            guard let string = normalized(row.beforeString) else { continue }
+            beforeStringToIDs[string, default: []].append(row.id)
+        }
+
+        var consumedSourceIDs = Set<Int>()
+
+        for index in rows.indices {
+            guard let afterString = normalized(rows[index].afterString) else { continue }
+            guard rows[index].change == .added || rows[index].change == .unchanged else { continue }
+
+            let candidates = beforeStringToIDs[afterString, default: []]
+            guard let sourceID = candidates.first(where: { $0 != rows[index].id && !consumedSourceIDs.contains($0) })
+            else { continue }
+
+            rows[index].reflowedFromNameID = sourceID
+            consumedSourceIDs.insert(sourceID)
+        }
+
+        for index in rows.indices {
+            if rows[index].change == .removed, consumedSourceIDs.contains(rows[index].id) {
+                rows[index].reflowSuppressed = true
+            }
         }
     }
 

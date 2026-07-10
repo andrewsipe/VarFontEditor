@@ -26,9 +26,6 @@ public enum InstancePlanner {
         warnings.append(contentsOf: validateClarifiers(font: font))
         warnings.append(contentsOf: RegistrationAxisSupport.allRegistrationPlanWarnings(font: font, analysis: nil))
         warnings.append(contentsOf: validateCompoundStatValues(font))
-        warnings = warnings.filter {
-            !font.dismissedPlanIssues.contains(PlanIssueCodes.issueKey(for: $0))
-        }
         var instances: [PlannedInstance] = []
         var seenComposedNames: Set<String> = []
 
@@ -87,6 +84,16 @@ public enum InstancePlanner {
         }
         if let defaultTokenWarning = validateDefaultTokenNames(instances: instances, naming: naming) {
             warnings.append(defaultTokenWarning)
+        }
+        warnings.append(
+            contentsOf: OpenTypeAxisAudit.planWarnings(
+                font: font,
+                instances: instances,
+                namingOrder: naming.order
+            )
+        )
+        warnings = warnings.filter {
+            !font.dismissedPlanIssues.contains(PlanIssueCodes.issueKey(for: $0))
         }
 
         let totalGenerated = instances.count
@@ -190,7 +197,14 @@ public enum InstancePlanner {
 
         for clarifier in role.clarifiers {
             let axisTag: String? = switch clarifier.category {
-            case .slope: "ital"
+            case .slope:
+                if font.axes.contains(where: { $0.tag == "ital" }) {
+                    "ital"
+                } else if font.axes.contains(where: { $0.tag == "slnt" }) {
+                    "slnt"
+                } else {
+                    nil
+                }
             case .width: "wdth"
             case .optical: "opsz"
             case .custom: nil

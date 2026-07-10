@@ -52,7 +52,7 @@ final class AxisTreeReviewQueueTests: XCTestCase {
                 tag: "ital",
                 role: .instance,
                 values: [
-                    AxisValue(id: "i0", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+                    AxisValue(id: "i0", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 99),
                 ]
             ),
         ]
@@ -186,7 +186,7 @@ final class AxisTreeReviewQueueTests: XCTestCase {
                 tag: "ital",
                 role: .instance,
                 values: [
-                    AxisValue(id: "i1", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+                    AxisValue(id: "i1", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 99),
                 ]
             ),
         ]

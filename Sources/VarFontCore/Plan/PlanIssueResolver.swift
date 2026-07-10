@@ -6,11 +6,19 @@ public enum PlanIssueCodes {
         "registration_mismatch",
         "orphan_stat_link",
         "ital_value_name_mismatch",
+        "ital_format1_upgrade",
+        "wght_format1_upgrade",
         "default_token_names",
         "axis_neutral_mismatch",
         "duplicate_composed_name",
         "multiple_elidable",
         "empty_instance_axis",
+        "fvar_missing_from_stat",
+        "stat_missing_from_fvar",
+        "ital_slnt_coexistence",
+        "default_instance_excluded",
+        "default_instance_not_in_grid",
+        "opsz_format2_suggest",
     ]
 
     public static func issueKey(for warning: PlanWarning) -> String {
@@ -24,6 +32,7 @@ public enum PlanIssueAction: Equatable, Sendable {
     case setFileRegistration(tag: String, value: Double)
     case revalueStop(axisTag: String, stopID: String, newValue: Double)
     case convertStopToFormat1(axisTag: String, stopID: String)
+    case updateStopFormat3Link(axisTag: String, stopID: String, linkedValue: Double)
     case renameStop(axisTag: String, stopID: String, newName: String)
     case applyAxisDefaults
     case applyAxisNeutrals
@@ -33,6 +42,7 @@ public enum PlanIssueAction: Equatable, Sendable {
     case insertAxisStop(axisTag: String, value: Double, name: String)
     case insertAxisStops(axisTag: String, values: [Double])
     case openAxisConflicts(axisTag: String?)
+    case includeInstanceKey(String)
     case acknowledgeIssue(issueKey: String)
     case compound([PlanIssueAction])
 }
@@ -73,6 +83,8 @@ public enum PlanIssueResolver {
             return orphanStatLinkProposals(for: warning, font: font)
         case "ital_value_name_mismatch":
             return italConventionProposals(for: warning, font: font)
+        case "ital_format1_upgrade", "wght_format1_upgrade":
+            return format1UpgradeProposals(for: warning, font: font)
         case "default_token_names", "axis_neutral_mismatch":
             return defaultTokenNamesProposals(for: warning, font: font)
         case "duplicate_composed_name":
@@ -81,6 +93,14 @@ public enum PlanIssueResolver {
             return multipleElidableProposals(for: warning, font: font)
         case "empty_instance_axis":
             return emptyInstanceAxisProposals(for: warning, font: font)
+        case "ital_slnt_coexistence":
+            return italSlntCoexistenceProposals(for: warning, font: font)
+        case "fvar_missing_from_stat", "stat_missing_from_fvar":
+            return acknowledgeOnlyProposals(for: warning)
+        case "opsz_format2_suggest", "default_instance_not_in_grid":
+            return suggestionProposals(for: warning)
+        case "default_instance_excluded":
+            return defaultInstanceExcludedProposals(for: warning, font: font)
         default:
             return []
         }
@@ -120,8 +140,17 @@ public enum PlanIssueResolver {
             return AxisStopNamingDefaults.hasInstanceAxisValueConflicts(font)
         case .setFileRegistration, .revalueStop, .convertStopToFormat1, .renameStop:
             return true
-        case .acknowledgeIssue:
-            return false
+        case let .updateStopFormat3Link(axisTag, stopID, linkedValue):
+            guard let axis = font.axes.first(where: { $0.tag == axisTag }),
+                  let stop = axis.values.first(where: { $0.id == stopID }) else { return false }
+            if stop.statFormat != 3 { return true }
+            guard let current = stop.linkedValue else { return true }
+            return !AxisCoordinate.valuesEqual(current, linkedValue)
+        case let .includeInstanceKey(key):
+            return font.excludedInstanceKeys.contains(key)
+                || (!font.includedInstanceKeys.isEmpty && !font.includedInstanceKeys.contains(key))
+        case let .acknowledgeIssue(issueKey):
+            return !font.dismissedPlanIssues.contains(issueKey)
         case .compound(let actions):
             return actions.contains { wouldApply($0, to: font) }
         }
@@ -175,6 +204,13 @@ public enum PlanIssueResolver {
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             font.axes[axisIndex].values[stopIndex].statFormat = 1
             font.axes[axisIndex].values[stopIndex].linkedValue = nil
+        case let .updateStopFormat3Link(axisTag, stopID, linkedValue):
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            font.axes[axisIndex].values[stopIndex].statFormat = 3
+            font.axes[axisIndex].values[stopIndex].linkedValue = linkedValue
+            font.axes[axisIndex].values[stopIndex].rangeMin = nil
+            font.axes[axisIndex].values[stopIndex].rangeMax = nil
         case let .renameStop(axisTag, stopID, newName):
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
@@ -221,6 +257,11 @@ public enum PlanIssueResolver {
             font.axes[axisIndex].values.sort { $0.value < $1.value }
         case .openAxisConflicts:
             break
+        case let .includeInstanceKey(key):
+            font.excludedInstanceKeys.removeAll { $0 == key }
+            if !font.includedInstanceKeys.isEmpty, !font.includedInstanceKeys.contains(key) {
+                font.includedInstanceKeys.append(key)
+            }
         case let .acknowledgeIssue(issueKey):
             if !font.dismissedPlanIssues.contains(issueKey) {
                 font.dismissedPlanIssues.append(issueKey)
@@ -290,7 +331,8 @@ public enum PlanIssueResolver {
         case .setFileRegistration, .revalueStop:
             return true
         case .convertStopToFormat1, .renameStop, .acknowledgeIssue, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops, .openAxisConflicts:
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops,
+             .updateStopFormat3Link, .includeInstanceKey, .openAxisConflicts:
             return false
         case .compound(let actions):
             return actions.allSatisfy(isSafeAutoFixAction)
@@ -299,8 +341,8 @@ public enum PlanIssueResolver {
 
     private static func isChainableAction(_ action: PlanIssueAction) -> Bool {
         switch action {
-        case .setFileRegistration, .revalueStop, .convertStopToFormat1, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops:
+        case .setFileRegistration, .revalueStop, .convertStopToFormat1, .updateStopFormat3Link, .applyAxisDefaults, .applyAxisNeutrals,
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops, .includeInstanceKey:
             return true
         case .renameStop, .acknowledgeIssue, .openAxisConflicts:
             return false
@@ -416,6 +458,10 @@ public enum PlanIssueResolver {
             return [compound]
         }
 
+        if StatFormat3Pairing.isConventionStyleLink(axis: axis, stop: stop) {
+            return []
+        }
+
         return [
             PlanIssueProposal(
                 id: "orphan-convert-f1",
@@ -428,6 +474,101 @@ public enum PlanIssueResolver {
                 id: "orphan-keep-f3",
                 title: "Keep Format 3 link",
                 detail: "Accept the source font’s link as-is.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
+            ),
+        ]
+    }
+
+    private static func format1UpgradeProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        guard let tag = warning.axis,
+              let stopID = warning.stopIDs?.first,
+              let axis = font.axes.first(where: { $0.tag == tag }),
+              let stop = axis.values.first(where: { $0.id == stopID }),
+              StatFormat3Pairing.shouldUpgradeStopToFormat3(stop: stop, axis: axis),
+              let linked = StatFormat3Pairing.format3LinkedValue(for: stop.value, axisTag: tag) else { return [] }
+
+        let linkedLabel = StatFormat3Pairing.format3LinkedLabel(axisTag: tag, linkedValue: linked)
+        return [
+            PlanIssueProposal(
+                id: "\(tag)-upgrade-f3",
+                title: "Upgrade to Format 3",
+                detail: "Link “\(stop.name)” to \(linkedLabel).",
+                action: .updateStopFormat3Link(axisTag: tag, stopID: stopID, linkedValue: linked),
+                isRecommended: true
+            ),
+            PlanIssueProposal(
+                id: "\(tag)-keep-f1",
+                title: "Keep Format 1",
+                detail: "Leave “\(stop.name)” as a standalone Format 1 stop.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
+            ),
+        ]
+    }
+
+    private static func acknowledgeOnlyProposals(for warning: PlanWarning) -> [PlanIssueProposal] {
+        dontChangeProposals(for: warning)
+    }
+
+    private static func suggestionProposals(for warning: PlanWarning) -> [PlanIssueProposal] {
+        dontChangeProposals(for: warning)
+    }
+
+    private static func dontChangeProposals(for warning: PlanWarning) -> [PlanIssueProposal] {
+        [
+            PlanIssueProposal(
+                id: "keep-\(warning.code)",
+                title: "Don't change",
+                detail: warning.hint ?? "Leave this as-is for the current save plan.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning)),
+                isRecommended: true
+            ),
+        ]
+    }
+
+    private static func italSlntCoexistenceProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        var proposals = dontChangeProposals(for: warning)
+
+        if let ital = font.axes.first(where: { $0.tag == "ital" }),
+           ital.role == .instance,
+           !ital.isDesignRecordOnly {
+            proposals.append(
+                PlanIssueProposal(
+                    id: "ital-slnt-registration-only",
+                    title: "Make ital registration-only",
+                    detail: "Take ital off the instance grid so slnt handles slope variation and naming.",
+                    action: .setAxisRole(axisTag: "ital", role: .designRecordOnly)
+                )
+            )
+        }
+
+        return proposals
+    }
+
+    private static func defaultInstanceExcludedProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        guard let key = warning.keys?.first else {
+            return acknowledgeOnlyProposals(for: warning)
+        }
+        return [
+            PlanIssueProposal(
+                id: "include-default-instance",
+                title: "Include default instance",
+                detail: "Add the fvar default-coordinate instance to the save plan.",
+                action: .includeInstanceKey(key),
+                isRecommended: true
+            ),
+            PlanIssueProposal(
+                id: "keep-default-excluded",
+                title: "Keep excluded",
+                detail: "Leave the default-coordinate instance out of the save plan.",
                 action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
             ),
         ]
@@ -705,17 +846,22 @@ public enum PlanIssueResolver {
 
         let romanLabel = corrected == 0 ? "0 (Roman)" : "1 (Italic)"
         var actions: [PlanIssueAction] = [
-            .convertStopToFormat1(axisTag: axisTag, stopID: stopID),
             .revalueStop(axisTag: axisTag, stopID: stopID, newValue: corrected),
         ]
+        if stop.statFormat != 3 || stop.linkedValue == nil {
+            actions.append(.updateStopFormat3Link(axisTag: axisTag, stopID: stopID, linkedValue: corrected == 0 ? 1 : 0))
+        } else if let linked = stop.linkedValue,
+                  !StatFormat3Pairing.isConventionStyleLink(axis: axis, stop: stop, linkedValue: linked) {
+            actions.append(.updateStopFormat3Link(axisTag: axisTag, stopID: stopID, linkedValue: corrected == 0 ? 1 : 0))
+        }
         if font.fileStatRegistration[axisTag].map({ AxisCoordinate.valuesEqual($0, stop.value) }) == true {
             actions.append(.setFileRegistration(tag: axisTag, value: corrected))
         }
 
         return PlanIssueProposal(
             id: "compound-orphan-ital-\(stopID)",
-            title: "Convert to Format 1 and set value to \(romanLabel)",
-            detail: "Fix the broken Format 3 link on “\(stop.name)” and align with the usual \(axisTag) convention.",
+            title: "Set value to \(romanLabel) and keep Format 3 link",
+            detail: "Align “\(stop.name)” with the usual \(axisTag) convention while preserving style-link semantics.",
             action: .compound(actions),
             isRecommended: true
         )

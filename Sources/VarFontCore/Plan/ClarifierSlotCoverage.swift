@@ -87,6 +87,9 @@ public enum ClarifierSlotCoverage {
             if font.axes.contains(where: { $0.tag == "ital" }) {
                 return "ital"
             }
+            if font.axes.contains(where: { $0.tag == "slnt" && $0.role == .instance }) {
+                return "slnt"
+            }
         case .width:
             if font.axes.contains(where: { $0.tag == "wdth" && $0.role == .instance }) {
                 return "wdth"
@@ -103,7 +106,7 @@ public enum ClarifierSlotCoverage {
 
     private static func categoryForRegistrationAxis(_ tag: String) -> FileClarifierCategory? {
         switch tag {
-        case "ital": return .slope
+        case "ital", "slnt": return .slope
         case "wdth": return .width
         case "opsz": return .optical
         default: return nil

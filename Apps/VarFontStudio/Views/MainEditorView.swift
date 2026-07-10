@@ -83,6 +83,10 @@ struct MainEditorView: View {
                 reviewTotal: session.reviewTotal
             )
             .environmentObject(editor)
+            // Forces a fresh view (and fresh @State) per session — "Apply & continue" swaps
+            // one non-nil sheet item for another, and SwiftUI won't re-run onAppear for that
+            // transition unless the view's identity actually changes.
+            .id(session.id)
         }
         .onChange(of: editor.saveReviewOpenRequest) { _, request in
             guard let request else { return }

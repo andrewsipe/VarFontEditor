@@ -80,7 +80,11 @@ public enum AxisStopSuggestions {
         return axis.default ?? minV
     }
 
-    public static func formatValue(_ value: Double) -> String {
+    public static func formatValue(_ rawValue: Double) -> String {
+        // Round through the canonical 2-decimal representation first — callers may pass raw
+        // slider/drag values (e.g. 165.45454545454547 from a repeating-decimal division) that
+        // would otherwise print with full floating-point precision.
+        let value = AxisCoordinateFormat.canonical(rawValue)
         if value.rounded() == value {
             return String(Int(value))
         }

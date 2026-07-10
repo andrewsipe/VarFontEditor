@@ -71,7 +71,7 @@ public enum CommitRequestBuilder {
         )
     }
 
-    /// vfcommit may apply fvar default alignment when enabled in per-font CommitOptions.
+    /// Pass-through commit options. fvar axis records are never rewritten on save.
     private static func commitOptions(from options: CommitOptions) -> CommitOptions {
         options
     }

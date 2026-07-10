@@ -90,6 +90,7 @@ final class EditorViewModel: ObservableObject {
     @Published private(set) var saveReviewLoadingKeys: Set<String> = []
     @Published private(set) var saveReviewSelectedFontIDByProjectID: [String: String] = [:]
     @Published private(set) var saveReviewExplicitlyOpenedProjectIDs: Set<String> = []
+    @Published var saveReviewUIStateByProjectID: [String: SaveReviewUIState] = [:]
     @Published var searchText = ""
     @Published var instanceFilter: InstanceFilter = .all
     @Published var instancePlan: InstancePlan?
@@ -175,6 +176,16 @@ final class EditorViewModel: ObservableObject {
         return saveReviewSessionsByKey[saveReviewSessionKey(projectID: projectID, fontID: fontID)]
     }
 
+    func saveReviewUIState(forProjectID projectID: String) -> SaveReviewUIState {
+        saveReviewUIStateByProjectID[projectID] ?? SaveReviewUIState()
+    }
+
+    func updateSaveReviewUIState(forProjectID projectID: String, _ transform: (inout SaveReviewUIState) -> Void) {
+        var state = saveReviewUIState(forProjectID: projectID)
+        transform(&state)
+        saveReviewUIStateByProjectID[projectID] = state
+    }
+
     func isSaveReviewLoading(forProjectID projectID: String, fontID: String? = nil) -> Bool {
         if let fontID {
             return saveReviewLoadingKeys.contains(saveReviewSessionKey(projectID: projectID, fontID: fontID))
@@ -183,7 +194,11 @@ final class EditorViewModel: ObservableObject {
     }
 
     func selectSaveReviewFont(projectID: String, fontID: String) {
+        let previousFontID = saveReviewSelectedFontIDByProjectID[projectID]
         saveReviewSelectedFontIDByProjectID[projectID] = fontID
+        if previousFontID != fontID {
+            updateSaveReviewUIState(forProjectID: projectID) { $0.searchQuery = "" }
+        }
         guard canPreviewSaveReview(forProjectID: projectID, fontID: fontID) else { return }
         let isDirty = openProjects
             .first(where: { $0.id == projectID })?
@@ -233,11 +248,13 @@ final class EditorViewModel: ObservableObject {
             }
             saveReviewSelectedFontIDByProjectID.removeValue(forKey: projectID)
             saveReviewExplicitlyOpenedProjectIDs.remove(projectID)
+            saveReviewUIStateByProjectID.removeValue(forKey: projectID)
         } else {
             saveReviewSessionsByKey.removeAll()
             saveReviewLoadingKeys.removeAll()
             saveReviewSelectedFontIDByProjectID.removeAll()
             saveReviewExplicitlyOpenedProjectIDs.removeAll()
+            saveReviewUIStateByProjectID.removeAll()
         }
         presentCommitDiffSheet = false
     }
@@ -2314,6 +2331,11 @@ final class EditorViewModel: ObservableObject {
             }
             document.fonts[index].dirty = true
         }
+        // Master always leads the FILE row / inspector list.
+        if let index = document.fonts.firstIndex(where: { $0.id == fontID }), index != 0 {
+            let master = document.fonts.remove(at: index)
+            document.fonts.insert(master, at: 0)
+        }
     }
 
     func setFileClarifiers(_ clarifiers: [FileClarifier], for fontID: String) {
@@ -2379,8 +2401,26 @@ final class EditorViewModel: ObservableObject {
 
     func setFamilyPSPrefix(_ value: String, for fontID: String) {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        mutateFont(id: fontID) { font in
-            font.options.familyPSPrefix = trimmed.isEmpty ? nil : trimmed
+        let resolved: String? = trimmed.isEmpty ? nil : trimmed
+        guard var project else { return }
+
+        // Master is the clean shared stem — edit pushes to every file in the project.
+        // Variant edits stay file-local (same authority split as clarifiers).
+        let isMaster = isMasterFont(fontID: fontID, projectID: activeProjectID ?? "")
+        if isMaster {
+            pushUndoSnapshot()
+            for index in project.fonts.indices {
+                project.fonts[index].options.familyPSPrefix = resolved
+                project.fonts[index].dirty = true
+            }
+            project.modified = Date()
+            self.project = project
+            canSave = true
+            regeneratePlan()
+        } else {
+            mutateFont(id: fontID) { font in
+                font.options.familyPSPrefix = resolved
+            }
         }
     }
 
@@ -2467,7 +2507,7 @@ final class EditorViewModel: ObservableObject {
         pushUndoSnapshot()
         guard var updated = self.project else { return }
         for index in updated.fonts.indices where updated.fonts[index].id != masterID {
-            updated.fonts[index].axes = mergeAxesFromMaster(
+            updated.fonts[index].axes = AxisTreeMerge.mergeAxesFromMaster(
                 master: masterFont.axes,
                 into: updated.fonts[index].axes,
                 syncRoles: updated.template.syncRoles
@@ -2480,44 +2520,6 @@ final class EditorViewModel: ObservableObject {
         canSave = true
         regeneratePlan()
         postStatusMessage("Pushed axis tree from master to \(updated.fonts.count - 1) file(s)")
-    }
-
-    private func mergeAxesFromMaster(
-        master: [AxisDefinition],
-        into target: [AxisDefinition],
-        syncRoles: Bool
-    ) -> [AxisDefinition] {
-        let targetByTag = Dictionary(uniqueKeysWithValues: target.map { ($0.tag, $0) })
-        var merged: [AxisDefinition] = []
-        for masterAxis in master {
-            if var existing = targetByTag[masterAxis.tag] {
-                existing.displayName = masterAxis.displayName
-                existing.values = masterAxis.values.map { stop in
-                    var copy = stop
-                    copy.id = "\(masterAxis.tag)-\(UUID().uuidString.prefix(8))"
-                    return copy
-                }
-                if syncRoles {
-                    existing.role = masterAxis.role
-                }
-                existing.referenceMapping = masterAxis.referenceMapping
-                existing.referenceMappingInferred = masterAxis.referenceMappingInferred
-                existing.referenceAnchors = masterAxis.referenceAnchors
-                merged.append(existing)
-            } else {
-                var imported = masterAxis
-                imported.values = imported.values.map { stop in
-                    var copy = stop
-                    copy.id = "\(masterAxis.tag)-\(UUID().uuidString.prefix(8))"
-                    return copy
-                }
-                merged.append(imported)
-            }
-        }
-        for axis in target where !master.contains(where: { $0.tag == axis.tag }) {
-            merged.append(axis)
-        }
-        return merged
     }
 
     private func mutateFont(id fontID: String, _ mutate: (inout FontDocument) -> Void) {
@@ -2805,6 +2807,30 @@ final class EditorViewModel: ObservableObject {
         selectedAxisStopID = addedStopID
     }
 
+    /// Replaces every stop on `axisTag` with the given values (name = numeric value), sorted
+    /// ascending. Used by the quick-fill tool, which — unlike `insertAxisStop` — is meant to be
+    /// re-run freely to tweak a fill without requiring an undo first.
+    func replaceAxisStops(axisTag: String, values: [Double]) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  font.axes[axisIndex].role == .instance,
+                  !font.axes[axisIndex].isDesignRecordOnly else { return }
+            font.axes[axisIndex].values = values.map { rawValue in
+                let value = AxisCoordinateFormat.canonical(rawValue)
+                return AxisValue(
+                    id: "\(axisTag)-\(UUID().uuidString.prefix(8))",
+                    value: value,
+                    name: AxisStopSuggestions.formatValue(value),
+                    elidable: false,
+                    statFormat: 1,
+                    rangeMin: nil,
+                    rangeMax: nil,
+                    linkedValue: nil
+                )
+            }.sorted { $0.value < $1.value }
+        }
+    }
+
     func validateAxisStopValue(_ value: Double, for axis: AxisDefinition, excludingStopID: String? = nil) -> String? {
         if axis.hasFvarScale {
             if let min = axis.min, value < min {
@@ -3046,6 +3072,13 @@ final class EditorViewModel: ObservableObject {
                     plan: plan,
                     result: result
                 )
+                let presentation = SaveReviewPresentationBuilder.build(
+                    analysis: analysis,
+                    font: font,
+                    plan: plan,
+                    report: diffReport,
+                    diff: result.diff
+                )
                 var writeRequest = CommitRequestBuilder.make(
                     font: font,
                     naming: projectDoc.naming,
@@ -3060,7 +3093,12 @@ final class EditorViewModel: ObservableObject {
                     dryRunRequest: dryRunRequest,
                     baseRequest: writeRequest,
                     preflight: result,
-                    diffReport: diffReport
+                    diffReport: diffReport,
+                    presentation: presentation,
+                    informationalNotes: OpenTypeAxisAudit.allInformationalMessages(
+                        analysis: analysis,
+                        font: font
+                    )
                 )
                 saveReviewSessionsByKey[sessionKey] = session
                 if presentSheet {
@@ -3083,7 +3121,9 @@ final class EditorViewModel: ObservableObject {
                 dryRunRequest: dryRunRequest,
                 baseRequest: writeRequest,
                 preflight: result,
-                diffReport: CommitDiffBuilder.empty
+                diffReport: CommitDiffBuilder.empty,
+                presentation: .empty,
+                informationalNotes: []
             )
             saveReviewSessionsByKey[sessionKey] = failedSession
             postStatusMessage(message)

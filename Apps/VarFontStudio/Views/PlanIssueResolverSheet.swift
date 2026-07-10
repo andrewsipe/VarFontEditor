@@ -118,35 +118,14 @@ struct PlanIssueResolverSheet: View {
                 fixSelection = .interactiveFill
             }
 
-            if fixSelection == .interactiveFill {
-                Picker("Fill mode", selection: $fillMode) {
-                    Text("Evenly spaced").tag(AxisStopFillMode.evenCount)
-                    Text("Every N units").tag(AxisStopFillMode.fixedInterval)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-
-                switch fillMode {
-                case .evenCount:
-                    evenCountControls(options)
-                case .fixedInterval:
-                    intervalControls(options)
-                }
-
-                if let values = interactiveValues, !values.isEmpty {
-                    Text("\(values.count) stops: \(AxisStopFillPlanner.previewLabel(for: values))")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Adjust the slider to get at least \(AxisStopFillPlanner.minStopCount) stops.")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Text("Each stop uses its numeric value as the name.")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.tertiary)
+            if fixSelection == .interactiveFill, let axis {
+                AxisStopFillControls(
+                    axis: axis,
+                    options: options,
+                    fillMode: $fillMode,
+                    stopCount: $stopCount,
+                    intervalStep: $intervalStep
+                )
             }
         }
         .padding(10)
@@ -154,79 +133,6 @@ struct PlanIssueResolverSheet: View {
             fixSelection == .interactiveFill ? StudioColors.surfaceMuted : Color.clear,
             in: RoundedRectangle(cornerRadius: StudioRadius.row)
         )
-    }
-
-    private func evenCountControls(_ options: AxisStopFillOptions) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Stop count")
-                    .font(StudioTypography.caption)
-                Spacer()
-                Text("\(Int(stopCount.rounded()))")
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.secondary)
-            }
-
-            Slider(
-                value: $stopCount,
-                in: Double(options.countRange.lowerBound)...Double(options.countRange.upperBound),
-                step: 1
-            )
-
-            HStack(spacing: 6) {
-                Text("Suggested")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.secondary)
-                ForEach(AxisStopFillPlanner.suggestedCounts, id: \.self) { count in
-                    countChip(count, enabled: options.recommendedCounts.contains(count), options: options)
-                }
-            }
-        }
-    }
-
-    private func countChip(_ count: Int, enabled: Bool, options: AxisStopFillOptions) -> some View {
-        let isSelected = Int(stopCount.rounded()) == count
-        return Button {
-            stopCount = Double(count)
-        } label: {
-            Text("\(count)")
-                .font(StudioTypography.meta)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(enabled ? .primary : .tertiary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    isSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05),
-                    in: Capsule()
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-    }
-
-    private func intervalControls(_ options: AxisStopFillOptions) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Step size")
-                    .font(StudioTypography.caption)
-                Spacer()
-                Text(AxisStopSuggestions.formatValue(intervalStep))
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.secondary)
-            }
-
-            Slider(
-                value: $intervalStep,
-                in: options.intervalRange,
-                step: intervalSliderStep(for: options)
-            )
-
-            if let values = interactiveValues {
-                Text("Produces \(values.count) stop\(values.count == 1 ? "" : "s") across \(AxisStopSuggestions.formatValue(options.minValue))–\(AxisStopSuggestions.formatValue(options.maxValue)).")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 
     private var fallbackSection: some View {
@@ -359,13 +265,5 @@ struct PlanIssueResolverSheet: View {
         guard let proposal = selectedProposal else { return }
         editor.applyPlanIssueFix(proposal.action, andContinue: andContinue)
         if !andContinue { dismiss() }
-    }
-
-    private func intervalSliderStep(for options: AxisStopFillOptions) -> Double {
-        let span = options.intervalRange.upperBound - options.intervalRange.lowerBound
-        if span <= 10 { return 0.1 }
-        if span <= 100 { return 1 }
-        if span <= 1_000 { return 5 }
-        return 10
     }
 }

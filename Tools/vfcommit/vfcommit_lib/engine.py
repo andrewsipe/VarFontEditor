@@ -26,7 +26,6 @@ from vfcommit_lib.request_bridge import (
 from vfcommit_lib.stat_builder import (
     apply_table_edits,
     build_protected_name_ids,
-    default_fix_summary,
 )
 from vfcommit_lib.diff_export import build_commit_diff
 
@@ -129,10 +128,6 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     allocated_ids = [nid for nid in allocated_ids if nid]
 
     warnings: List[Dict[str, Any]] = []
-    fix_fvar_default = bool(options.get("fix_fvar_default", False))
-    if fix_fvar_default:
-        for line in default_fix_summary(font, axis_defs):
-            warnings.append({"code": "fvar_default_fix", "message": line})
 
     if not dry_run:
         if not output_path:
@@ -156,7 +151,6 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             axis_defs,
             plan,
             elided_fallback_name=elided_fallback,
-            fix_fvar_default=fix_fvar_default,
             protected_ids=protected_ids,
             confirm_wipe=False,
             ot_label_count=len(ot_labels),

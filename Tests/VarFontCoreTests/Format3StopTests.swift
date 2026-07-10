@@ -49,6 +49,17 @@ final class Format3StopTests: XCTestCase {
         XCTAssertEqual(warnings[0].code, "orphan_stat_link")
     }
 
+    func testItalConventionLinkIsNotOrphan() {
+        let axis = AxisDefinition(
+            tag: "ital",
+            role: .designRecordOnly,
+            values: [
+                AxisValue(id: "r", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+            ]
+        )
+        XCTAssertTrue(StatFormat3Pairing.orphanLinkWarnings(for: axis).isEmpty)
+    }
+
     func testCommitRequestPreservesLinkedValue() throws {
         let request = try FixtureLoader.decode(CommitRequest.self, from: "playfair-roman-commit-request.json")
         let wght = request.axes.first { $0.tag == "wght" }

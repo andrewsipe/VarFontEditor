@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VarFont Studio — Save Review Prototype v2</title>
+<style>
+  :root{
+    --bg:#1c1c1e; --panel:#242426; --panel-2:#2a2a2c; --border:#38383a;
+    --text:#eaeaec; --text-dim:#9a9a9e; --text-faint:#68686c;
+    --accent:#0a84ff;
+    --c-removed:#e5484d; --c-added:#30a46c; --c-reflow:#8e6ff7;
+    --c-renamed:#f0a020; --c-protected:#3b82f6; --c-same:#7c7c80;
+    --c-clarifier:#8c73f2;
+    --c-warning:#f0a020;
+    --mono:"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    --win-w:920px;
+    --rows-h:min(52vh, 520px);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#0e0e10; color:var(--text);
+    font-family:var(--sans); padding:16px 16px 48px;
+  }
+  .page{ max-width:var(--win-w); margin:0 auto; }
+
+  .intro{ margin-bottom:10px; }
+  .intro-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .intro h1{ font-size:15px; margin:0; font-weight:600; }
+  .intro-toggle{
+    font-family:var(--sans); font-size:11px; color:var(--text-dim);
+    background:transparent; border:none; cursor:pointer; padding:4px 0;
+    white-space:nowrap;
+  }
+  .intro-toggle:hover{ color:var(--text); }
+  .intro p{
+    color:var(--text-dim); font-size:11.5px; line-height:1.5; margin:6px 0 0;
+    display:none;
+  }
+  .intro.open p{ display:block; }
+
+  .mockwin{
+    background:var(--bg); border:1px solid #000; border-radius:11px;
+    overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.65);
+    display:flex; flex-direction:column; min-height:680px;
+  }
+  .titlebar{
+    height:38px; background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
+    display:flex; align-items:center; padding:0 12px; gap:8px; position:relative; flex-shrink:0;
+  }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{
+    position:absolute; left:0; right:0; text-align:center;
+    font-size:12.5px; color:var(--text-dim); font-weight:500; pointer-events:none;
+  }
+
+  /* multi-file bar */
+  .filebar{
+    display:flex; align-items:center; gap:10px; padding:8px 20px;
+    background:#1f1f21; border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .filebar .lbl{ font-size:10px; font-weight:600; letter-spacing:.05em; color:var(--text-faint); }
+  .filechip{
+    font-size:11px; padding:4px 10px; border-radius:20px; cursor:pointer;
+    background:var(--panel-2); color:var(--text-dim); border:1px solid transparent;
+  }
+  .filechip:hover{ color:var(--text); }
+  .filechip.on{ background:rgba(10,132,255,.12); color:var(--text); border-color:rgba(10,132,255,.35); font-weight:600; }
+
+  .summary{ padding:18px 22px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .summary h2{ margin:0 0 4px; font-size:16px; font-weight:600; }
+  .summary .sub{ margin:0 0 12px; font-size:12px; color:var(--text-dim); line-height:1.45; }
+  .meta-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; font-size:12px; color:var(--text-dim); }
+  .meta-row .mono{
+    font-family:var(--mono); color:var(--text); font-weight:500;
+    background:var(--panel-2); padding:2px 7px; border-radius:5px; font-size:11px;
+  }
+  .clarifier{
+    font-size:10.5px; padding:2px 8px; border-radius:20px;
+    color:var(--c-clarifier); background:rgba(140,115,242,.14);
+    border:1px solid rgba(140,115,242,.3);
+  }
+  .cards{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:12px; }
+  .card{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:10px 6px; text-align:center;
+  }
+  .card .n{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--accent); }
+  .card .l{ font-size:9px; letter-spacing:.04em; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
+
+  .warncard{
+    border:1px solid rgba(240,160,32,.4); border-radius:8px; padding:8px 12px;
+    margin-bottom:12px; font-size:11.5px; color:var(--c-warning); line-height:1.45;
+  }
+  .warncard .wlbl{ font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; opacity:.85; }
+
+  .filter-bar{
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+    margin-bottom:2px;
+  }
+  .filter-bar .filter-hint{
+    font-size:10px; color:var(--text-faint); margin-left:auto;
+  }
+  .filter-badge{
+    font-family:var(--sans); font-size:8.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.03em;
+    padding:3px 7px; border-radius:3px; cursor:pointer; user-select:none;
+    border:1px solid transparent; background:transparent;
+    transition:opacity .12s, border-color .12s;
+  }
+  .filter-badge.cat-same{ background:rgba(124,124,128,.14); color:var(--text-faint); }
+  .filter-badge.cat-protected{ background:rgba(59,130,246,.16); color:var(--c-protected); }
+  .filter-badge.cat-reflow{ background:rgba(142,111,247,.18); color:var(--c-reflow); }
+  .filter-badge.cat-renamed{ background:rgba(240,160,32,.16); color:var(--c-renamed); }
+  .filter-badge.cat-added{ background:rgba(48,164,108,.16); color:var(--c-added); }
+  .filter-badge.cat-removed{ background:rgba(229,72,77,.16); color:var(--c-removed); }
+  .filter-badge:hover{ border-color:var(--border); }
+  .filter-badge.off{ opacity:.32; }
+  .filter-badge.isolate{ outline:1px solid var(--border); outline-offset:1px; }
+
+  .tabstrip-wrap{
+    padding:10px 22px 12px; border-bottom:1px solid var(--border);
+    background:var(--panel); flex-shrink:0;
+  }
+  .tabbar{
+    display:flex; gap:3px; padding:3px;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+  }
+  .tab{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
+    padding:8px 12px; font-size:12px; color:var(--text-dim); cursor:pointer;
+    border-radius:6px; border:none; background:transparent;
+  }
+  .tab:hover{ color:var(--text); background:rgba(255,255,255,.03); }
+  .tab.active{
+    color:var(--text); font-weight:600;
+    background:var(--bg); box-shadow:0 1px 4px rgba(0,0,0,.35);
+  }
+  .tab .count{
+    font-size:10px; color:var(--text-faint); background:rgba(0,0,0,.2);
+    padding:1px 6px; border-radius:20px; font-variant-numeric:tabular-nums;
+  }
+  .tab.active .count{ color:var(--text-dim); }
+  .tab.has-changes .count{ color:var(--c-renamed); }
+
+  .toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:6px 22px; border-bottom:1px solid var(--border); background:var(--panel); flex-shrink:0;
+    min-height:34px;
+  }
+  .search{
+    display:flex; align-items:center; gap:6px; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:6px; padding:4px 8px; min-width:160px;
+  }
+  .search input{
+    border:none; background:transparent; color:var(--text);
+    font-family:var(--sans); font-size:11.5px; outline:none; width:120px;
+  }
+  .search svg{ opacity:.4; flex-shrink:0; }
+  .rowcount{ font-size:11px; color:var(--text-faint); white-space:nowrap; }
+
+  .panel-body{ flex:1; display:flex; flex-direction:column; min-height:0; }
+  .panel{ display:none; flex-direction:column; flex:1; min-height:0; }
+  .panel.active{ display:flex; }
+
+  .tableheadline{
+    padding:10px 22px 2px; font-size:11.5px; color:var(--text-dim);
+    flex-shrink:0;
+  }
+  .tableheadline b{ color:var(--text); font-weight:600; }
+
+  .rows{
+    flex:1; overflow:auto; padding-bottom:6px;
+    max-height:var(--rows-h);
+  }
+
+  .phase{
+    position:sticky; top:0; z-index:2;
+    padding:7px 22px; font-size:10px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint);
+    background:#222224; border-top:1px solid #2c2c2e; border-bottom:1px solid #2c2c2e;
+  }
+  .phase:first-child{ border-top:none; }
+
+  .row{
+    display:flex; align-items:flex-start; gap:0;
+    padding:9px 22px 9px 0; border-top:1px solid #26262a;
+  }
+  .row .gutter{
+    width:3px; align-self:stretch; border-radius:2px;
+    margin:0 12px 0 22px; flex-shrink:0; background:var(--panel-2);
+  }
+  .row.cat-removed .gutter{ background:var(--c-removed); }
+  .row.cat-added .gutter{ background:var(--c-added); }
+  .row.cat-reflow .gutter{ background:var(--c-reflow); }
+  .row.cat-renamed .gutter{ background:var(--c-renamed); }
+  .row.cat-protected .gutter{ background:var(--c-protected); }
+  .row.cat-same .gutter{ background:#333336; }
+
+  .field{ width:200px; flex-shrink:0; padding-top:1px; }
+  .field b{ display:block; font-size:12px; font-weight:500; color:var(--text); line-height:1.3; }
+  .field small{ display:block; font-size:10px; color:var(--text-faint); font-family:var(--mono); margin-top:2px; line-height:1.35; }
+
+  .valuecol{ flex:1; min-width:0; }
+  .value-line{
+    display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:11.5px; line-height:1.4;
+  }
+  .value-line .tag{
+    font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+    padding:2px 5px; border-radius:3px; flex-shrink:0; margin-top:1px;
+    font-family:var(--sans);
+  }
+  .tag.cat-removed{ background:rgba(229,72,77,.16); color:var(--c-removed); }
+  .tag.cat-added{ background:rgba(48,164,108,.16); color:var(--c-added); }
+  .tag.cat-reflow{ background:rgba(142,111,247,.18); color:var(--c-reflow); }
+  .tag.cat-renamed{ background:rgba(240,160,32,.16); color:var(--c-renamed); }
+  .tag.cat-protected{ background:rgba(59,130,246,.16); color:var(--c-protected); }
+  .tag.cat-same{ background:rgba(124,124,128,.14); color:var(--text-faint); }
+  .cur{ color:var(--text); word-break:break-word; }
+  .cur.cat-removed{ color:var(--c-removed); text-decoration:line-through; text-decoration-color:rgba(229,72,77,.5); }
+  .cur.cat-added{ color:var(--c-added); }
+  .cur.cat-reflow{ color:var(--c-reflow); }
+  .cur.cat-renamed{ color:var(--c-renamed); }
+  .cur.cat-protected{ color:var(--text); }
+  .cur.cat-same{ color:var(--text-dim); }
+  .role{
+    font-size:9px; font-family:var(--sans); color:var(--text-faint);
+    background:var(--panel-2); padding:1px 5px; border-radius:3px; flex-shrink:0; margin-top:2px;
+  }
+  .was{ font-size:10px; color:var(--text-faint); margin-top:3px; font-family:var(--mono); line-height:1.4; }
+  .was s{ text-decoration-color:#5a5a5e; }
+  .note{ font-size:10px; color:var(--text-faint); font-style:italic; margin-top:3px; line-height:1.4; }
+
+  .row.hidden, .phase.hidden{ display:none; }
+  .empty-state{
+    padding:40px 22px; text-align:center; color:var(--text-faint); font-size:12px;
+  }
+
+  .footer{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:10px 22px; border-top:1px solid var(--border); background:#1f1f21; flex-shrink:0;
+  }
+  .footer .btns{ display:flex; gap:8px; }
+  .btn{
+    font-family:var(--sans); font-size:12px; padding:5px 12px; border-radius:6px;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text); cursor:pointer;
+  }
+  .btn:hover{ background:#333336; }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn:disabled{ opacity:.4; cursor:default; }
+
+  /* floating settings — out of document flow */
+  .settings-fab{
+    position:fixed; right:20px; bottom:20px; z-index:100;
+    font-family:var(--sans); font-size:12px; font-weight:500;
+    padding:8px 14px; border-radius:20px;
+    background:var(--panel); color:var(--text);
+    border:1px solid var(--border);
+    box-shadow:0 8px 24px rgba(0,0,0,.45);
+    cursor:pointer;
+  }
+  .settings-fab:hover{ background:#333336; }
+  .settings-backdrop{
+    display:none; position:fixed; inset:0; z-index:101;
+    background:rgba(0,0,0,.35);
+  }
+  .settings-backdrop.open{ display:block; }
+  .settings-drawer{
+    position:fixed; top:0; right:0; z-index:102;
+    width:min(300px, 92vw); max-height:100vh;
+    background:var(--panel); border-left:1px solid var(--border);
+    box-shadow:-12px 0 40px rgba(0,0,0,.4);
+    transform:translateX(100%); transition:transform .2s ease;
+    display:flex; flex-direction:column;
+  }
+  .settings-drawer.open{ transform:translateX(0); }
+  .settings-drawer-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .settings-drawer-head h3{ margin:0; font-size:13px; font-weight:600; }
+  .settings-close{
+    font-family:var(--sans); font-size:18px; line-height:1;
+    background:transparent; border:none; color:var(--text-dim);
+    cursor:pointer; padding:2px 6px;
+  }
+  .settings-close:hover{ color:var(--text); }
+  .settings-drawer-body{
+    padding:12px 14px 20px; overflow:auto; flex:1;
+  }
+  .settings-drawer-body h4{
+    margin:12px 0 6px; font-size:10px; font-weight:600;
+    color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em;
+  }
+  .settings-drawer-body h4:first-child{ margin-top:0; }
+  .ctrl{ margin-bottom:8px; }
+  .ctrl label{
+    display:flex; align-items:flex-start; gap:8px;
+    font-size:11.5px; color:var(--text-dim); cursor:pointer; line-height:1.35;
+  }
+  .ctrl input[type=checkbox]{ margin-top:2px; accent-color:var(--accent); flex-shrink:0; }
+  .ctrl select{
+    width:100%; margin-top:3px; padding:5px 8px; border-radius:6px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    font-family:var(--sans); font-size:11.5px;
+  }
+  .ctrl-hint{ font-size:10px; color:var(--text-faint); margin-top:3px; line-height:1.35; }
+  .kbd{
+    font-family:var(--mono); font-size:9.5px; background:var(--panel-2);
+    padding:1px 4px; border-radius:3px; border:1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="intro" id="intro">
+    <div class="intro-head">
+      <h1>Save Review prototype v2</h1>
+      <button type="button" class="intro-toggle" id="introToggle">About this prototype</button>
+    </div>
+    <p>
+      Expanded from <code>font-diff-review.html</code>. Rows follow TTX write sequence within each section.
+      Badge toggles replace the streamlined switch. Open <strong>Settings</strong> (bottom-right) for dataset options.
+    </p>
+  </div>
+
+  <div class="mockwin" id="mockwin">
+    <div class="titlebar">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="wtitle" id="wtitle">Save Review — ABCGravitySuperfamilyVariable.ttf</div>
+    </div>
+
+    <div class="filebar" id="filebar">
+      <span class="lbl">FILE</span>
+      <div class="filechip on" data-file="gravity">ABCGravitySuperfamilyVariable.ttf</div>
+      <div class="filechip" data-file="display">PlayfairDisplayVF.ttf</div>
+    </div>
+
+    <div class="summary">
+      <h2>Save review</h2>
+      <p class="sub" id="subtitle">Planned write preview — after values with change context. Not a full TTX before/after.</p>
+      <div class="meta-row" id="metaRow">
+        <span>PS prefix</span><span class="mono" id="psPrefix">ABCGravitySuperfamilyVariable</span>
+        <span>Clarifiers</span><span class="clarifier">Compressed</span><span class="clarifier">Italic</span>
+      </div>
+      <div class="cards" id="cards"></div>
+
+      <div class="warncard" id="warnCard" style="display:none"></div>
+
+      <div class="filter-bar" id="filterBar">
+        <button type="button" class="filter-badge cat-same off" data-cat="same">same</button>
+        <button type="button" class="filter-badge cat-protected" data-cat="protected">protected id</button>
+        <button type="button" class="filter-badge cat-reflow" data-cat="reflow">id reflowed</button>
+        <button type="button" class="filter-badge cat-renamed" data-cat="renamed">renamed</button>
+        <button type="button" class="filter-badge cat-added" data-cat="added">added</button>
+        <button type="button" class="filter-badge cat-removed" data-cat="removed">removed</button>
+        <span class="filter-hint">click to show/hide · ⌥-click to isolate</span>
+      </div>
+    </div>
+
+    <div class="tabstrip-wrap">
+      <div class="tabbar" id="tabbar"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search" id="searchWrap" style="display:none">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+        <input type="search" id="searchInput" placeholder="Filter rows…" autocomplete="off">
+      </div>
+      <div class="rowcount" id="rowcount"></div>
+    </div>
+
+    <div class="panel-body" id="panelBody"></div>
+
+    <div class="footer">
+      <button class="btn" type="button">Export JSON…</button>
+      <div class="btns">
+        <button class="btn" type="button">Cancel</button>
+        <button class="btn" type="button">Save Copy…</button>
+        <button class="btn primary" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button type="button" class="settings-fab" id="settingsFab" aria-expanded="false" aria-controls="settingsDrawer">Settings</button>
+<div class="settings-backdrop" id="settingsBackdrop" aria-hidden="true"></div>
+<aside class="settings-drawer" id="settingsDrawer" aria-hidden="true">
+  <div class="settings-drawer-head">
+    <h3>Prototype settings</h3>
+    <button type="button" class="settings-close" id="settingsClose" aria-label="Close">×</button>
+  </div>
+  <div class="settings-drawer-body">
+    <h4>Defaults</h4>
+    <div class="ctrl">
+      <label><input type="checkbox" id="optHideSame" checked> Hide "same" rows by default</label>
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="optAutoTab" checked> Open tab with most changes</label>
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="optMultiFile" checked> Multi-file project</label>
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="optWarnings"> Show preflight warning</label>
+    </div>
+
+    <h4>Dataset</h4>
+    <div class="ctrl">
+      <select id="optDataset">
+        <option value="large">Large family (228 name slots)</option>
+        <option value="small">Small VF (42 name slots)</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="optGenerateNames" checked> Generate bulk rows</label>
+    </div>
+
+    <h4>Layout</h4>
+    <div class="ctrl">
+      <label>Row area height</label>
+      <select id="optRowsHeight">
+        <option value="420">420px (modal)</option>
+        <option value="520" selected>520px (window)</option>
+        <option value="640">640px (tall)</option>
+      </select>
+    </div>
+
+    <h4>Try it</h4>
+    <div class="ctrl-hint" style="line-height:1.55">
+      Click badge toggles · <span class="kbd">same</span> off by default · search on name tab · rows follow TTX sequence.
+    </div>
+  </div>
+</aside>
+
+<script>
+const TAG_LABELS = {
+  same:'same', protected:'protected id', reflow:'id reflowed',
+  renamed:'renamed', added:'added', removed:'removed',
+};
+
+const FILTER_ORDER = ['same', 'protected', 'reflow', 'renamed', 'added', 'removed'];
+
+const FILES = {
+  gravity: {
+    title: 'ABCGravitySuperfamilyVariable.ttf',
+    psPrefix: 'ABCGravitySuperfamilyVariable',
+    clarifiers: ['Compressed', 'Italic'],
+    warnings: ['slnt and ital axes both present — verify STAT format-3 pairing matches your intent.'],
+    metrics: { instances: 96, statValues: 16, newNameIDs: 212, removed: 0, added: 0 },
+    dataset: 'large',
+  },
+  display: {
+    title: 'PlayfairDisplayVF.ttf',
+    psPrefix: 'PlayfairDisplayVF',
+    clarifiers: [],
+    warnings: [],
+    metrics: { instances: 18, statValues: 8, newNameIDs: 34, removed: 0, added: 2 },
+    dataset: 'small',
+  },
+};
+
+const state = {
+  file: 'gravity',
+  tab: 'stat',
+  hiddenCategories: new Set(['same']),
+  isolateCategory: null,
+  search: '',
+  generateNames: true,
+};
+
+function rowHTML({ cat, fieldTitle, fieldSub, value, was, note, role, searchText }) {
+  const tag = TAG_LABELS[cat] || cat;
+  const roleHTML = role ? `<span class="role">${role}</span>` : '';
+  const wasHTML = was ? `<div class="was">${was}</div>` : '';
+  const noteHTML = note ? `<div class="note">${note}</div>` : '';
+  return `<div class="row cat-${cat}" data-cat="${cat}" data-search="${(searchText || (fieldTitle + ' ' + value)).toLowerCase()}">
+    <div class="gutter"></div>
+    <div class="field"><b>${fieldTitle}</b><small>${fieldSub}</small></div>
+    <div class="valuecol">
+      <div class="value-line">
+        <span class="tag cat-${cat}">${tag}</span>
+        <span class="cur cat-${cat}">${value}</span>${roleHTML}
+      </div>${wasHTML}${noteHTML}
+    </div>
+  </div>`;
+}
+
+function phaseHTML(title) {
+  return `<div class="phase" data-phase="${title}">${title}</div>`;
+}
+
+function sectionsToHTML(sections) {
+  return sections.map(s => phaseHTML(s.title) + s.rows.join('')).join('');
+}
+
+function buildStatRows(file) {
+  const isSmall = file.dataset === 'small';
+  const sections = [];
+
+  sections.push({
+    title: 'Axis records',
+    rows: isSmall ? [
+      rowHTML({ cat:'same', fieldTitle:'Design axes', fieldSub:'axisCount', value:'2' }),
+      rowHTML({ cat:'same', fieldTitle:'opsz axis', fieldSub:'DesignAxisRecord[0]', value:'tag=opsz' }),
+      rowHTML({ cat:'same', fieldTitle:'wght axis', fieldSub:'DesignAxisRecord[1]', value:'tag=wght' }),
+    ] : [
+      rowHTML({ cat:'same', fieldTitle:'Design axes', fieldSub:'axisCount', value:'4' }),
+      rowHTML({ cat:'same', fieldTitle:'wght axis', fieldSub:'DesignAxisRecord[0]', value:'tag=wght' }),
+      rowHTML({ cat:'same', fieldTitle:'wdth axis', fieldSub:'DesignAxisRecord[1]', value:'tag=wdth' }),
+      rowHTML({ cat:'same', fieldTitle:'slnt axis', fieldSub:'DesignAxisRecord[2]', value:'tag=slnt' }),
+      rowHTML({ cat:'same', fieldTitle:'opsz axis', fieldSub:'DesignAxisRecord[3]', value:'tag=opsz' }),
+    ],
+  });
+
+  if (isSmall) {
+    sections.push({
+      title: 'opsz',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'opsz = 5', fieldSub:'AxisValue · range min', value:'"Small"' }),
+        rowHTML({ cat:'same', fieldTitle:'opsz = 12', fieldSub:'AxisValue · nameID 260', value:'"Text"' }),
+        rowHTML({ cat:'renamed', fieldTitle:'opsz = 72', fieldSub:'AxisValue · range max', value:'"Display"', was:'was "Large"' }),
+      ],
+    });
+    sections.push({
+      title: 'wght',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'wght = 400', fieldSub:'AxisValue · nameID 261', value:'"Regular"' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 700', fieldSub:'AxisValue · nameID 262', value:'"Bold"' }),
+      ],
+    });
+  } else {
+    sections.push({
+      title: 'wght',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'wght = 100', fieldSub:'AxisValue · nameID 268', value:'"Hairline"' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 200', fieldSub:'AxisValue · nameID 267', value:'"Thin"' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 300', fieldSub:'AxisValue · nameID 266', value:'"Light"' }),
+        rowHTML({
+          cat:'reflow', fieldTitle:'wght = 400', fieldSub:'AxisValue · nameID 269 → 281',
+          value:'nameID=281 "Regular"', was:'nameID 269, string unchanged',
+        }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 500', fieldSub:'AxisValue · nameID 270', value:'"Medium"' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 600', fieldSub:'AxisValue · nameID 271', value:'"Semibold"' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 700', fieldSub:'AxisValue · nameID 272', value:'"Bold"' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 800', fieldSub:'AxisValue · nameID 273', value:'"ExtraBold"' }),
+      ],
+    });
+    sections.push({
+      title: 'wdth',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'wdth = 75', fieldSub:'AxisValue · nameID 262', value:'"Condensed"' }),
+        rowHTML({ cat:'same', fieldTitle:'wdth = 100', fieldSub:'AxisValue · nameID 264', value:'"Normal"' }),
+        rowHTML({ cat:'same', fieldTitle:'wdth = 125', fieldSub:'AxisValue · nameID 266', value:'"Extended"' }),
+      ],
+    });
+    sections.push({
+      title: 'slnt',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'slnt = 0', fieldSub:'AxisValue · nameID 272', value:'"Upright"' }),
+        rowHTML({
+          cat:'renamed', fieldTitle:'slnt = -16', fieldSub:'AxisValue · nameID 274',
+          value:'nameID=274 "Italic"', was:'was "Oblique" · format 3 → format 4 → 0',
+        }),
+      ],
+    });
+    sections.push({
+      title: 'opsz',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'opsz = 8', fieldSub:'AxisValue · range min', value:'"Caption"' }),
+        rowHTML({
+          cat:'renamed', fieldTitle:'opsz = 14', fieldSub:'AxisValue · F2 range',
+          value:'nameID=276 "Text"', was:'was "Body"',
+        }),
+        rowHTML({ cat:'same', fieldTitle:'opsz = 72', fieldSub:'AxisValue · range max', value:'"Display"' }),
+      ],
+    });
+    sections.push({
+      title: 'Elidable fallback',
+      rows: [
+        rowHTML({
+          cat:'renamed', fieldTitle:'Elidable fallback name', fieldSub:'elidedFallbackNameID',
+          value:'257 "Upright"', was:'was 273 "Upright" · format 3 → format 4',
+        }),
+      ],
+    });
+  }
+
+  return sectionsToHTML(sections);
+}
+
+function buildFvarRows(file) {
+  const isSmall = file.dataset === 'small';
+  const axes = isSmall
+    ? [{ title:'Optical size (opsz)', sub:'Axis[0] min/default/max', val:'5 / 12 / 72' }]
+    : [
+        { title:'Weight (wght)', sub:'Axis[0] min/default/max', val:'100 / 400 / 1000' },
+        { title:'Width (wdth)', sub:'Axis[1] min/default/max', val:'75 / 100 / 125' },
+        { title:'Slant (slnt)', sub:'Axis[2] min/default/max', val:'-16 / 0 / 0' },
+        { title:'Optical size (opsz)', sub:'Axis[3] min/default/max', val:'8 / 14 / 72' },
+      ];
+
+  const sections = [{
+    title: 'Axes',
+    rows: axes.map(a => rowHTML({
+      cat:'protected', fieldTitle:a.title, fieldSub:a.sub,
+      value:a.val, note:'read-only — design space is not written on save',
+    })),
+  }];
+
+  const instanceDefs = isSmall
+    ? [
+        { n:1, coords:'opsz:12 wght:400', name:'"Regular"', cat:'same' },
+        { n:2, coords:'opsz:12 wght:700', name:'"Bold"', cat:'same' },
+        { n:3, coords:'opsz:72 wght:400', name:'"Display Regular"', cat:'renamed', was:'was <s>"Regular Display"</s>' },
+        { n:4, coords:'opsz:5 wght:400', name:'"Small Regular"', cat:'added', was:'new instance' },
+      ]
+    : (() => {
+        const list = [];
+        for (let n = 1; n <= 96; n++) {
+          if (n === 42) {
+            list.push({ n, coords:'slnt:-16 wdth:100 wght:400', name:'"Regular Italic"', cat:'renamed', was:'was <s>"Italic Regular"</s>' });
+          } else if (n <= 16) {
+            const wght = 100 + ((n - 1) % 9) * 100;
+            list.push({ n, coords:`slnt:-16 wdth:100 wght:${wght}`, name:`"Style ${n} Italic"`, cat:'same' });
+          } else if (n <= 25) {
+            const wght = 100 + ((n - 17) % 9) * 100;
+            list.push({ n, coords:`slnt:0 wdth:100 wght:${wght}`, name:`"Style ${n}"`, cat:'same' });
+          } else if (!state.generateNames) {
+            break;
+          } else {
+            const wght = 100 + ((n * 37) % 9) * 100;
+            list.push({ n, coords:`slnt:0 wdth:100 wght:${wght}`, name:`"Style ${n}"`, cat:'same' });
+          }
+        }
+        return list;
+      })();
+
+  sections.push({
+    title: 'Instances',
+    rows: instanceDefs.map(i => rowHTML({
+      cat:i.cat, fieldTitle:`Instance ${i.n}`, fieldSub:i.coords,
+      value:i.name, was:i.was,
+    })),
+  });
+
+  return sectionsToHTML(sections);
+}
+
+function buildNameRows(file) {
+  const ps = file.psPrefix;
+  const isSmall = file.dataset === 'small';
+  const sections = [];
+
+  sections.push({
+    title: 'Axis records',
+    rows: (isSmall
+      ? [
+          rowHTML({ cat:'same', fieldTitle:'Optical size axis', fieldSub:'nameID 256', value:'256 "Optical Size"', role:'axis_display_name' }),
+          rowHTML({ cat:'same', fieldTitle:'Weight axis', fieldSub:'nameID 257', value:'257 "Weight"', role:'axis_display_name' }),
+        ]
+      : [
+          rowHTML({ cat:'reflow', fieldTitle:'Weight axis', fieldSub:'nameID 256', value:'256 "Weight"', was:'string unchanged', role:'axis_display_name' }),
+          rowHTML({ cat:'same', fieldTitle:'Width axis', fieldSub:'nameID 257', value:'257 "Width"', role:'axis_display_name' }),
+          rowHTML({ cat:'same', fieldTitle:'Slant axis', fieldSub:'nameID 258', value:'258 "Slant"', role:'axis_display_name' }),
+          rowHTML({ cat:'same', fieldTitle:'Optical size axis', fieldSub:'nameID 259', value:'259 "Optical Size"', role:'axis_display_name' }),
+        ]),
+  });
+
+  if (isSmall) {
+    sections.push({
+      title: 'opsz',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'opsz = 12', fieldSub:'nameID 260', value:'260 "Text"', role:'stat_axis_value' }),
+        rowHTML({ cat:'renamed', fieldTitle:'opsz = 72', fieldSub:'nameID 261', value:'261 "Display"', was:'was <s>"Large"</s>', role:'stat_axis_value' }),
+      ],
+    });
+    sections.push({
+      title: 'wght',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'wght = 400', fieldSub:'nameID 262', value:'262 "Regular"', role:'stat_axis_value' }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 700', fieldSub:'nameID 263', value:'263 "Bold"', role:'stat_axis_value' }),
+      ],
+    });
+  } else {
+    sections.push({
+      title: 'wght',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'wght = 100', fieldSub:'nameID 264', value:'264 "Hairline"', role:'stat_axis_value' }),
+        rowHTML({
+          cat:'reflow', fieldTitle:'wght = 400', fieldSub:'nameID 269 → 281',
+          value:'281 "Regular"', was:'slot moved, string unchanged', role:'stat_axis_value',
+        }),
+        rowHTML({ cat:'same', fieldTitle:'wght = 700', fieldSub:'nameID 270', value:'270 "Bold"', role:'stat_axis_value' }),
+      ],
+    });
+    sections.push({
+      title: 'wdth',
+      rows: [
+        rowHTML({ cat:'same', fieldTitle:'wdth = 100', fieldSub:'nameID 264', value:'264 "Normal"', role:'stat_axis_value' }),
+      ],
+    });
+    sections.push({
+      title: 'slnt',
+      rows: [
+        rowHTML({
+          cat:'renamed', fieldTitle:'slnt = -16', fieldSub:'nameID 274',
+          value:'274 "Italic"', was:'was <s>"Oblique"</s>', role:'stat_axis_value',
+        }),
+      ],
+    });
+    sections.push({
+      title: 'Elidable fallback',
+      rows: [
+        rowHTML({
+          cat:'renamed', fieldTitle:'Elidable fallback', fieldSub:'nameID 257',
+          value:'257 "Upright"', was:'was 273 "Upright"', role:'elided_fallback',
+        }),
+      ],
+    });
+  }
+
+  sections.push({
+    title: 'Instances',
+    rows: [
+      rowHTML({
+        cat:'renamed', fieldTitle:'Instance subfamily', fieldSub:'nameID 277',
+        value:'277 "XXXXCompressed Hairline"',
+        was:'was <s>"ABC_Gravity-XXXXCompressedHairline"</s>',
+        role:'instance_subfamily', searchText:'subfamily compressed',
+      }),
+      rowHTML({
+        cat:'reflow', fieldTitle:'PostScript name', fieldSub:'Regular · nameID 279 → 310',
+        value:`310 "${ps}-Regular"`,
+        was:'slot moved from nameID 279, string unchanged',
+        role:'instance_postscript', searchText:'postscript regular',
+      }),
+      rowHTML({
+        cat:'reflow', fieldTitle:'PostScript name', fieldSub:'XXXXCompressed Hairline Italic · 279 → 358',
+        value:`358 "${ps}-XXXXCompressedHairlineItalic"`,
+        was:'slot moved from nameID 279',
+        role:'instance_postscript', searchText:'postscript compressed italic',
+      }),
+    ],
+  });
+
+  sections.push({
+    title: 'OpenType feature labels',
+    rows: [
+      rowHTML({
+        cat:'protected', fieldTitle:'Ligatures', fieldSub:'nameID 261',
+        value:'261 "Standard Ligatures"',
+        note:'protected id — kept at current ID (future reflow pass)',
+        role:'protected_ot_label',
+      }),
+      rowHTML({
+        cat:'protected', fieldTitle:'Kerning', fieldSub:'nameID 262',
+        value:'262 "Kerning"',
+        note:'protected id — kept at current ID',
+        role:'protected_ot_label',
+      }),
+    ],
+  });
+
+  if (state.generateNames) {
+    const bulkRows = [];
+    const count = isSmall ? 28 : 180;
+    for (let i = 0; i < count; i++) {
+      const id = 300 + i;
+      const isReflow = i % 7 === 0;
+      const isRenamed = i % 23 === 0;
+      const cat = isRenamed ? 'renamed' : (isReflow ? 'reflow' : 'same');
+      const style = `Style${i}`;
+      const was = isRenamed
+        ? `was <s>"Legacy_${style}"</s>`
+        : (isReflow ? `slot reassigned to nameID ${id}` : null);
+      bulkRows.push(rowHTML({
+        cat, fieldTitle: isRenamed ? 'Instance subfamily' : 'PostScript name',
+        fieldSub:`nameID ${id}`,
+        value:`${id} "${ps}-${style}"`,
+        was,
+        role: isRenamed ? 'instance_subfamily' : 'instance_postscript',
+      }));
+    }
+    sections.push({ title: 'Instances (continued)', rows: bulkRows });
+  }
+
+  return sectionsToHTML(sections);
+}
+
+const PANELS = {
+  stat: {
+    label: 'STAT',
+    headline: (f) => `Style Attributes table — <b>${f.dataset === 'small' ? 2 : 4} axes</b>, ${f.metrics.statValues} axis value records`,
+    rows: (f) => buildStatRows(f),
+  },
+  fvar: {
+    label: 'fvar',
+    headline: (f) => `fvar table — <b>${f.dataset === 'small' ? 1 : 4} axes</b>, ${f.metrics.instances} named instances`,
+    rows: (f) => buildFvarRows(f),
+  },
+  name: {
+    label: 'name ≥256',
+    headline: (f) => {
+      const total = f.dataset === 'small' ? 42 : 228;
+      return `name table — <b>${total} slots</b>, full rebuild from ID 256`;
+    },
+    rows: (f) => buildNameRows(f),
+  },
+};
+
+function countChanges(panelKey, fileKey) {
+  const file = FILES[fileKey];
+  const html = PANELS[panelKey].rows(file);
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const rows = div.querySelectorAll('.row');
+  let changed = 0;
+  rows.forEach(r => { if (r.dataset.cat !== 'same') changed++; });
+  return { changed, total: rows.length };
+}
+
+function renderCards(file) {
+  const m = file.metrics;
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="n">${m.instances}</div><div class="l">Instances</div></div>
+    <div class="card"><div class="n">${m.statValues}</div><div class="l">STAT values</div></div>
+    <div class="card"><div class="n">${m.newNameIDs}</div><div class="l">New name IDs</div></div>
+    <div class="card"><div class="n">${m.removed}</div><div class="l">Removed</div></div>
+    <div class="card"><div class="n">${m.added}</div><div class="l">Added</div></div>`;
+}
+
+function renderFileMeta(file) {
+  document.getElementById('wtitle').textContent = `Save Review — ${file.title}`;
+  document.getElementById('psPrefix').textContent = file.psPrefix;
+  const clarHTML = file.clarifiers.map(c => `<span class="clarifier">${c}</span>`).join('');
+  document.getElementById('metaRow').innerHTML = `
+    <span>PS prefix</span><span class="mono">${file.psPrefix}</span>
+    ${file.clarifiers.length ? `<span>Clarifiers</span>${clarHTML}` : ''}`;
+  const warn = document.getElementById('warnCard');
+  if (document.getElementById('optWarnings').checked && file.warnings.length) {
+    warn.style.display = '';
+    warn.innerHTML = `<div class="wlbl">Warnings</div>${file.warnings.join('<br>')}`;
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+function syncFilterBadges() {
+  document.querySelectorAll('.filter-badge').forEach(btn => {
+    const cat = btn.dataset.cat;
+    btn.classList.toggle('off', state.hiddenCategories.has(cat));
+    btn.classList.toggle('isolate', state.isolateCategory === cat);
+  });
+}
+
+function renderTabs(fileKey) {
+  const tabbar = document.getElementById('tabbar');
+  tabbar.innerHTML = '';
+  let maxChanges = -1, maxTab = 'stat';
+  for (const [key, panel] of Object.entries(PANELS)) {
+    const { changed, total } = countChanges(key, fileKey);
+    if (changed > maxChanges) { maxChanges = changed; maxTab = key; }
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (key === state.tab ? ' active' : '') + (changed > 0 ? ' has-changes' : '');
+    tab.dataset.tab = key;
+    tab.innerHTML = `<span>${panel.label}</span><span class="count">${changed} of ${total}</span>`;
+    tabbar.appendChild(tab);
+  }
+  if (document.getElementById('optAutoTab').checked && !state._userPickedTab) {
+    state.tab = maxTab;
+    tabbar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === state.tab));
+  }
+}
+
+function renderPanels(fileKey) {
+  const file = FILES[fileKey];
+  const body = document.getElementById('panelBody');
+  body.innerHTML = '';
+  for (const [key, panel] of Object.entries(PANELS)) {
+    const el = document.createElement('div');
+    el.className = 'panel' + (key === state.tab ? ' active' : '');
+    el.dataset.panel = key;
+    el.innerHTML = `
+      <div class="tableheadline">${panel.headline(file)}</div>
+      <div class="rows" id="rows-${key}">${panel.rows(file)}</div>`;
+    body.appendChild(el);
+  }
+}
+
+function applyVisibility() {
+  const panel = document.querySelector(`.panel[data-panel="${state.tab}"]`);
+  if (!panel) return;
+  const rows = panel.querySelectorAll('.row');
+  const phases = panel.querySelectorAll('.phase');
+  let visible = 0, total = 0;
+  const q = state.search.trim().toLowerCase();
+
+  rows.forEach(row => {
+    total++;
+    const cat = row.dataset.cat;
+    let show = true;
+    if (state.isolateCategory) {
+      show = cat === state.isolateCategory;
+    } else if (state.hiddenCategories.has(cat)) {
+      show = false;
+    }
+    if (q && !row.dataset.search.includes(q)) show = false;
+    row.classList.toggle('hidden', !show);
+    if (show) visible++;
+  });
+
+  phases.forEach(phase => {
+    let next = phase.nextElementSibling;
+    let anyVisible = false;
+    while (next && !next.classList.contains('phase')) {
+      if (next.classList.contains('row') && !next.classList.contains('hidden')) anyVisible = true;
+      next = next.nextElementSibling;
+    }
+    phase.classList.toggle('hidden', !anyVisible);
+  });
+
+  const rowsEl = panel.querySelector('.rows');
+  const empty = rowsEl.querySelector('.empty-state');
+  if (visible === 0) {
+    if (!empty) {
+      const msg = document.createElement('div');
+      msg.className = 'empty-state';
+      msg.textContent = q
+        ? 'No rows match your search.'
+        : 'No rows visible — click badge toggles above to show change types.';
+      rowsEl.appendChild(msg);
+    }
+  } else if (empty) {
+    empty.remove();
+  }
+
+  document.getElementById('rowcount').textContent = `${visible} of ${total} rows shown`;
+  document.getElementById('searchWrap').style.display = state.tab === 'name' ? '' : 'none';
+  syncFilterBadges();
+}
+
+function fullRender(preserveTab = false) {
+  if (!preserveTab) state._userPickedTab = false;
+  const file = FILES[state.file];
+  renderCards(file);
+  renderFileMeta(file);
+  renderTabs(state.file);
+  renderPanels(state.file);
+  applyVisibility();
+}
+
+function setSettingsOpen(open) {
+  document.getElementById('settingsDrawer').classList.toggle('open', open);
+  document.getElementById('settingsBackdrop').classList.toggle('open', open);
+  document.getElementById('settingsFab').setAttribute('aria-expanded', open);
+  document.getElementById('settingsDrawer').setAttribute('aria-hidden', !open);
+  document.getElementById('settingsBackdrop').setAttribute('aria-hidden', !open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+function bindEvents() {
+  document.getElementById('introToggle').addEventListener('click', () => {
+    document.getElementById('intro').classList.toggle('open');
+  });
+  document.getElementById('settingsFab').addEventListener('click', () => {
+    setSettingsOpen(!document.getElementById('settingsDrawer').classList.contains('open'));
+  });
+  document.getElementById('settingsClose').addEventListener('click', () => setSettingsOpen(false));
+  document.getElementById('settingsBackdrop').addEventListener('click', () => setSettingsOpen(false));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') setSettingsOpen(false);
+  });
+
+  document.getElementById('tabbar').addEventListener('click', e => {
+    const t = e.target.closest('.tab');
+    if (!t) return;
+    state._userPickedTab = true;
+    state.tab = t.dataset.tab;
+    state.search = '';
+    document.getElementById('searchInput').value = '';
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === state.tab));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === state.tab));
+    applyVisibility();
+  });
+
+  document.getElementById('filterBar').addEventListener('click', e => {
+    const btn = e.target.closest('.filter-badge');
+    if (!btn) return;
+    const cat = btn.dataset.cat;
+    if (e.altKey || e.metaKey) {
+      state.isolateCategory = state.isolateCategory === cat ? null : cat;
+      state.hiddenCategories.clear();
+    } else {
+      state.isolateCategory = null;
+      if (state.hiddenCategories.has(cat)) state.hiddenCategories.delete(cat);
+      else state.hiddenCategories.add(cat);
+    }
+    applyVisibility();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', function() {
+    state.search = this.value;
+    applyVisibility();
+  });
+
+  document.getElementById('filebar').addEventListener('click', e => {
+    const chip = e.target.closest('.filechip');
+    if (!chip) return;
+    state.file = chip.dataset.file;
+    document.querySelectorAll('.filechip').forEach(c => c.classList.toggle('on', c.dataset.file === state.file));
+    state._userPickedTab = false;
+    fullRender();
+  });
+
+  document.getElementById('optHideSame').addEventListener('change', e => {
+    if (e.target.checked) state.hiddenCategories.add('same');
+    else state.hiddenCategories.delete('same');
+    syncFilterBadges();
+    applyVisibility();
+  });
+  document.getElementById('optMultiFile').addEventListener('change', e => {
+    document.getElementById('filebar').style.display = e.target.checked ? '' : 'none';
+  });
+  document.getElementById('optWarnings').addEventListener('change', () => renderFileMeta(FILES[state.file]));
+  document.getElementById('optAutoTab').addEventListener('change', () => { state._userPickedTab = false; renderTabs(state.file); renderPanels(state.file); applyVisibility(); });
+  document.getElementById('optGenerateNames').addEventListener('change', e => {
+    state.generateNames = e.target.checked;
+    fullRender(true);
+  });
+  document.getElementById('optDataset').addEventListener('change', e => {
+    const v = e.target.value;
+    state.file = v === 'small' ? 'display' : 'gravity';
+    document.querySelectorAll('.filechip').forEach(c => c.classList.toggle('on', c.dataset.file === state.file));
+    state._userPickedTab = false;
+    fullRender();
+  });
+  document.getElementById('optRowsHeight').addEventListener('change', e => {
+    document.documentElement.style.setProperty('--rows-h', e.target.value + 'px');
+  });
+}
+
+bindEvents();
+fullRender();
+</script>
+</body>
+</html>

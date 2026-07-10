@@ -11,6 +11,7 @@ from vfcommit_lib.nameid_allocator import (
     AxisDef,
     AxisValueDef,
     build_allocation_plan,
+    check_for_collisions,
     compose_name_from_order,
     enumerate_instance_names,
 )
@@ -93,16 +94,176 @@ class NameIDAllocatorTests(unittest.TestCase):
         self.assertIn("Bold Italic", names)
         self.assertIn("Italic", names)
 
-    def test_compose_name_from_order_interleaves_width_and_slope(self) -> None:
-        label = compose_name_from_order(
-            ["wght", "@width", "@slope"],
+    def test_stat_value_labels_use_raw_stop_names_not_composition(self) -> None:
+        """STAT ValueNames must stay axis-tree labels — never instance composition.
+
+        Regression: Playfair Italic wrote every STAT stop as "... Italic" and turned
+        the elided width "Normal" into just "Italic" because compose_name_from_order
+        was used for stat_value_labels.
+        """
+        if not _MILGRAM.is_file():
+            self.skipTest("Milgram test font not on disk")
+
+        axes_json = [
             {
-                "wght": AxisValueDef(value=500, name="Medium", elidable=False),
+                "tag": "wdth",
+                "display_name": "Width",
+                "min": 88,
+                "default": 100,
+                "max": 113,
+                "role": "instance",
+                "values": [
+                    {"id": "d1", "value": 88, "name": "SemiCondensed", "elidable": False, "stat_format": 1},
+                    {"id": "d2", "value": 100, "name": "Normal", "elidable": True, "stat_format": 1},
+                    {"id": "d3", "value": 113, "name": "SemiExpanded", "elidable": False, "stat_format": 1},
+                ],
             },
-            {"width": "Condensed", "slope": "Italic"},
-            "Regular",
+            {
+                "tag": "wght",
+                "display_name": "Weight",
+                "min": 400,
+                "default": 400,
+                "max": 700,
+                "role": "instance",
+                "values": [
+                    {"id": "w1", "value": 400, "name": "Regular", "elidable": True, "stat_format": 1},
+                    {"id": "w2", "value": 700, "name": "Bold", "elidable": False, "stat_format": 1},
+                ],
+            },
+            {
+                "tag": "ital",
+                "display_name": "Italic",
+                "role": "design_record_only",
+                "values": [
+                    {"id": "i1", "value": 1, "name": "Italic", "elidable": False, "stat_format": 1},
+                ],
+            },
+        ]
+        axis_defs = axis_defs_from_request(axes_json)
+        font = TTFont(str(_MILGRAM), lazy=False)
+        plan = build_allocation_plan(
+            font,
+            scan_ot_label_nameids(font),
+            axis_defs,
+            elided_fallback_name="Italic",
+            allocate_postscript_names=False,
+            instance_axis_defs=[a for a in axis_defs if a.tag != "ital"],
+            naming_order=["wght", "wdth", "@slope"],
+            clarifiers={"slope": "Italic"},
+            axes_json=axes_json,
+            file_stat_registration={"ital": 1},
         )
-        self.assertEqual(label, "Medium Condensed Italic")
+
+        self.assertEqual(plan.stat_value_labels[("wdth", 100.0)], "Normal")
+        self.assertEqual(plan.stat_value_labels[("wdth", 88.0)], "SemiCondensed")
+        self.assertEqual(plan.stat_value_labels[("wght", 700.0)], "Bold")
+        self.assertEqual(plan.stat_value_labels[("wght", 400.0)], "Regular")
+        self.assertEqual(plan.stat_value_labels[("ital", 1.0)], "Italic")
+        # Instance names still compose; slope clarifier is skipped when ital registration
+        # covers that category (parity with NamingComposer). Elidable-only combo → EFB.
+        self.assertIn("Bold SemiCondensed", plan.instance_ids)
+        self.assertIn("Italic", plan.instance_ids)
+        self.assertEqual(plan.elided_fallback_name, "Italic")
+        # Critically: STAT never absorbed the instance EFB / clarifier string.
+        self.assertNotEqual(plan.stat_value_labels[("wdth", 100.0)], "Italic")
+        self.assertNotIn("Italic", plan.stat_value_labels[("wght", 700.0)])
+
+    def test_stat_value_labels_preserve_roman_width_and_ital_neutrals(self) -> None:
+        if not _MILGRAM.is_file():
+            self.skipTest("Milgram test font not on disk")
+
+        axes_json = [
+            {
+                "tag": "wdth",
+                "display_name": "Width",
+                "min": 88,
+                "default": 100,
+                "max": 113,
+                "role": "instance",
+                "values": [
+                    {"id": "d2", "value": 100, "name": "Normal", "elidable": True, "stat_format": 1},
+                ],
+            },
+            {
+                "tag": "ital",
+                "display_name": "Italic",
+                "role": "design_record_only",
+                "values": [
+                    {"id": "i0", "value": 0, "name": "Roman", "elidable": True, "stat_format": 3, "linked_value": 1},
+                ],
+            },
+        ]
+        axis_defs = axis_defs_from_request(axes_json)
+        font = TTFont(str(_MILGRAM), lazy=False)
+        plan = build_allocation_plan(
+            font,
+            scan_ot_label_nameids(font),
+            axis_defs,
+            elided_fallback_name="Regular",
+            allocate_postscript_names=False,
+            instance_axis_defs=[a for a in axis_defs if a.tag != "ital"],
+            naming_order=["ital", "wdth", "@slope"],
+            clarifiers={},
+            axes_json=axes_json,
+            file_stat_registration={"ital": 0},
+        )
+
+        self.assertEqual(plan.stat_value_labels[("wdth", 100.0)], "Normal")
+        self.assertEqual(plan.stat_value_labels[("ital", 0.0)], "Roman")
+        self.assertEqual(plan.elided_fallback_name, "Regular")
+
+    def test_allocation_order_is_stat_then_efb_then_instances(self) -> None:
+        """DesignAxis → AxisValues → EFB → fvar; EFB never aliases an instance ID."""
+        if not _MILGRAM.is_file():
+            self.skipTest("Milgram test font not on disk")
+
+        axes_json = [
+            {
+                "tag": "wght",
+                "display_name": "Weight",
+                "min": 400,
+                "default": 400,
+                "max": 700,
+                "role": "instance",
+                "values": [
+                    {"id": "w1", "value": 400, "name": "Regular", "elidable": True, "stat_format": 1},
+                    {"id": "w2", "value": 700, "name": "Bold", "elidable": False, "stat_format": 1},
+                ],
+            }
+        ]
+        axis_defs = axis_defs_from_request(axes_json)
+        font = TTFont(str(_MILGRAM), lazy=False)
+        plan = build_allocation_plan(
+            font,
+            scan_ot_label_nameids(font),
+            axis_defs,
+            elided_fallback_name="Regular",
+            allocate_postscript_names=False,
+            instance_axis_defs=axis_defs,
+            naming_order=["wght"],
+        )
+
+        axis_name_ids = sorted(plan.axis_name_ids.values())
+        axis_value_ids = sorted(plan.axis_value_ids.values())
+        instance_ids = sorted(plan.instance_ids.values())
+
+        self.assertTrue(axis_name_ids)
+        self.assertTrue(axis_value_ids)
+        self.assertTrue(instance_ids)
+        self.assertLess(max(axis_name_ids), min(axis_value_ids))
+        self.assertLess(max(axis_value_ids), plan.elided_fallback_id)
+        self.assertLess(plan.elided_fallback_id, min(instance_ids))
+        # Duplicate string "Regular" on STAT, EFB, and instance each get distinct IDs.
+        self.assertNotEqual(plan.elided_fallback_id, plan.instance_ids["Regular"])
+        self.assertNotEqual(
+            plan.elided_fallback_id,
+            plan.axis_value_ids[("wght", 400.0)],
+        )
+        self.assertNotEqual(
+            plan.instance_ids["Regular"],
+            plan.axis_value_ids[("wght", 400.0)],
+        )
+        self.assertEqual(check_for_collisions(plan, font), [])
 
     def test_preserves_stat_only_design_axis_name_ids(self) -> None:
         nouveau = Path("/Users/skymacbook/Downloads/~Untitled/NouveauLED-Variable.ttf")

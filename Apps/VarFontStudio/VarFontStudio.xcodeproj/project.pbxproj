@@ -40,6 +40,8 @@
 		B2000034 /* ProjectInspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000033 /* ProjectInspectorPanel.swift */; };
 		B2000035 /* ProjectScopeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000034 /* ProjectScopeHeader.swift */; };
 		B2000036 /* ProjectFilesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000035 /* ProjectFilesSection.swift */; };
+		B2000037 /* AxisStopFillControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000036 /* AxisStopFillControls.swift */; };
+		B2000038 /* CommitDiffReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000037 /* CommitDiffReviewView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +78,8 @@
 		F2000033 /* ProjectInspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectInspectorPanel.swift; sourceTree = "<group>"; };
 		F2000034 /* ProjectScopeHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectScopeHeader.swift; sourceTree = "<group>"; };
 		F2000035 /* ProjectFilesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFilesSection.swift; sourceTree = "<group>"; };
+		F2000036 /* AxisStopFillControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisStopFillControls.swift; sourceTree = "<group>"; };
+		F2000037 /* CommitDiffReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffReviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,6 +132,7 @@
 				F2000033 /* ProjectInspectorPanel.swift */,
 				F2000034 /* ProjectScopeHeader.swift */,
 				F2000035 /* ProjectFilesSection.swift */,
+				F2000036 /* AxisStopFillControls.swift */,
 				F2000020 /* ProjectTargetPickerSheet.swift */,
 				F2000017 /* WorkspaceDropOverlay.swift */,
 				F2000019 /* StudioPanelSplitView.swift */,
@@ -136,6 +141,7 @@
 				F2000030 /* PlanIssueResolverSheet.swift */,
 				F2000031 /* CombinationStylesSection.swift */,
 				F2000024 /* CommitDiffSheet.swift */,
+				F2000037 /* CommitDiffReviewView.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
@@ -262,6 +268,8 @@
 				B2000034 /* ProjectInspectorPanel.swift in Sources */,
 				B2000035 /* ProjectScopeHeader.swift in Sources */,
 				B2000036 /* ProjectFilesSection.swift in Sources */,
+				B2000037 /* AxisStopFillControls.swift in Sources */,
+				B2000038 /* CommitDiffReviewView.swift in Sources */,
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,

@@ -73,7 +73,22 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertEqual(font.fileStatRegistration["ital"], 0)
     }
 
-    func testOrphanF3ConvertToFormat1() throws {
+    func testItalConventionFormat3LinkIsNotOrphan() {
+        let axis = italAxis(stops: [
+            AxisValue(
+                id: "r",
+                value: 0,
+                name: "Roman",
+                elidable: true,
+                statFormat: 3,
+                linkedValue: 1
+            ),
+        ])
+        XCTAssertTrue(StatFormat3Pairing.isConventionStyleLink(axis: axis, stop: axis.values[0]))
+        XCTAssertTrue(StatFormat3Pairing.orphanLinkWarnings(for: axis).isEmpty)
+    }
+
+    func testOrphanF3StillWarnsForBrokenNonConventionLink() throws {
         var font = FontDocument(
             id: "f1",
             sourcePath: "/tmp/font.ttf",
@@ -85,7 +100,7 @@ final class PlanIssueResolverTests: XCTestCase {
                         name: "Roman",
                         elidable: true,
                         statFormat: 3,
-                        linkedValue: 1
+                        linkedValue: 99
                     ),
                 ]),
             ]
@@ -146,12 +161,13 @@ final class PlanIssueResolverTests: XCTestCase {
         let orphan = try XCTUnwrap(StatFormat3Pairing.orphanLinkWarnings(for: font.axes[0]).first)
         let proposals = PlanIssueResolver.proposals(for: orphan, font: font)
         XCTAssertEqual(proposals.count, 1)
-        XCTAssertTrue(proposals[0].title.contains("Format 1"))
+        XCTAssertTrue(proposals[0].title.contains("Format 3"))
         XCTAssertTrue(proposals[0].title.contains("Roman"))
 
         PlanIssueResolver.apply(proposals[0].action, to: &font)
-        XCTAssertEqual(font.axes[0].values[0].statFormat, 1)
+        XCTAssertEqual(font.axes[0].values[0].statFormat, 3)
         XCTAssertEqual(font.axes[0].values[0].value, 0)
+        XCTAssertEqual(font.axes[0].values[0].linkedValue, 1)
         XCTAssertEqual(font.fileStatRegistration["ital"], 0)
     }
 
@@ -160,16 +176,20 @@ final class PlanIssueResolverTests: XCTestCase {
             id: "f1",
             sourcePath: "/tmp/font.ttf",
             axes: [
-                italAxis(stops: [
-                    AxisValue(
-                        id: "r",
-                        value: 0,
-                        name: "Roman",
-                        elidable: true,
-                        statFormat: 3,
-                        linkedValue: 1
-                    ),
-                ]),
+                AxisDefinition(
+                    tag: "wght",
+                    role: .instance,
+                    values: [
+                        AxisValue(
+                            id: "n",
+                            value: 400,
+                            name: "Normal",
+                            elidable: true,
+                            statFormat: 3,
+                            linkedValue: 999
+                        ),
+                    ]
+                ),
             ]
         )
 
@@ -180,6 +200,35 @@ final class PlanIssueResolverTests: XCTestCase {
 
         let visible = PlanIssueResolver.visibleWarnings(for: font)
         XCTAssertFalse(visible.contains { PlanIssueCodes.issueKey(for: $0) == key })
+    }
+
+    func testDismissedOpszSuggestionStaysHiddenAfterPlanRebuild() throws {
+        var font = FontDocument(
+            id: "f1",
+            sourcePath: "/tmp/font.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "opsz",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "o1", value: 8, name: "Small", elidable: false, statFormat: 1),
+                        AxisValue(id: "o2", value: 72, name: "Display", elidable: false, statFormat: 1),
+                    ]
+                ),
+            ]
+        )
+
+        let warning = try XCTUnwrap(
+            OpenTypeAxisAudit.opszFormat2SuggestWarnings(font: font).first
+        )
+        let key = PlanIssueCodes.issueKey(for: warning)
+        PlanIssueResolver.apply(.acknowledgeIssue(issueKey: key), to: &font)
+
+        let plan = InstancePlanner.plan(font: font, naming: NamingPolicy(order: ["opsz"]))
+        XCTAssertFalse(plan.warnings.contains { PlanIssueCodes.issueKey(for: $0) == key })
+
+        let proposal = PlanIssueResolver.proposals(for: warning, font: font).first
+        XCTAssertEqual(proposal?.title, "Don't change")
     }
 
     func testDuplicateComposedNameOffersAxisNeutralsForNouveau() {
@@ -369,5 +418,79 @@ final class PlanIssueResolverTests: XCTestCase {
         }
         PlanIssueResolver.apply(proposal.action, to: &font)
         XCTAssertEqual(font.axes[0].values.count, 1)
+    }
+
+    func testItalFormat1UpgradeWarningForRomanStop() {
+        let font = FontDocument(
+            id: "roman",
+            sourcePath: "/tmp/RomanVF.woff2",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(id: "r", value: 0, name: "Roman", elidable: true, statFormat: 1),
+                ]),
+            ]
+        )
+
+        let warnings = RegistrationAxisSupport.italFormat1UpgradeWarnings(font: font)
+        XCTAssertEqual(warnings.count, 1)
+        XCTAssertEqual(warnings[0].code, "ital_format1_upgrade")
+
+        let proposal = PlanIssueResolver.recommendedProposal(for: warnings[0], font: font)
+        XCTAssertEqual(proposal?.title, "Upgrade to Format 3")
+    }
+
+    func testItalFormat1UpgradeAppliesFormat3LinkForRomanAndItalic() throws {
+        var romanFont = FontDocument(
+            id: "roman",
+            sourcePath: "/tmp/RomanVF.woff2",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(id: "r", value: 0, name: "Roman", elidable: true, statFormat: 1),
+                ]),
+            ]
+        )
+        let romanWarning = try XCTUnwrap(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: romanFont).first)
+        PlanIssueResolver.apply(try XCTUnwrap(PlanIssueResolver.recommendedProposal(for: romanWarning, font: romanFont)).action, to: &romanFont)
+        XCTAssertEqual(romanFont.axes[0].values[0].statFormat, 3)
+        XCTAssertEqual(romanFont.axes[0].values[0].linkedValue, 1)
+
+        var italicFont = FontDocument(
+            id: "italic",
+            sourcePath: "/tmp/ItalicVF.woff2",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(id: "i", value: 1, name: "Italic", elidable: false, statFormat: 1),
+                ]),
+            ],
+            inferredIsItalicFile: true
+        )
+        let italicWarning = try XCTUnwrap(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: italicFont).first)
+        PlanIssueResolver.apply(try XCTUnwrap(PlanIssueResolver.recommendedProposal(for: italicWarning, font: italicFont)).action, to: &italicFont)
+        XCTAssertEqual(italicFont.axes[0].values[0].statFormat, 3)
+        XCTAssertEqual(italicFont.axes[0].values[0].linkedValue, 0)
+    }
+
+    func testItalFormat1UpgradeSkipsAlreadyFormat3AndNonConventionValues() {
+        let format3Font = FontDocument(
+            id: "f3",
+            sourcePath: "/tmp/RomanVF.woff2",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(id: "r", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+                ]),
+            ]
+        )
+        XCTAssertTrue(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: format3Font).isEmpty)
+
+        let oddValueFont = FontDocument(
+            id: "odd",
+            sourcePath: "/tmp/font.ttf",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(id: "r", value: 0.5, name: "Half", elidable: true, statFormat: 1),
+                ]),
+            ]
+        )
+        XCTAssertTrue(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: oddValueFont).isEmpty)
     }
 }

@@ -88,6 +88,7 @@ def build_commit_diff(
         "elided_fallback_id": plan.elided_fallback_id,
         "name_id_range": [plan.free_start, plan.free_end],
         "name_records_planned": sorted(name_records, key=lambda rec: rec["id"]),
+        "name_records_sequenced": list(name_records),
         "stat_values_planned": stat_values_planned,
         "instances_planned": instances_planned,
     }

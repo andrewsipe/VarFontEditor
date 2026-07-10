@@ -1,11 +1,16 @@
 import Foundation
 
 struct FvarAxis: Sendable {
+    static let hiddenAxisFlag: UInt16 = 0x0001
+
     var tag: String
     var min: Double
     var defaultValue: Double
     var max: Double
+    var flags: UInt16
     var nameID: Int
+
+    var isHidden: Bool { flags & Self.hiddenAxisFlag != 0 }
 }
 
 struct FvarInstance: Sendable {
@@ -35,6 +40,7 @@ enum FvarParser {
                     min: OpenTypeBinary.readFixed(data, offset + 4),
                     defaultValue: OpenTypeBinary.readFixed(data, offset + 8),
                     max: OpenTypeBinary.readFixed(data, offset + 12),
+                    flags: OpenTypeBinary.readUInt16(data, offset + 16),
                     nameID: Int(OpenTypeBinary.readUInt16(data, offset + 18))
                 )
             )

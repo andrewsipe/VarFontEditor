@@ -14,6 +14,11 @@ private struct AddAxisStopRequest: Identifiable {
     var id: String { axisTag }
 }
 
+private struct FillStopsRequest: Identifiable {
+    let axisTag: String
+    var id: String { axisTag }
+}
+
 private struct StopFormatChangeRequest: Identifiable {
     let axisTag: String
     let stopID: String
@@ -48,9 +53,13 @@ private enum AxisTreePlanWarningCodes {
         "registration_value_missing",
         "orphan_stat_link",
         "ital_value_name_mismatch",
-        "multiple_elidable",
+        "ital_format1_upgrade",
+        "wght_format1_upgrade",
+        "fvar_missing_from_stat",
+        "stat_missing_from_fvar",
         "multiple_elidable",
         "empty_instance_axis",
+        "opsz_format2_suggest",
     ]
 }
 
@@ -70,6 +79,7 @@ struct AxisTreePanel: View {
     @State private var expandedAxes: Set<String> = []
     @State private var editingStop: (id: String, field: StopEditField)?
     @State private var addStopRequest: AddAxisStopRequest?
+    @State private var fillStopsRequest: FillStopsRequest?
     @State private var formatChangeRequest: StopFormatChangeRequest?
     @State private var tabKeyMonitor: TabKeyMonitor?
     @State private var activeTabNavigation: ((Bool) -> Void)?
@@ -172,6 +182,15 @@ struct AxisTreePanel: View {
                     addStopRequest = nil
                 }
                 .environmentObject(editor)
+            }
+        }
+        .sheet(item: $fillStopsRequest) { request in
+            if let axis = editor.selectedFont?.axes.first(where: { $0.tag == request.axisTag }) {
+                FillAxisStopsSheet(axis: axis) {
+                    fillStopsRequest = nil
+                }
+                .environmentObject(editor)
+                .id(request.axisTag)
             }
         }
         .sheet(item: $formatChangeRequest) { request in
@@ -374,6 +393,21 @@ struct AxisTreePanel: View {
 
     // MARK: - Axis detail
 
+    private func axisActionButtonLabel(title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(StudioTypography.caption)
+            .foregroundStyle(.secondary)
+            .labelStyle(.titleAndIcon)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .overlay {
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .foregroundStyle(.tertiary)
+            }
+    }
+
     @ViewBuilder
     private func axisDetail(_ axis: AxisDefinition) -> some View {
         let showElidable = axis.role == .instance || axis.lane == .registration
@@ -386,8 +420,12 @@ struct AxisTreePanel: View {
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             } else {
-                AxisStopTableHeader(showElidable: showElidable, showRemoveSlot: !axis.isDesignRecordOnly)
-                    .padding(.bottom, AxisDetailSpacing.tableHeaderToFirstRowGap)
+                AxisStopTableHeader(
+                    showElidable: showElidable,
+                    showDefaultMark: axis.hasFvarScale,
+                    showRemoveSlot: !axis.isDesignRecordOnly
+                )
+                .padding(.bottom, AxisDetailSpacing.tableHeaderToFirstRowGap)
 
                 ForEach(axis.values) { stop in
                     axisStopRow(axis: axis, stop: stop, showElidable: showElidable)
@@ -396,24 +434,34 @@ struct AxisTreePanel: View {
             }
 
             if axis.role == .instance {
-                // Add Stop is a full-width CTA outside the Fmt/Value/Elidable data grid;
-                // leading inset aligns with the Name column only (not the format/value columns).
-                Button {
-                    addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
-                } label: {
-                    Label("Add Stop", systemImage: "plus")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading, AxisBlockLayout.nameLeading)
-                        .padding(.vertical, 5)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 5)
-                                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                                .foregroundStyle(.tertiary)
+                let showFill = AxisStopFillPlanner.supportsFill(axis)
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Button {
+                        addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
+                    } label: {
+                        axisActionButtonLabel(title: "Add Stop", systemImage: "plus")
+                    }
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 0, maxWidth: showFill ? .infinity : nil)
+
+                    if showFill {
+                        Button {
+                            fillStopsRequest = FillStopsRequest(axisTag: axis.tag)
+                        } label: {
+                            axisActionButtonLabel(
+                                title: "Fill stops…",
+                                systemImage: "square.grid.3x1.folder.badge.plus"
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .help(
+                            axis.values.isEmpty
+                                ? "Evenly space or interval-fill stops across this axis's range."
+                                : "Replace this axis's stops with an evenly spaced or interval fill. Reopen anytime to tweak."
+                        )
+                    }
                 }
-                .buttonStyle(.plain)
                 .padding(.top, AxisDetailSpacing.lastStopToAddButtonGap)
             }
         }
@@ -482,7 +530,9 @@ struct AxisTreePanel: View {
         stop: AxisValue,
         showElidable: Bool
     ) -> some View {
-        AxisTreeStopRow(
+        let isFvarDefault = axis.hasFvarScale
+            && axis.default.map { AxisCoordinate.valuesEqual($0, stop.value) } == true
+        return AxisTreeStopRow(
             stop: stop,
             linkedTargetName: linkedTargetName(for: stop, in: axis),
             isRegistrationStop: isRegistrationStop(stop, axis: axis),
@@ -490,6 +540,8 @@ struct AxisTreePanel: View {
             isSelected: editor.selectedAxisStopID == stop.id,
             editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
             showElidable: showElidable,
+            showDefaultMark: axis.hasFvarScale,
+            isFvarDefault: isFvarDefault,
             allowsRemove: !axis.isDesignRecordOnly,
             valueEditable: axis.hasFvarScale || axis.isDesignRecordOnly,
             isElidable: stop.elidable,
@@ -750,6 +802,17 @@ private struct AxisTreeAxisHeader: View {
             )
             .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
 
+            if axis.fvarHidden {
+                Text("hidden")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .help("fvar HIDDEN_AXIS — designer recommends this axis stay out of user-facing UIs.")
+            }
+
             VStack(alignment: .leading, spacing: 1) {
                 Button(action: onToggleExpansion) {
                     HStack(spacing: 4) {
@@ -774,6 +837,7 @@ private struct AxisTreeAxisHeader: View {
                         .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .help("fvar min/default/max from the source font. Not editable here. D icon = default coordinate.")
                 }
             }
 
@@ -902,9 +966,9 @@ private struct AxisTreeAxisHeader: View {
         let minText = StudioFormatting.axisValue(min)
         let maxText = StudioFormatting.axisValue(max)
         if let defaultValue = axis.default {
-            return "\(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
+            return "fvar \(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
         }
-        return "\(minText) – \(maxText)"
+        return "fvar \(minText) – \(maxText)"
     }
 }
 
@@ -918,18 +982,25 @@ private enum AxisBlockLayout {
 
     /// Nests stop rows under the axis header without reserving remove-button space.
     static let stopIndentWidth: CGFloat = 18
-
+    /// fvar-default marker column (square) before Fmt.
+    static let defaultMarkWidth: CGFloat = 22
+    /// Breathing room between the fvar-default marker and the Fmt badge.
+    static let defaultMarkTrailingGap: CGFloat = 4
     static let fmtColumnWidth: CGFloat = 36
     static let valueColumnWidth: CGFloat = 52
     static let nameGap: CGFloat = 6
     static let elidableWidth: CGFloat = 26
 
-    static var nameLeading: CGFloat {
-        stopIndentWidth + fmtColumnWidth + valueColumnWidth + nameGap
+    static func nameLeading(showDefaultMark: Bool) -> CGFloat {
+        stopIndentWidth
+            + (showDefaultMark ? defaultMarkWidth + defaultMarkTrailingGap : 0)
+            + fmtColumnWidth
+            + valueColumnWidth
+            + nameGap
     }
 
-    static var rangeSublineLeading: CGFloat {
-        nameLeading
+    static func rangeSublineLeading(showDefaultMark: Bool) -> CGFloat {
+        nameLeading(showDefaultMark: showDefaultMark)
     }
 
     static let stopCountBadgeWidth: CGFloat = 32
@@ -946,11 +1017,18 @@ private enum AxisBlockLayout {
 
 private struct AxisStopTableHeader: View {
     let showElidable: Bool
+    var showDefaultMark: Bool = false
     var showRemoveSlot: Bool = true
 
     var body: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: AxisBlockLayout.stopIndentWidth)
+
+            if showDefaultMark {
+                Color.clear
+                    .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .leading)
+                    .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
+            }
 
             Text("Fmt")
                 .font(StudioTypography.columnLabel)
@@ -1000,6 +1078,8 @@ private struct AxisTreeStopRow: View {
     let isSelected: Bool
     let editingField: StopEditField?
     let showElidable: Bool
+    var showDefaultMark: Bool = false
+    var isFvarDefault: Bool = false
     var allowsRemove: Bool = true
     var valueEditable: Bool = true
     let isElidable: Bool
@@ -1088,6 +1168,8 @@ private struct AxisTreeStopRow: View {
             Color.clear
                 .frame(width: AxisBlockLayout.stopIndentWidth)
 
+            defaultMarkCell
+
             StudioStatFormatBadge(format: stop.statFormat, action: onChangeFormat)
                 .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .leading)
 
@@ -1109,6 +1191,25 @@ private struct AxisTreeStopRow: View {
             removeSlot
         }
         .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
+    }
+
+    @ViewBuilder
+    private var defaultMarkCell: some View {
+        if showDefaultMark {
+            Group {
+                if isFvarDefault {
+                    Image(systemName: "d.square.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .help("fvar default coordinate")
+                        .accessibilityLabel("fvar default")
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .leading)
+            .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
+        }
     }
 
     @ViewBuilder
@@ -1143,9 +1244,8 @@ private struct AxisTreeStopRow: View {
                     foreground: StudioColors.axisValue,
                     rowHeight: StudioFieldMetrics.listRowMinHeight,
                     alignment: .trailing,
-                    onSubmit: { navigateTab(forward: true) },
-                    onCancel: cancelInlineEdit,
-                    submitBehavior: .advance
+                    onSubmit: commitAndEndEdit,
+                    onCancel: cancelInlineEdit
                 )
                 .focused($focusedField, equals: .pin)
             } else if valueEditable {
@@ -1185,7 +1285,7 @@ private struct AxisTreeStopRow: View {
             sublineLabel("max")
             sublineField(.max, value: stop.rangeMax, placeholder: "Max")
         }
-        .padding(.leading, AxisBlockLayout.rangeSublineLeading)
+        .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark))
         .padding(.bottom, 3)
     }
 
@@ -1211,9 +1311,8 @@ private struct AxisTreeStopRow: View {
                 foreground: StudioColors.axisValue,
                 rowHeight: StudioFieldMetrics.captionRowHeight,
                 alignment: .trailing,
-                onSubmit: { navigateTab(forward: true) },
-                onCancel: cancelInlineEdit,
-                submitBehavior: .advance
+                onSubmit: commitAndEndEdit,
+                onCancel: cancelInlineEdit
             )
             .frame(width: 44)
             .focused($focusedField, equals: field)
@@ -1256,12 +1355,8 @@ private struct AxisTreeStopRow: View {
                     text: $editingName,
                     font: StudioTypography.bodyMedium,
                     rowHeight: StudioFieldMetrics.listRowMinHeight,
-                    onSubmit: {
-                        commitName()
-                        navigateTab(forward: true)
-                    },
-                    onCancel: cancelInlineEdit,
-                    submitBehavior: .advance
+                    onSubmit: commitAndEndEdit,
+                    onCancel: cancelInlineEdit
                 )
                 .focused($focusedField, equals: .name)
             } else {
@@ -1426,6 +1521,12 @@ private struct AxisTreeStopRow: View {
         } else {
             onTabBackwardFromFirstField()
         }
+    }
+
+    /// Return commits the current field and leaves edit mode — does not advance like Tab.
+    private func commitAndEndEdit() {
+        commitCurrentEdit()
+        onEndEdit()
     }
 
     private func cancelInlineEdit() {
@@ -1716,6 +1817,107 @@ private struct AddAxisStopSheet: View {
                 editor.insertAxisStop(axisTag: tag, value: pin, name: name)
             }
         }
+    }
+}
+
+// MARK: - Fill stops sheet
+
+/// Standalone quick-fill tool, reachable anytime from the axis tree (not gated behind a plan
+/// warning). Unlike the resolver's empty-axis fix, this replaces whatever stops already exist,
+/// so it doubles as a way to re-fill gaps or redo a fill with a different count/interval —
+/// just reopen the sheet and apply again, no undo required.
+private struct FillAxisStopsSheet: View {
+    @EnvironmentObject private var editor: EditorViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    let axis: AxisDefinition
+    let onComplete: () -> Void
+
+    @State private var fillMode: AxisStopFillMode = .evenCount
+    @State private var stopCount: Double = 6
+    @State private var intervalStep: Double = 1
+    @State private var confirmingReplace = false
+
+    private var options: AxisStopFillOptions? {
+        AxisStopFillPlanner.options(for: axis)
+    }
+
+    private var values: [Double]? {
+        switch fillMode {
+        case .evenCount:
+            return AxisStopFillPlanner.values(for: axis, count: Int(stopCount.rounded()))
+        case .fixedInterval:
+            return AxisStopFillPlanner.values(for: axis, interval: intervalStep)
+        }
+    }
+
+    /// Stops whose name doesn't match their bare numeric value have been customized —
+    /// replacing without confirmation would silently discard that naming work.
+    private var hasCustomNamedStops: Bool {
+        axis.values.contains { $0.name != AxisStopSuggestions.formatValue($0.value) }
+    }
+
+    private var canApply: Bool {
+        (values?.count ?? 0) >= AxisStopFillPlanner.minStopCount
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.sheetSectionSpacing) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Fill Stops")
+                    .font(StudioTypography.emphasis)
+                Text("\(axis.displayName ?? axis.tag) · replaces every stop currently on this axis")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let options {
+                AxisStopFillControls(
+                    axis: axis,
+                    options: options,
+                    fillMode: $fillMode,
+                    stopCount: $stopCount,
+                    intervalStep: $intervalStep
+                )
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    onComplete()
+                    dismiss()
+                }
+                Button("Fill") {
+                    if hasCustomNamedStops {
+                        confirmingReplace = true
+                    } else {
+                        apply()
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canApply)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 460)
+        .onAppear {
+            guard let options else { return }
+            stopCount = Double(options.defaultCount)
+            intervalStep = options.defaultInterval
+        }
+        .alert("Replace Named Stops?", isPresented: $confirmingReplace) {
+            Button("Replace", role: .destructive, action: apply)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This axis has stops with custom names. Filling will remove them and replace every stop on this axis.")
+        }
+    }
+
+    private func apply() {
+        guard let values else { return }
+        editor.replaceAxisStops(axisTag: axis.tag, values: values)
+        onComplete()
+        dismiss()
     }
 }
 

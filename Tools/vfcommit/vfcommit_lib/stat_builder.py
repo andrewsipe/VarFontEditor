@@ -89,7 +89,6 @@ def apply_table_edits(
     axis_defs: List[AxisDef],
     plan: NameIDPlan,
     elided_fallback_name: str = "Regular",
-    fix_fvar_default: bool = True,
     protected_ids: Set[int] | None = None,
     confirm_wipe: bool = False,
     ot_label_count: int = 0,
@@ -101,8 +100,9 @@ def apply_table_edits(
     """
     Write all changes to the font in memory. Does not save.
 
-    Order: optional wipe confirmation → wipe → name records → fvar defaults
+    Order: optional wipe confirmation → wipe → name records
     → fvar instances → STAT. DesignAxisRecord is preserved (not wiped).
+    fvar axis min/default/max are never rewritten.
     """
     if protected_ids is None:
         protected_ids = set()
@@ -117,8 +117,7 @@ def apply_table_edits(
     _wipe_existing_table_data(font, protected_ids)
 
     _write_name_records(font, axis_defs, plan)
-    if fix_fvar_default:
-        _fix_fvar_defaults(font, axis_defs)
+    # fvar axis min/default/max are design-space metadata — never rewrite on save.
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
     _write_fvar_instances(
         font,
@@ -170,6 +169,7 @@ def generate_ttx_additions(
 def _write_name_records(font: TTFont, axis_defs: List[AxisDef], plan: NameIDPlan) -> None:
     name_table = font["name"]
 
+    # Order matches allocation: DesignAxis → AxisValues → compounds → EFB → fvar (+ PS).
     for tag, nid in plan.axis_name_ids.items():
         name_table.setName(plan.axis_names.get(tag, tag), nid, 3, 1, 0x0409)
 
@@ -180,51 +180,22 @@ def _write_name_records(font: TTFont, axis_defs: List[AxisDef], plan: NameIDPlan
             label = plan.stat_value_labels.get(key, av_def.name)
             name_table.setName(label, nid, 3, 1, 0x0409)
 
-    for composed_name, nid in plan.instance_ids.items():
-        name_table.setName(composed_name, nid, 3, 1, 0x0409)
-
     for compound_id, nid in plan.compound_value_ids.items():
         label = plan.compound_value_names.get(compound_id, compound_id)
         name_table.setName(label, nid, 3, 1, 0x0409)
+
+    if plan.elided_fallback_id:
+        name_table.setName(
+            plan.elided_fallback_name, plan.elided_fallback_id, 3, 1, 0x0409
+        )
+
+    for composed_name, nid in plan.instance_ids.items():
+        name_table.setName(composed_name, nid, 3, 1, 0x0409)
 
     for composed_name, ps_nid in plan.instance_postscript_ids.items():
         ps_name = plan.instance_postscript_names.get(composed_name)
         if ps_name:
             name_table.setName(ps_name, ps_nid, 3, 1, 0x0409)
-
-    # Dedicated elided-fallback string (when not already an instance name)
-    if plan.elided_fallback_id and plan.elided_fallback_name not in plan.instance_ids:
-        name_table.setName(
-            plan.elided_fallback_name, plan.elided_fallback_id, 3, 1, 0x0409
-        )
-
-
-def _fix_fvar_defaults(font: TTFont, axis_defs: List[AxisDef]) -> None:
-    if "fvar" not in font:
-        return
-    axis_def_by_tag = {ad.tag: ad for ad in axis_defs}
-    for fvar_axis in font["fvar"].axes:
-        tag = fvar_axis.axisTag
-        if tag not in axis_def_by_tag:
-            continue
-        ad = axis_def_by_tag[tag]
-        elidable_values = [av.value for av in ad.values if av.elidable]
-        if not elidable_values:
-            logger.warning(
-                "No elidable value for fvar axis [%s]; default unchanged (%.4f)",
-                tag,
-                fvar_axis.defaultValue,
-            )
-            continue
-        new_default = elidable_values[0]
-        if abs(fvar_axis.defaultValue - new_default) > 0.001:
-            logger.info(
-                "fvar axis [%s] default %.4f → %.4f",
-                tag,
-                fvar_axis.defaultValue,
-                new_default,
-            )
-            fvar_axis.defaultValue = new_default
 
 
 def _write_fvar_instances(
@@ -344,8 +315,8 @@ def _write_stat(
     avarray.AxisValue = axis_values
     stat_table.AxisValueArray = avarray
 
-    # Always a freshly allocated 256+ ID (never reuse ID 2)
-    efb_nid = plan.elided_fallback_id or plan.instance_ids.get(elided_fallback_name)
+    # Always a freshly allocated 256+ ID (never reuse ID 2 or an instance nameID)
+    efb_nid = plan.elided_fallback_id
     if not efb_nid:
         raise ValueError("No elided fallback nameID allocated in plan")
     stat_table.ElidedFallbackNameID = efb_nid
@@ -370,30 +341,6 @@ def count_instances(axis_defs: List[AxisDef]) -> int:
     return n
 
 
-def default_fix_summary(
-    font: TTFont, axis_defs: List[AxisDef]
-) -> List[str]:
-    """Human-readable lines describing pending fvar default corrections."""
-    lines: List[str] = []
-    if "fvar" not in font:
-        return lines
-    axis_def_by_tag = {ad.tag: ad for ad in axis_defs}
-    for fvar_axis in font["fvar"].axes:
-        tag = fvar_axis.axisTag
-        if tag not in axis_def_by_tag:
-            continue
-        ad = axis_def_by_tag[tag]
-        elidable = [av for av in ad.values if av.elidable]
-        if not elidable:
-            continue
-        new_default = elidable[0].value
-        if abs(fvar_axis.defaultValue - new_default) > 0.001:
-            lines.append(
-                f"{tag} default {fvar_axis.defaultValue:g} → {new_default:g}"
-            )
-    return lines
-
-
 def confirm_wipe_and_rebuild(
     font: TTFont,
     protected_ids: Set[int],
@@ -414,5 +361,4 @@ __all__ = [
     "count_existing_stat_axis_values",
     "generate_ttx_additions",
     "count_instances",
-    "default_fix_summary",
 ]
