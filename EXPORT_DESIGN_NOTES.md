@@ -15,6 +15,10 @@
 
 Default remains **`preserve`** — no behavior change unless reflow is enabled.
 
+### Stale source IDs after reflow (intentional)
+
+On the first reflow commit, old high nameIDs are **copied** to their new 256+ positions and GSUB/GPOS are repointed. The **original** high slots are **not** deleted in that same pass — they were protected during pre-wipe so every platform/encoding record could be copied. They become inert duplicates until the **next** commit, when `classify_name_ids` marks them as orphans and pre-wipe removes them. TTX inspection right after a reflow may show duplicate-looking strings; a second save cleans them up.
+
 ---
 
 ## Export diff sheet (UI)

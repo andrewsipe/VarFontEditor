@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 SCHEME="VarFontStudio"
+PROJECT="Apps/VarFontStudio/VarFontStudio.xcodeproj"
 WORKSPACE="VarFontStudio.xcworkspace"
 CONFIGURATION="Release"
 DERIVED="$ROOT/build/ReleaseDerivedData"
@@ -18,20 +19,56 @@ if [[ "${1:-}" == "--skip-tests" ]]; then
   RUN_TESTS=0
 fi
 
+if ! xcodebuild -version >/dev/null 2>&1; then
+  echo "error: xcodebuild not available — select full Xcode (not Command Line Tools only)" >&2
+  echo "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
+  exit 1
+fi
+
 if [[ $RUN_TESTS -eq 1 ]]; then
   echo "Running swift test…"
   swift test
 fi
 
 echo "Building $SCHEME ($CONFIGURATION)…"
-xcodebuild \
-  -workspace "$WORKSPACE" \
-  -scheme "$SCHEME" \
-  -configuration "$CONFIGURATION" \
-  -derivedDataPath "$DERIVED" \
-  CODE_SIGN_IDENTITY="-" \
-  CODE_SIGNING_ALLOWED=YES \
-  build
+echo "Xcode: $(xcodebuild -version | tr '\n' ' ')"
+
+build_with_project() {
+  echo "Using project: $PROJECT"
+  echo "Schemes in project:"
+  xcodebuild -project "$PROJECT" -list
+  xcodebuild \
+    -project "$PROJECT" \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIGURATION" \
+    -derivedDataPath "$DERIVED" \
+    CODE_SIGN_IDENTITY="-" \
+    CODE_SIGNING_ALLOWED=YES \
+    build
+}
+
+build_with_workspace() {
+  echo "Using workspace: $WORKSPACE"
+  echo "Schemes in workspace:"
+  xcodebuild -workspace "$WORKSPACE" -list
+  xcodebuild \
+    -workspace "$WORKSPACE" \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIGURATION" \
+    -derivedDataPath "$DERIVED" \
+    CODE_SIGN_IDENTITY="-" \
+    CODE_SIGNING_ALLOWED=YES \
+    build
+}
+
+if [[ -d "$PROJECT" ]]; then
+  build_with_project
+elif [[ -d "$WORKSPACE" ]]; then
+  build_with_workspace
+else
+  echo "error: neither project ($PROJECT) nor workspace ($WORKSPACE) found" >&2
+  exit 1
+fi
 
 if [[ ! -d "$APP" ]]; then
   echo "error: build succeeded but app not found at $APP" >&2
@@ -52,7 +89,7 @@ ZIP_NAME="VarFontStudio-${VERSION}-b${BUILD}-${STAMP}-${ARCH}.zip"
 mkdir -p "$DIST"
 ZIP_PATH="$DIST/$ZIP_NAME"
 rm -f "$ZIP_PATH"
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP_PATH"
+ditto -c -c -k --sequesterRsrc --keepParent "$APP" "$ZIP_PATH"
 
 echo ""
 echo "Release artifact: $ZIP_PATH"

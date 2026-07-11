@@ -81,7 +81,7 @@ cd VarFontEditor
 ./scripts/build-release.sh --skip-tests
 ```
 
-Tag **`v*`** on GitHub to trigger `.github/workflows/release.yml` automatically.
+Tag **`v*`** on GitHub to trigger `.github/workflows/release.yml`, which builds **both** `arm64` (Apple Silicon) and `x86_64` (Intel) zips and attaches them to the Release.
 
 Tests (SwiftPM):
 

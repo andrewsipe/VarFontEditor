@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
 OpenType feature label nameID reflow — scan, classify, remap, and patch GSUB/GPOS.
+
+After a reflow commit, the *source* high nameIDs (pre-copy) are intentionally left in
+the name table: they stay protected through pre-wipe so copy_name_records_for_id can
+read every platform record, and are not deleted in the same pass. GSUB/GPOS already
+point at the new 256+ IDs. Stale source slots are classified as orphans on the next
+commit (classify_name_ids → pre-wipe) — a deliberate self-healing step, not an oversight.
+Inspecting the font in TTX immediately after reflow may therefore show duplicate
+strings at old and new IDs until a follow-up save.
 """
 
 from __future__ import annotations

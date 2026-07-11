@@ -11,25 +11,52 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch_label: arm64
+          - runner: macos-15-intel
+            arch_label: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build release zip
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Build release zip (${{ matrix.arch_label }})
         run: |
+          swift --version
+          xcodebuild -version
+          uname -m
           chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
           ./scripts/build-release.sh --skip-tests
+          echo "Built on $(uname -m):"
+          ls -la dist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VarFontStudio-macos
+          name: VarFontStudio-${{ matrix.arch_label }}
           path: dist/*.zip
           if-no-files-found: error
 
+  publish-release:
+    needs: build-macos
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release zips
+        uses: actions/download-artifact@v4
+        with:
+          pattern: VarFontStudio-*
+          path: dist
+          merge-multiple: true
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.zip
