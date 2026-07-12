@@ -38,18 +38,31 @@ The app UI is a Universal binary, but **Save** uses a bundled Python runtime tha
 2. Double-click to unzip.
 3. Drag **VarFont Studio.app** into **Applications**.
 
-### 3. First launch — “unidentified developer” is expected
+### 3. First launch — “Not Opened” / unidentified developer is expected
 
-Alpha builds are **not** signed for the Mac App Store and **not** notarized. macOS Gatekeeper will often block a double-click on first open. **This is normal, not malware.**
+Alpha builds are **not** notarized. On recent macOS, double-click often shows **“VarFontStudio.app” Not Opened** with only **Done** / **Move to Trash**. **This is normal, not malware.**
 
-Do this **once**:
+**Option A — System Settings (usual path on macOS 15):**
+
+1. Click **Done** on the alert (do **not** Move to Trash).
+2. Open **System Settings → Privacy & Security**.
+3. Scroll to the message that **VarFont Studio** was blocked.
+4. Click **Open Anyway**, then confirm **Open**.
+
+**Option B — Finder:**
 
 1. Open **Finder → Applications**.
-2. **Control-click** (or right-click) **VarFont Studio.app**.
-3. Choose **Open** from the menu.
-4. In the dialog, click **Open** again (not Cancel).
+2. **Control-click** (right-click) **VarFont Studio.app** → **Open**.
+3. If macOS still blocks it, use Option A.
 
-After that, you can launch it like any other app. If you only double-click the first time, macOS may refuse silently or show a vague security message — use **right-click → Open**.
+**Option C — Terminal (if A/B fail):**
+
+```bash
+xattr -cr /Applications/VarFontStudio.app
+open /Applications/VarFontStudio.app
+```
+
+That removes the download quarantine flag so Gatekeeper stops blocking the ad-hoc build.
 
 ### 4. Open a font and work
 
