@@ -61,9 +61,8 @@ Swift package + Xcode app live in this repo.
 
 | Doc | Contents |
 |-----|----------|
-| [HANDOFF.md](HANDOFF.md) | Architecture, status, conventions |
 | [SCHEMA.md](SCHEMA.md) | JSON schema v1 |
-| [EXPORT_DESIGN_NOTES.md](EXPORT_DESIGN_NOTES.md) | Export / OT reflow notes |
+| [archive/](archive/) | Prototypes, handoff notes, design history (not needed to build) |
 
 **Run from source:** open `VarFontStudio.xcworkspace` → scheme **VarFontStudio** → My Mac (⌘R).
 
