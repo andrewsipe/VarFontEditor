@@ -105,7 +105,7 @@ ZIP_NAME="VarFontStudio-${VERSION}-${MACOS_LABEL}-${ARCH_LABEL}.zip"
 mkdir -p "$DIST"
 ZIP_PATH="$DIST/$ZIP_NAME"
 rm -f "$ZIP_PATH"
-ditto -c -c -k --sequesterRsrc --keepParent "$APP" "$ZIP_PATH"
+ditto -c -k --norsrc --keepParent "$APP" "$ZIP_PATH"
 
 echo ""
 echo "Release artifact: $ZIP_PATH"
