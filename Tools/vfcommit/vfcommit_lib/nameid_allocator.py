@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from fontTools.ttLib import TTFont
 
 from vfcommit_lib.logging_config import get_logger
-from vfcommit_lib.name_policies import sanitize_postscript, strip_variable_tokens
+from vfcommit_lib.name_policies import is_usable_prefix, sanitize_postscript, strip_variable_tokens
 from vfcommit_lib.ot_label_scanner import OTLabelRecord
 
 logger = get_logger(__name__)
@@ -411,7 +411,7 @@ def _prefix_from_postscript_name(raw: str | None) -> str | None:
     if not raw or not raw.strip():
         return None
     s = raw.strip()
-    if "?" in s or "." in s:
+    if not is_usable_prefix(s):
         return None
     stem = s.split("-", 1)[0] if "-" in s else s
     compact = sanitize_postscript(stem)

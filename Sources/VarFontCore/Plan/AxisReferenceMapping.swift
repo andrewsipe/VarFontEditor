@@ -85,7 +85,7 @@ public enum AxisReferenceMapping {
         }
     }
 
-    /// True when native stop values already sit on the registry ladder (Roboto/Milgram-style).
+    /// True when native stop values already sit on the registry ladder.
     public static func isRegistryNativeAxis(_ axis: AxisDefinition) -> Bool {
         guard supportsReferenceLadder(axis.tag) else { return true }
         guard let min = axis.min, let max = axis.max else { return false }

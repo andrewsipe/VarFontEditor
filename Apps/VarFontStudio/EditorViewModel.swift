@@ -70,6 +70,12 @@ enum InspectorPanelScope: Equatable {
     case instance
 }
 
+/// Where Project-inspector File naming should land after a footer jump.
+enum InspectorFileNamingFocus: Equatable {
+    case section
+    case postScriptPrefix
+}
+
 @MainActor
 final class EditorViewModel: ObservableObject {
     @Published var openProjects: [OpenProject] = []
@@ -104,6 +110,8 @@ final class EditorViewModel: ObservableObject {
     @Published var inspectorPanelScope: InspectorPanelScope = .project
     /// Bumped when chrome should reveal the inspector column (e.g. footer clarifier tap).
     @Published private(set) var inspectorRevealToken = 0
+    /// Optional File naming focus target paired with `inspectorRevealToken`.
+    @Published private(set) var inspectorFileNamingFocus: InspectorFileNamingFocus?
 
     /// Confirmation for removing a dirty font file.
     @Published var confirmRemoveFont: FontRemovalRequest?
@@ -119,6 +127,9 @@ final class EditorViewModel: ObservableObject {
     @Published var confirmQuitRequested = false
     @Published var missingFontsRequest: MissingFontsRequest?
     @Published var confirmSaveToOriginal: CommitPreflightSession?
+    @Published var confirmSetAsMasterFontID: String?
+    @Published var confirmPushAxisTree = false
+    @Published var persistentSaveError: String?
     @Published var pendingAddFontProjectID: String?
     /// Pick another open project as move/combine target.
     @Published var projectTargetPickerMode: ProjectTargetPickerMode?
@@ -159,27 +170,15 @@ final class EditorViewModel: ObservableObject {
         openProjects.first { projectNeedsProjectFileSave(projectID: $0.id) }?.id
     }
 
-    var anyOpenProjectHasDirtyFonts: Bool {
-        openProjects.contains { $0.document.fonts.contains(where: \.dirty) }
-    }
-
     var canSaveProjectOnQuit: Bool {
         firstProjectNeedingProjectFileSave() != nil
     }
 
     func quitConfirmationMessage() -> String {
-        let needsProjectSave = firstProjectNeedingProjectFileSave() != nil
-        let needsFontSave = anyOpenProjectHasDirtyFonts
-        switch (needsProjectSave, needsFontSave) {
-        case (true, true):
-            return "Some projects have unsaved project files and some fonts have unsaved edits. Save project files here; use Save Copy for font files."
-        case (true, false):
-            return "One or more projects have unsaved project file changes."
-        case (false, true):
-            return "One or more font files have unsaved edits. Use Save Copy to write patched fonts before quitting."
-        case (false, false):
-            return "One or more projects have unsaved changes."
+        if firstProjectNeedingProjectFileSave() != nil {
+            return "One or more projects have unsaved changes. Save the project file before quitting, or discard those changes."
         }
+        return "Quit VarFont Studio?"
     }
 
     var canDragProjectForCombine: Bool { openProjects.count > 1 }
@@ -202,15 +201,15 @@ final class EditorViewModel: ObservableObject {
     }
 
     var saveReviewWindowTitle: String {
-        guard let activeProjectID else { return "Save Review" }
+        guard let activeProjectID else { return "Review" }
         return saveReviewWindowTitle(forProjectID: activeProjectID)
     }
 
     func saveReviewWindowTitle(forProjectID projectID: String) -> String {
         if let open = openProject(for: projectID) {
-            return "Save Review — \(projectTabLabel(for: open))"
+            return "Review — \(projectTabLabel(for: open))"
         }
-        return "Save Review"
+        return "Review"
     }
 
     func fontsForSaveReview(projectID: String) -> [FontDocument] {
@@ -411,6 +410,19 @@ final class EditorViewModel: ObservableObject {
     private func registerSourceBookmark(url: URL, fontID: String) {
         if let bookmark = SourceFontAccess.makeBookmark(for: url) {
             sourceBookmarks[fontID] = bookmark
+        }
+    }
+
+    private func analyzeSourceFont(
+        fontID: String? = nil,
+        sourcePath: String
+    ) throws -> FontAnalysis {
+        let bookmark = fontID.flatMap { sourceBookmarks[$0] }
+        return try SourceFontAccess.withReadableSourceURL(
+            bookmark: bookmark,
+            fallbackPath: sourcePath
+        ) { sourceURL in
+            try FontAnalysisReader.analyze(url: sourceURL)
         }
     }
 
@@ -1523,7 +1535,7 @@ final class EditorViewModel: ObservableObject {
                 InspectorOpenTypeRow(
                     id: "stat-\(link.tag)",
                     table: "STAT",
-                    field: "AxisValue",
+                    field: "Instance coordinates",
                     content: "\(axisLabel) “\(link.name)” @ \(value)\(elideNote)",
                     sources: [.stat, .planned],
                     isDerived: true,
@@ -1553,7 +1565,7 @@ final class EditorViewModel: ObservableObject {
             InspectorOpenTypeRow(
                 id: "fvar-subfamily",
                 table: "fvar",
-                field: "subfamilyNameID",
+                field: "Subfamily name",
                 content: "→ “\(instance.composedName)”",
                 sources: [.fvar, .planned],
                 isDerived: true,
@@ -1864,7 +1876,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func handleApplicationTerminateRequest() -> Bool {
-        guard firstProjectNeedingCloseConfirmation() != nil else { return true }
+        guard firstProjectNeedingProjectFileSave() != nil else { return true }
         confirmQuitRequested = true
         return false
     }
@@ -1908,10 +1920,6 @@ final class EditorViewModel: ObservableObject {
     private func continueQuitAfterHandlingProjectSaves() {
         if firstProjectNeedingProjectFileSave() != nil {
             confirmQuitSaveProjectAction()
-            return
-        }
-        if anyOpenProjectHasDirtyFonts {
-            confirmQuitRequested = true
             return
         }
         confirmQuitRequested = false
@@ -1969,7 +1977,7 @@ final class EditorViewModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            let analysis = try FontAnalysisReader.analyze(url: url)
+            let analysis = try analyzeSourceFont(sourcePath: url.path)
             try validateVariableFont(analysis)
             var imported = ProjectImporter.newProject(from: analysis, sourceURL: url)
             applyDefaultNameIDStrategy(to: &imported)
@@ -2010,7 +2018,7 @@ final class EditorViewModel: ObservableObject {
         }
         guard let targetID,
               openProjects.contains(where: { $0.id == targetID }) else {
-            postStatusMessage("No project selected")
+            postStatusMessage("No project selected.")
             return
         }
 
@@ -2024,7 +2032,7 @@ final class EditorViewModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            let analysis = try FontAnalysisReader.analyze(url: url)
+            let analysis = try analyzeSourceFont(sourcePath: url.path)
             try validateVariableFont(analysis)
             guard let idx = openProjects.firstIndex(where: { $0.id == targetID }) else { return }
             ProjectImporter.addFont(analysis, sourceURL: url, to: &openProjects[idx].document)
@@ -2074,12 +2082,20 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
-    func focusInspectorProjectScope(fontID: String? = nil) {
+    func focusInspectorProjectScope(
+        fontID: String? = nil,
+        fileNaming: InspectorFileNamingFocus? = nil
+    ) {
         if let fontID {
             selectFont(id: fontID)
         }
         inspectorPanelScope = .project
+        inspectorFileNamingFocus = fileNaming
         inspectorRevealToken &+= 1
+    }
+
+    func clearInspectorFileNamingFocus() {
+        inspectorFileNamingFocus = nil
     }
 
     func updateInspectorScopeForSelection() {
@@ -2171,7 +2187,15 @@ final class EditorViewModel: ObservableObject {
     func hasEditableClarifierSlots(for fontID: String) -> Bool {
         guard let font = project?.fonts.first(where: { $0.id == fontID }) else { return false }
         let count = project?.fonts.count ?? 1
-        return ClarifierSlotCoverage.hasEditableInferSlots(font: font, projectFontCount: count)
+        if ClarifierSlotCoverage.isMultiFileMaster(font: font, projectFontCount: count) {
+            return false
+        }
+        if ClarifierSlotCoverage.hasEditableInferSlots(font: font, projectFontCount: count) {
+            return true
+        }
+        // Allow Infer to fill an empty PostScript prefix even when clarifier slots are covered.
+        let prefix = font.options.familyPSPrefix?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return prefix.isEmpty
     }
 
     func requestRemoveFont(projectID: String, fontID: String) {
@@ -2643,11 +2667,11 @@ final class EditorViewModel: ObservableObject {
 
         switch (hasProjectDirty, hasFontDirty) {
         case (true, true):
-            return "Close \(name)? The project file has unsaved changes and one or more font files have unsaved edits. Save the project file here; use Save Copy to write patched fonts."
+            return "Close \(name)? The project file has unsaved changes and one or more font files have unsaved edits. Save the project file here; use Export… to write patched fonts."
         case (true, false):
             return "Close \(name)? The project file has unsaved changes."
         case (false, true):
-            return "Close \(name)? One or more font files have unsaved edits — use Save Copy to write patched fonts."
+            return "Close \(name)? One or more font files have unsaved edits — use Export… to write patched fonts."
         case (false, false):
             return "Close \(name)?"
         }
@@ -2659,7 +2683,22 @@ final class EditorViewModel: ObservableObject {
     }
 
     func importDroppedFonts(_ urls: [URL], target: WorkspaceDropTarget) async {
-        let projectURLs = urls.filter { Self.isProjectFile($0) }
+        // Dragged Finder URLs are security-scoped; start access before existence checks.
+        let scopedAccess = urls.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        defer {
+            for (url, accessing) in scopedAccess where accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let projectURLs = Self.collectProjectURLs(from: urls).filter { url in
+            let path = url.path
+            return !path.contains("/TemporaryItems/") && !path.contains("/VarFontDrop/")
+        }
+        if projectURLs.isEmpty,
+           urls.contains(where: { Self.isProjectFile($0) }) {
+            postStatusMessage("Couldn't open that project drop — use File → Open Project…")
+        }
         for projectURL in projectURLs {
             await openProjectFile(at: projectURL)
         }
@@ -2831,18 +2870,6 @@ final class EditorViewModel: ObservableObject {
         selectedFileRole?.kind == .master
     }
 
-    /// Clarifiers are per-file naming tokens. Editable on variants and on the sole file in a project;
-    /// read-only on the master when multiple files share a project (variants carry clarifiers).
-    var areFileClarifiersEditable: Bool {
-        guard let selectedFontID else { return false }
-        return areFileClarifiersEditable(for: selectedFontID)
-    }
-
-    func areFileClarifiersEditable(for fontID: String) -> Bool {
-        let isMaster = fileRole(for: fontID)?.kind == .master
-        return !isMaster || !projectHasMultipleFiles
-    }
-
     func clarifierLabels(for fontID: String) -> [FileClarifier] {
         fileRole(for: fontID)?.clarifiers ?? []
     }
@@ -2862,6 +2889,34 @@ final class EditorViewModel: ObservableObject {
         self.project = project
         canSave = true
         regeneratePlan()
+    }
+
+    func requestSetAsMaster(fontID: String) {
+        confirmSetAsMasterFontID = fontID
+    }
+
+    func confirmSetAsMasterAction() {
+        guard let fontID = confirmSetAsMasterFontID else { return }
+        confirmSetAsMasterFontID = nil
+        setFontAsMaster(fontID: fontID)
+    }
+
+    func requestPushMasterAxisTree() {
+        confirmPushAxisTree = true
+    }
+
+    func confirmPushAxisTreeAction() {
+        confirmPushAxisTree = false
+        pushMasterAxisTreeToAllFonts()
+    }
+
+    func dismissPersistentSaveError() {
+        persistentSaveError = nil
+    }
+
+    private func postSaveFailure(_ message: String) {
+        persistentSaveError = message
+        postStatusMessage(message)
     }
 
     private func promoteFirstFontToMaster(projectIndex: Int) {
@@ -2998,28 +3053,42 @@ final class EditorViewModel: ObservableObject {
         guard let font = selectedFont, let projectID = activeProjectID, var project else { return }
         let fontCount = project.fonts.count
         let role = font.fileRole ?? .variant(masterFontID: masterFontID(for: projectID) ?? "")
-        let isMultiFileMaster = role.kind == .master && fontCount > 1
-
-        if isMultiFileMaster {
+        if ClarifierSlotCoverage.isMultiFileMaster(font: font, projectFontCount: fontCount) {
             postStatusMessage("Clarifiers belong on variant files.")
             return
         }
 
-        if !ClarifierSlotCoverage.hasEditableInferSlots(font: font, projectFontCount: fontCount) {
+        let analysis: FontAnalysis
+        do {
+            analysis = try analyzeSourceFont(fontID: font.id, sourcePath: font.sourcePath)
+        } catch {
+            postStatusMessage("Could not read source font: \(error.localizedDescription)")
+            return
+        }
+        let prefixEmpty = project.fonts.first(where: { $0.id == font.id })?
+            .options.familyPSPrefix?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
+        let inferredPrefix = analysis.source.familyPSPrefix?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixWouldUpdate = prefixEmpty
+            && !(inferredPrefix?.isEmpty ?? true)
+
+        let canInferClarifiers = ClarifierSlotCoverage.hasEditableInferSlots(
+            font: font,
+            projectFontCount: fontCount
+        )
+
+        if !canInferClarifiers, !prefixWouldUpdate {
             postStatusMessage("No file-level clarifiers needed — axis and registration naming cover this file.")
             return
         }
 
-        let analysis = try? FontAnalysisReader.analyze(url: URL(fileURLWithPath: font.sourcePath))
-        let inferred = FileClarifierInference.infer(
-            sourceURL: URL(fileURLWithPath: font.sourcePath),
-            analysis: analysis,
-            font: font
-        )
-
-        let prefixWouldUpdate = project.fonts.first(where: { $0.id == font.id })?
-            .options.familyPSPrefix?.isEmpty != false
-            && analysis?.source.familyPSPrefix?.isEmpty == false
+        let inferred = canInferClarifiers
+            ? FileClarifierInference.infer(
+                sourceURL: URL(fileURLWithPath: font.sourcePath),
+                analysis: analysis,
+                font: font
+            )
+            : FileClarifierInferenceResult(clarifiers: [], elidedFallbackOverride: nil)
 
         if inferred.clarifiers.isEmpty, !prefixWouldUpdate {
             postStatusMessage("No clarifiers matched the filename.")
@@ -3029,9 +3098,11 @@ final class EditorViewModel: ObservableObject {
         pushUndoSnapshot()
         guard let index = project.fonts.firstIndex(where: { $0.id == font.id }) else { return }
         var updatedRole = project.fonts[index].fileRole ?? role
-        updatedRole.clarifiers = inferred.clarifiers
-        updatedRole.elidedFallbackOverride = inferred.elidedFallbackOverride
-        if prefixWouldUpdate, let prefix = analysis?.source.familyPSPrefix, !prefix.isEmpty {
+        if canInferClarifiers {
+            updatedRole.clarifiers = inferred.clarifiers
+            updatedRole.elidedFallbackOverride = inferred.elidedFallbackOverride
+        }
+        if prefixWouldUpdate, let prefix = inferredPrefix, !prefix.isEmpty {
             project.fonts[index].options.familyPSPrefix = prefix
         }
         project.fonts[index].fileRole = updatedRole
@@ -3047,6 +3118,14 @@ final class EditorViewModel: ObservableObject {
             let count = inferred.clarifiers.count
             postStatusMessage("Inferred \(count) file naming label\(count == 1 ? "" : "s").")
         }
+    }
+
+    func pushAxisTreeConfirmationMessage() -> String {
+        let count = max((project?.fonts.count ?? 1) - 1, 0)
+        if count == 1 {
+            return "This will overwrite the axis-tree layout on 1 file with the master's layout."
+        }
+        return "This will overwrite the axis-tree layout on \(count) files with the master's layout."
     }
 
     func pushMasterAxisTreeToAllFonts() {
@@ -3489,8 +3568,15 @@ final class EditorViewModel: ObservableObject {
         guard var project,
               let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else { return }
 
-        let sourceURL = URL(fileURLWithPath: project.fonts[fontIndex].sourcePath)
-        guard let analysis = try? FontAnalysisReader.analyze(url: sourceURL) else { return }
+        let sourcePath = project.fonts[fontIndex].sourcePath
+        let fontID = project.fonts[fontIndex].id
+        let analysis: FontAnalysis
+        do {
+            analysis = try analyzeSourceFont(fontID: fontID, sourcePath: sourcePath)
+        } catch {
+            postStatusMessage("Could not read source font: \(error.localizedDescription)")
+            return
+        }
 
         let existingTags = Set(project.fonts[fontIndex].axes.map(\.tag))
         let missingDesignAxes = analysis.axes.filter {
@@ -3544,14 +3630,14 @@ final class EditorViewModel: ObservableObject {
 
     func requestSaveToOriginal() {
         guard canSave else {
-            postStatusMessage("Nothing to save — make an edit first.")
+            postStatusMessage("Nothing to export — make an edit first.")
             return
         }
         Task {
             guard let projectID = activeProjectID, let fontID = selectedFontID else { return }
             guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: fontID) else { return }
             guard session.preflight.ok else {
-                postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
                 return
             }
             confirmSaveToOriginal = session
@@ -3578,10 +3664,10 @@ final class EditorViewModel: ObservableObject {
         return "Overwrite \(URL(fileURLWithPath: font.sourcePath).lastPathComponent)? A .vfstudio-backup copy is written beside the original first."
     }
 
-    /// Write to `font.outputPath` when set; otherwise open Save Review (same as Save Copy).
+    /// User-facing: Export — write to `font.outputPath` when set; otherwise open Review (same as Export…).
     func save() {
         guard canSave else {
-            postStatusMessage("Nothing to save — make an edit first.")
+            postStatusMessage("Nothing to export — make an edit first.")
             return
         }
         Task {
@@ -3623,7 +3709,7 @@ final class EditorViewModel: ObservableObject {
            let font = font(forProjectID: projectID, fontID: fontID) {
             guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: fontID) else { return }
             guard session.preflight.ok else {
-                postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
                 return
             }
             if Self.normalizedPath(outputURL) == Self.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
@@ -3767,7 +3853,7 @@ final class EditorViewModel: ObservableObject {
                 }
                 return session
             }
-            let message = result.errors.first?.message ?? "Save preview failed."
+            let message = result.errors.first?.message ?? "Export preview failed. Check the Review window for details."
             var writeRequest = CommitRequestBuilder.make(
                 font: font,
                 naming: projectDoc.naming,
@@ -3794,7 +3880,7 @@ final class EditorViewModel: ObservableObject {
             }
             return failedSession
         } catch {
-            postStatusMessage(commitFailureMessage(error))
+            postSaveFailure(commitFailureMessage(error))
             return nil
         }
     }
@@ -3850,7 +3936,7 @@ final class EditorViewModel: ObservableObject {
             try encoder.encode(session.diffReport).write(
                 to: directory.appendingPathComponent("\(stamp)-commit-diff-report.json")
             )
-            postStatusMessage("Exported commit JSON to \(directory.lastPathComponent)")
+            postStatusMessage("Exported save plan to \(directory.lastPathComponent)")
         } catch {
             postStatusMessage("JSON export failed: \(error.localizedDescription)")
         }
@@ -3860,9 +3946,13 @@ final class EditorViewModel: ObservableObject {
         guard let font = font(forProjectID: session.projectID, fontID: session.fontID) else { return }
 
         let panel = NSSavePanel()
-        panel.title = "Save Patched Font Copy"
+        panel.title = "Export Font"
         panel.canCreateDirectories = true
-        panel.nameFieldStringValue = URL(fileURLWithPath: session.baseRequest.outputPath).lastPathComponent
+        // Suggest -patched beside the source so same-folder export doesn't collide with the original.
+        // User can rename or pick another folder; macOS warns if the chosen name already exists.
+        let suggested = CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
+        let suggestedURL = URL(fileURLWithPath: suggested)
+        panel.nameFieldStringValue = suggestedURL.lastPathComponent
         let sourceURL = URL(fileURLWithPath: font.sourcePath)
         panel.directoryURL = sourceURL.deletingLastPathComponent()
         let ext = sourceURL.pathExtension
@@ -3893,7 +3983,7 @@ final class EditorViewModel: ObservableObject {
     @MainActor
     private func save(session: CommitPreflightSession, usingRememberedPath: Bool) async {
         guard session.preflight.ok else {
-            postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+            postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
             return
         }
 
@@ -3925,13 +4015,13 @@ final class EditorViewModel: ObservableObject {
         let fontsToWrite = open.document.fonts.filter(\.dirty)
         let targets = fontsToWrite.isEmpty ? open.document.fonts : fontsToWrite
         guard !targets.isEmpty else {
-            postStatusMessage("Nothing to save.")
+            postStatusMessage("Nothing to export.")
             return
         }
 
         for font in targets {
             guard let plan = instancePlan(forProjectID: projectID, fontID: font.id) else {
-                postStatusMessage("Cannot save \(fontBasename(for: font)) — planning failed.")
+                postStatusMessage("Couldn't prepare the export preview. Try again, or check that the font file hasn't moved or changed.")
                 return
             }
             if plan.instances.contains(where: { $0.included && $0.duplicate }) {
@@ -3960,11 +4050,11 @@ final class EditorViewModel: ObservableObject {
 
         for font in targets {
             guard let session = sessions[font.id] else {
-                postStatusMessage("Save preview failed for \(fontBasename(for: font)).")
+                postStatusMessage("Export preview failed for \(fontBasename(for: font)). Check the Review window for details.")
                 return
             }
             guard session.preflight.ok else {
-                postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
                 return
             }
         }
@@ -3973,7 +4063,7 @@ final class EditorViewModel: ObservableObject {
         for font in targets {
             if let url = rememberedOutputURL(forProjectID: projectID, fontID: font.id) {
                 if url.path == font.sourcePath {
-                    postStatusMessage("Save All cannot overwrite originals — use Save to Original per file.")
+                    postStatusMessage("Export All cannot overwrite originals — use Export to Original… per file.")
                     return
                 }
                 outputURLs[font.id] = url
@@ -3983,14 +4073,25 @@ final class EditorViewModel: ObservableObject {
         var outputDirectory: URL?
         if targets.contains(where: { outputURLs[$0.id] == nil }) {
             guard let directory = await chooseOutputDirectory(
-                title: "Save All Files",
-                message: "Choose a folder for patched font copies."
+                title: "Export Fonts",
+                message: "Choose a folder. Fonts keep their original filenames."
             ) else { return }
             outputDirectory = directory
             for font in targets where outputURLs[font.id] == nil {
-                let suggested = CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
-                let name = URL(fileURLWithPath: suggested).lastPathComponent
-                outputURLs[font.id] = directory.appendingPathComponent(name)
+                outputURLs[font.id] = URL(
+                    fileURLWithPath: CommitRequestBuilder.packageOutputPath(
+                        for: font.sourcePath,
+                        in: directory
+                    )
+                )
+            }
+        }
+
+        for font in targets {
+            guard let url = outputURLs[font.id] else { continue }
+            if Self.normalizedPath(url) == Self.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
+                postStatusMessage("Export All cannot overwrite originals — use Export to Original… per file.")
+                return
             }
         }
 
@@ -4005,7 +4106,7 @@ final class EditorViewModel: ObservableObject {
         let folderLabel = outputDirectory?.lastPathComponent
             ?? outputURLs.values.first?.deletingLastPathComponent().lastPathComponent
             ?? "output folder"
-        postStatusMessage("Saved \(targets.count) files to \(folderLabel)")
+        postStatusMessage("Exported \(targets.count) fonts to \(folderLabel)")
     }
 
     private func chooseOutputDirectory(title: String, message: String) async -> URL? {
@@ -4040,8 +4141,13 @@ final class EditorViewModel: ObservableObject {
             return
         }
 
-        var request = session.baseRequest
         let originalSourcePath = openProjects[projectIndex].document.fonts[fontIndex].sourcePath
+        guard FileManager.default.fileExists(atPath: originalSourcePath) else {
+            postStatusMessage("Source font file is missing — re-open the original file.")
+            return
+        }
+
+        var request = session.baseRequest
         request.outputPath = outputURL.path
         request.originalSourcePath = originalSourcePath
         request.allowInPlace = inPlace
@@ -4054,7 +4160,7 @@ final class EditorViewModel: ObservableObject {
         do {
             let result = try await commitService.commit(request)
             guard result.ok else {
-                let message = result.errors.first?.message ?? "Save failed."
+                let message = result.errors.first?.message ?? "Export failed."
                 postStatusMessage(message)
                 return
             }
@@ -4087,46 +4193,40 @@ final class EditorViewModel: ObservableObject {
                 postStatusMessage("Saved \(outputURL.lastPathComponent)")
             }
         } catch {
-            postStatusMessage(commitFailureMessage(error))
+            postSaveFailure(commitFailureMessage(error))
         }
     }
 
     private func commitFailureMessage(_ error: Error) -> String {
+        let userFacingSaveEngineMessage = "Couldn't write the font — the save engine isn't installed. Reinstall VarFont Studio."
         switch error {
         case CommitServiceError.helperNotFound:
-            "Save helper not found — vfcommit.py is missing from Tools/vfcommit."
+            #if DEBUG
+            print("Save helper not found — vfcommit.py is missing from Tools/vfcommit.")
+            #endif
+            return userFacingSaveEngineMessage
         case let CommitServiceError.helperUnavailable(path):
-            "Save helper unavailable at \(path)."
+            #if DEBUG
+            print("Save helper unavailable at \(path).")
+            #endif
+            return userFacingSaveEngineMessage
         case let CommitServiceError.helperFailed(detail):
-            "Save helper failed: \(detail)"
+            #if DEBUG
+            print("Save helper failed: \(detail)")
+            #endif
+            return "Couldn't write the font. \(detail)"
         case let CommitServiceError.invalidHelperOutput(detail):
+            #if DEBUG
+            print("Save helper returned invalid output: \(detail)")
+            #endif
             if detail.localizedCaseInsensitiveContains("fonttools")
                 || detail.localizedCaseInsensitiveContains("fontTools")
             {
-                "Save helper needs fontTools for Python 3 — run: pip3 install fonttools. (\(detail))"
-            } else {
-                "Save helper returned invalid output: \(detail)"
+                return userFacingSaveEngineMessage
             }
+            return "Couldn't write the font. \(detail)"
         default:
-            "Save failed: \(error.localizedDescription)"
-        }
-    }
-
-    func importDroppedFonts(_ urls: [URL]) async {
-        let projectURLs = urls.filter { Self.isProjectFile($0) }
-        for projectURL in projectURLs {
-            await openProjectFile(at: projectURL)
-        }
-
-        let valid = Self.collectFontURLs(from: urls)
-        guard !valid.isEmpty else { return }
-        if openProjects.isEmpty {
-            await createProjectWithFonts(valid)
-        } else if let activeProjectID {
-            for url in valid {
-                await addFont(at: url, toProjectID: activeProjectID, selectAfterAdd: false)
-            }
-            selectMasterFont(for: activeProjectID)
+            return "Export failed: \(error.localizedDescription)"
         }
     }
 
@@ -4151,6 +4251,46 @@ final class EditorViewModel: ObservableObject {
                     ingest(item)
                 }
             } else if isFontFile(url) {
+                seen.insert(norm)
+                collected.append(url.standardizedFileURL)
+            }
+        }
+
+        for url in urls {
+            ingest(url)
+        }
+        return collected
+    }
+
+    /// Collect `.varf` / `.varfont` files, including those nested in dropped folders.
+    static func collectProjectURLs(from urls: [URL]) -> [URL] {
+        var collected: [URL] = []
+        var seen = Set<String>()
+
+        func ingest(_ url: URL) {
+            let norm = normalizedPath(url)
+            guard !seen.contains(norm) else { return }
+
+            // Prefer extension match for direct drops — sandbox can briefly hide existence.
+            if !url.hasDirectoryPath, isProjectFile(url) {
+                seen.insert(norm)
+                collected.append(url.standardizedFileURL)
+                return
+            }
+
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return }
+
+            if isDirectory.boolValue {
+                guard let contents = try? FileManager.default.contentsOfDirectory(
+                    at: url,
+                    includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                ) else { return }
+                for item in contents {
+                    ingest(item)
+                }
+            } else if isProjectFile(url) {
                 seen.insert(norm)
                 collected.append(url.standardizedFileURL)
             }

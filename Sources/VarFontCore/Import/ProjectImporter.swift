@@ -44,6 +44,7 @@ public enum ProjectImporter {
       masterFontID: masterID
     )
     project.fonts.append(font)
+    project.syncNameIDStrategyToFonts()
     if project.fonts.count > 1 {
       project.naming.order = NamingPolicy.orderWithDefaultClarifiers(axisOrder: project.naming.order)
     }

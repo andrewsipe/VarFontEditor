@@ -131,7 +131,7 @@ struct ProjectScopeHeader: View {
         Button {
             editor.presentSaveReviewWindow(forProjectID: openProject.id)
         } label: {
-            Label("Open Save Review Window", systemImage: "doc.text.magnifyingglass")
+            Label("Open Review…", systemImage: "doc.text.magnifyingglass")
         }
         .disabled(!editor.canPreviewSaveReview(forProjectID: openProject.id))
 
@@ -140,7 +140,7 @@ struct ProjectScopeHeader: View {
         Button(role: .destructive) {
             editor.requestCloseProject(id: openProject.id)
         } label: {
-            Label("Remove project", systemImage: "xmark.circle")
+            Label("Close Project", systemImage: "xmark.circle")
         }
     }
 

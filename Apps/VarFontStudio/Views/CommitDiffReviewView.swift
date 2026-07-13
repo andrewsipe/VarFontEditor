@@ -1,7 +1,7 @@
 import SwiftUI
 import VarFontCore
 
-// MARK: - Save Review (tabbed presentation)
+// MARK: - Review (tabbed presentation)
 
 struct CommitDiffReviewView: View {
     @EnvironmentObject private var editor: EditorViewModel
@@ -47,6 +47,13 @@ struct CommitDiffReviewView: View {
                     .padding(.bottom, 2)
                 rowScrollContent(for: activeTab)
                     .layoutPriority(1)
+            } else if session.preflight.ok {
+                Text("No changes to review — this export won't modify anything.")
+                    .font(StudioTypography.body)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, SaveReviewLayout.horizontalPadding)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .preferredColorScheme(.dark)
@@ -92,7 +99,7 @@ struct CommitDiffReviewView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Save review")
+            Text("Review")
                 .font(StudioTypography.emphasis)
             Text("Planned write preview — after values with change context")
                 .font(StudioTypography.caption)
@@ -230,16 +237,18 @@ struct CommitDiffReviewView: View {
             Text("OpenType labels")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+                .fixedSize()
             Picker("OpenType labels", selection: strategy) {
                 Text("Preserve IDs").tag(NameIDStrategy.preserve)
-                Text("Reflow to 256+").tag(NameIDStrategy.reflow)
+                Text("Repack to 256+").tag(NameIDStrategy.reflow)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(maxWidth: 220)
+            .fixedSize()
             .disabled(editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID))
         }
-        .help("Project-wide: compact ss/cv/size feature labels into a contiguous block at ID 256+ before STAT/fvar names. Saved with the project file when you Save Project.")
+        .layoutPriority(1)
+        .help("Preserve keeps existing feature name IDs. Repack renumbers them to start at 256, avoiding conflicts with reserved low IDs.")
     }
 
     @ViewBuilder
@@ -388,7 +397,7 @@ struct CommitDiffReviewView: View {
     @ViewBuilder
     private func errorsCard(_ errors: [CommitError]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Cannot save")
+            Text("Cannot export")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in

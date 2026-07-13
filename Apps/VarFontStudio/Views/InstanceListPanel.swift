@@ -268,7 +268,7 @@ struct InstanceListPanel: View {
         }
         .buttonStyle(.plain)
         .studioCompactControl()
-        .help(isDuplicates ? "Show instances that share a composed style name" : filter.label)
+        .help(isDuplicates ? "Show instances that share a composed name" : filter.label)
     }
 
     private func showFilterForeground(isSelected: Bool, isDuplicates: Bool) -> Color {
@@ -302,7 +302,7 @@ struct InstanceListPanel: View {
             return "No instances match the selected axis stop. Click the stop again to clear the filter."
         }
         if editor.instanceFilter == .duplicates && editor.searchText.isEmpty {
-            return "No instances share a composed style name in this plan."
+            return "No instances share a composed name in this plan."
         }
         if editor.instanceFilter == .excluded && editor.searchText.isEmpty {
             return "No excluded instances — all are included in this export."

@@ -395,8 +395,8 @@ struct StudioDisclosureChevron: View {
     }
 }
 
-/// Square chevron for chrome/footer disclosure rows — larger hit target than system `DisclosureGroup`.
-struct StudioSquareDisclosureChevron: View {
+/// Nested-section chevron (footer rows, combination styles) — larger hit target than top-level disclosure.
+struct StudioNestedDisclosureChevron: View {
     var isExpanded: Bool
 
     var body: some View {
@@ -404,6 +404,71 @@ struct StudioSquareDisclosureChevron: View {
             .font(.system(size: StudioFieldMetrics.toolbarIconPointSize))
             .foregroundStyle(.tertiary)
             .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.toolbarIconHitSize)
+    }
+}
+
+@available(*, deprecated, renamed: "StudioNestedDisclosureChevron")
+typealias StudioSquareDisclosureChevron = StudioNestedDisclosureChevron
+
+/// Mutually exclusive elision control for axis stops (one elidable stop per axis).
+/// Use `StudioElidableSwitch` only where each row can elide independently (e.g. combination styles).
+struct StudioElidableRadio: View {
+    let isOn: Bool
+    var helpText: String? = nil
+    let action: () -> Void
+
+    private var resolvedHelp: String {
+        helpText
+            ?? (isOn
+                ? "Clear elidable stop — only one stop per axis can be elided"
+                : "Mark as the elidable stop for this axis (clears any other)")
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1)
+                .frame(width: 14, height: 14)
+            if isOn {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            TapGesture().onEnded { action() }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Elidable")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityAction { action() }
+        .help(resolvedHelp)
+    }
+}
+
+/// Independent on/off elision for rows that are not mutually exclusive (combination styles).
+struct StudioElidableSwitch: View {
+    @Binding var isOn: Bool
+    var helpText: String = "Omit this name from the composed style when it is the default choice"
+
+    var body: some View {
+        Toggle("Elidable", isOn: $isOn)
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .labelsHidden()
+            .help(helpText)
+    }
+
+    init(isOn: Binding<Bool>, helpText: String = "Omit this name from the composed style when it is the default choice") {
+        _isOn = isOn
+        self.helpText = helpText
+    }
+
+    init(isOn: Bool, helpText: String = "Omit this name from the composed style when it is the default choice", action: @escaping () -> Void) {
+        _isOn = Binding(get: { isOn }, set: { _ in action() })
+        self.helpText = helpText
     }
 }
 
@@ -1795,14 +1860,9 @@ struct InspectorAxisCoordinatesView: View {
             if showsElisionColumn {
                 Group {
                     if row.showsElisionToggle {
-                        Toggle("Elidable", isOn: Binding(
-                            get: { row.isElidable },
-                            set: { _ in onElisionToggle?(row) }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .help("Omit this stop from the composed style name when it is the default choice")
+                        StudioElidableRadio(isOn: row.isElidable) {
+                            onElisionToggle?(row)
+                        }
                     }
                 }
                 .frame(width: elisionWidth, alignment: .center)

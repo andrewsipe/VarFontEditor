@@ -169,7 +169,7 @@ private struct ProjectTabContextMenu: View {
         Button(role: .destructive) {
             editor.requestCloseProject(id: projectID)
         } label: {
-            Label("Remove project", systemImage: "xmark.circle")
+            Label("Close Project", systemImage: "xmark.circle")
         }
     }
 }

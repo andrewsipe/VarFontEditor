@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import VarFontCore
 
-// MARK: - Modal sheet (Save Copy flow)
+// MARK: - Modal sheet (Export flow)
 
 struct CommitDiffSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
@@ -27,7 +27,7 @@ struct CommitDiffSheet: View {
     }
 }
 
-// MARK: - Shared save actions
+// MARK: - Shared Review actions
 
 private struct SaveReviewActionBar: View {
     @EnvironmentObject private var editor: EditorViewModel
@@ -37,19 +37,20 @@ private struct SaveReviewActionBar: View {
     let projectID: String
     var includeCancel: Bool = false
 
-    private var canSaveToRememberedPath: Bool {
+    private var canExportToRememberedPath: Bool {
         editor.canSaveToRememberedPath(forProjectID: projectID, fontID: session.fontID)
     }
 
-    private var showsSaveAll: Bool {
+    private var showsExportAll: Bool {
         editor.fontsForSaveReview(projectID: projectID).count > 1
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Button("Export JSON…") {
-                editor.exportCommitJSON(session: session)
+            Button("Save Project") {
+                editor.saveProject()
             }
+            .disabled(!editor.canSaveProject)
 
             HStack(spacing: 8) {
                 if includeCancel {
@@ -59,40 +60,40 @@ private struct SaveReviewActionBar: View {
                     }
                 }
 
-                if showsSaveAll {
-                    Button("Save All Files") {
+                if showsExportAll {
+                    Button("Export All…") {
                         editor.saveAllFiles(inProjectID: projectID)
                     }
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Write all dirty files in this project")
+                    .help("Export all files in this project to a folder")
                 }
 
-                if canSaveToRememberedPath {
-                    Button("Save Copy…") {
+                if canExportToRememberedPath {
+                    Button("Export…") {
                         editor.presentSavePanel(for: session)
                     }
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
 
-                    Button("Save") {
+                    Button("Export") {
                         editor.save(session: session)
                     }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Write to the last saved copy path")
+                    .help("Write to the last export path")
                 } else {
-                    Button("Save Copy…") {
+                    Button("Export…") {
                         editor.presentSavePanel(for: session)
                     }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Choose a path for a patched font copy")
+                    .help("Choose a path for the exported font")
                 }
             }
         }
     }
 }
 
-// MARK: - Save Review window
+// MARK: - Review window
 
 private struct SaveReviewFileTabBar: View {
     let projectID: String
@@ -102,9 +103,7 @@ private struct SaveReviewFileTabBar: View {
         let fonts = editor.fontsForSaveReview(projectID: projectID)
         if fonts.count > 1 {
             HStack(spacing: StudioSpacing.controlGap) {
-                Text("FILE")
-                    .font(StudioTypography.sectionLabel)
-                    .foregroundStyle(.secondary)
+                StudioSectionLabel(title: "File")
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 4) {
@@ -200,7 +199,7 @@ struct SaveReviewWindow: View {
                 VStack(spacing: StudioSpacing.controlGap) {
                     ProgressView()
                         .controlSize(.regular)
-                    Text("Building save review…")
+                    Text("Building review…")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -262,7 +261,7 @@ struct SaveReviewWindow: View {
 
     private func preflightFailureHeader(session: CommitPreflightSession) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Save preview failed")
+            Text("Export preview failed. Check the Review window for details.")
                 .font(StudioTypography.emphasis)
             Text("Fix the issues below, then use Refresh to rebuild the diff.")
                 .font(StudioTypography.caption)
@@ -277,7 +276,7 @@ struct SaveReviewWindow: View {
 
     private func preflightErrorsCard(_ errors: [CommitError]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Cannot save")
+            Text("Cannot export")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
@@ -312,7 +311,7 @@ struct SaveReviewWindow: View {
     }
 }
 
-/// Opt out of macOS window restoration for the Save Review auxiliary window (macOS 14).
+/// Opt out of macOS window restoration for the Review auxiliary window (macOS 14).
 private struct SaveReviewWindowConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)

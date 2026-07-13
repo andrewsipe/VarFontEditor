@@ -68,7 +68,7 @@ That removes the download quarantine flag so Gatekeeper stops blocking the ad-ho
 
 - **File → Open Font…** (⌘O) — start a new project from a variable font.
 - **File → Open Project…** (⌘⌥O) — reopen a saved `.varf` project.
-- Edit axis stops and instance inclusion, then **File → Open Save Review Window** (⌘⇧R) before writing.
+- Edit axis stops and instance inclusion, then **File → Open Review…** (⌘⇧R) before exporting.
 - **Help → VarFont Studio Shortcuts…** lists keyboard shortcuts.
 
 Save writes a **patched copy** next to your source file unless you choose another path. Python and fontTools are **bundled inside the app** — nothing extra to install.

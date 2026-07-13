@@ -41,7 +41,7 @@ struct CombinationStylesSection: View {
             isExpanded.toggle()
         } label: {
             HStack(spacing: StudioSpacing.controlGap) {
-                StudioSquareDisclosureChevron(isExpanded: isExpanded)
+                StudioNestedDisclosureChevron(isExpanded: isExpanded)
                 Text("Combination styles")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
@@ -65,7 +65,7 @@ struct CombinationStylesSection: View {
                 compoundNameField(compound)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                ElidableColumn(isOn: compound.elidable) {
+                StudioElidableSwitch(isOn: compound.elidable) {
                     editor.updateCompoundStatElidable(id: compound.id, elidable: !compound.elidable)
                 }
                 .frame(width: CombinationLayout.elidableWidth)
@@ -157,40 +157,5 @@ struct CombinationStylesSection: View {
         }
         editor.updateCompoundStatCoordinate(id: compoundID, tag: tag, value: value)
         editingLeg = nil
-    }
-}
-
-private struct ElidableColumn: View {
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        ZStack {
-            ElidableDot(isOn: isOn)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .highPriorityGesture(
-            TapGesture().onEnded { action() }
-        )
-        .help(isOn ? "Clear elidable" : "Mark as elidable")
-    }
-}
-
-private struct ElidableDot: View {
-    let isOn: Bool
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1)
-                .frame(width: 14, height: 14)
-            if isOn {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 8, height: 8)
-            }
-        }
-        .allowsHitTesting(false)
     }
 }

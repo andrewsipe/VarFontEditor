@@ -18,7 +18,7 @@ struct ProjectFileContextMenu: View {
                 Button {
                     editor.activateProject(id: projectID)
                     editor.selectFont(id: font.id)
-                    editor.setFontAsMaster(fontID: font.id)
+                    editor.requestSetAsMaster(fontID: font.id)
                 } label: {
                     Label("Set as master", systemImage: "star")
                 }

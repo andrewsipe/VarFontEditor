@@ -110,7 +110,7 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertEqual(warning?.code, "orphan_stat_link")
 
         let proposal = PlanIssueResolver.proposals(for: try XCTUnwrap(warning), font: font)
-            .first { $0.title == "Convert to Format 1" }
+            .first { $0.title == "Keep as standalone style value (Format 1)" }
         XCTAssertNotNil(proposal)
 
         PlanIssueResolver.apply(try XCTUnwrap(proposal).action, to: &font)
@@ -429,7 +429,7 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertEqual(warnings[0].code, "ital_format1_upgrade")
 
         let proposal = PlanIssueResolver.recommendedProposal(for: warnings[0], font: font)
-        XCTAssertEqual(proposal?.title, "Upgrade to Format 3")
+        XCTAssertEqual(proposal?.title, "Add alternate style name link (Format 3)")
     }
 
     func testItalFormat1UpgradeAppliesFormat3LinkForRomanAndItalic() throws {
@@ -485,5 +485,92 @@ final class PlanIssueResolverTests: XCTestCase {
             ]
         )
         XCTAssertTrue(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: oddValueFont).isEmpty)
+    }
+
+    func testMissingFvarDefaultStopOffersSnapWhenNearby() throws {
+        let font = FontDocument(
+            id: "f1",
+            sourcePath: "/tmp/Loes.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 0,
+                    default: 0,
+                    max: 900,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "thin", value: 1, name: "Thin", elidable: false),
+                        AxisValue(id: "reg", value: 100, name: "Regular", elidable: true),
+                        AxisValue(id: "blk", value: 900, name: "Black", elidable: false),
+                    ]
+                ),
+            ]
+        )
+
+        let warning = try XCTUnwrap(
+            OpenTypeAxisAudit.defaultInstanceWarnings(font: font, instances: []).first
+        )
+        XCTAssertEqual(warning.code, "default_instance_not_in_grid")
+        XCTAssertEqual(warning.axis, "wght")
+
+        let proposals = PlanIssueResolver.proposals(for: warning, font: font)
+        XCTAssertEqual(proposals.count, 3)
+        let recommended = try XCTUnwrap(proposals.first(where: \.isRecommended))
+        XCTAssertTrue(recommended.title.contains("Move"))
+        XCTAssertTrue(recommended.title.contains("Thin"))
+        guard case let .revalueStop(tag, stopID, newValue) = recommended.action else {
+            return XCTFail("Expected revalueStop")
+        }
+        XCTAssertEqual(tag, "wght")
+        XCTAssertEqual(stopID, "thin")
+        XCTAssertEqual(newValue, 0)
+
+        var edited = font
+        PlanIssueResolver.apply(recommended.action, to: &edited)
+        XCTAssertEqual(edited.axes[0].values.first(where: { $0.id == "thin" })?.value, 0)
+        XCTAssertTrue(
+            OpenTypeAxisAudit.defaultInstanceWarnings(font: edited, instances: []).isEmpty
+                || OpenTypeAxisAudit.defaultInstanceWarnings(font: edited, instances: []).allSatisfy {
+                    $0.message.contains("No instance grid row")
+                }
+        )
+    }
+
+    func testMissingFvarDefaultStopRecommendsInsertWhenFar() throws {
+        let font = FontDocument(
+            id: "f1",
+            sourcePath: "/tmp/font.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    min: 100,
+                    default: 400,
+                    max: 900,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "thin", value: 100, name: "Thin", elidable: false),
+                        AxisValue(id: "bold", value: 700, name: "Bold", elidable: false),
+                    ]
+                ),
+            ]
+        )
+
+        let warning = try XCTUnwrap(
+            OpenTypeAxisAudit.defaultInstanceWarnings(font: font, instances: []).first
+        )
+        let proposals = PlanIssueResolver.proposals(for: warning, font: font)
+        let recommended = try XCTUnwrap(proposals.first(where: \.isRecommended))
+        XCTAssertTrue(recommended.title.hasPrefix("Add stop at"))
+        guard case let .insertAxisStop(tag, value, _) = recommended.action else {
+            return XCTFail("Expected insertAxisStop")
+        }
+        XCTAssertEqual(tag, "wght")
+        XCTAssertEqual(value, 400)
+        XCTAssertTrue(proposals.contains { proposal in
+            if case .revalueStop = proposal.action { return true }
+            return false
+        })
+        XCTAssertTrue(proposals.contains { $0.title == "Don't change" })
     }
 }

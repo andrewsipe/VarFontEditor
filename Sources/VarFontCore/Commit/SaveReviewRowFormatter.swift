@@ -46,7 +46,7 @@ public enum SaveReviewRowFormatter {
     row: CommitDiffStatRow,
     beforeFormat: Int?
   ) -> String {
-    var parts = ["AxisValue"]
+    var parts = ["Instance coordinates"]
     if let nameID = row.afterNameID {
       parts.append("nameID \(nameID)")
     }
@@ -72,7 +72,7 @@ public enum SaveReviewRowFormatter {
   }
 
   public static func designAxisFieldSubtitle(index: Int) -> String {
-    "DesignAxisRecord[\(index)]"
+    "Design axis record \(index + 1)"
   }
 
   public static func designAxisAfterValue(tag: String) -> String {

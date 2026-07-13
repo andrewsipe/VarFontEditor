@@ -106,7 +106,7 @@ struct InstanceInspectorContent: View {
                 Image(systemName: included ? "checkmark.circle.fill" : "minus.circle.fill")
                     .foregroundStyle(included ? StudioColors.successForeground : StudioColors.warningForeground)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(included ? "Included in export" : "Excluded (pruned)")
+                    Text(included ? "Included in export" : "Excluded (not included)")
                         .font(StudioTypography.bodyMedium)
                     if !included {
                         Text("This instance will not be written to output.")
@@ -168,12 +168,21 @@ struct InstanceInspectorContent: View {
     private func nameTableSection(_ instance: PlannedInstance) -> some View {
         StudioInspectorBlock(title: "Name table IDs") {
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                Text("Per-instance name ID preview is available when static export is implemented.")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        showPlannedWrites.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        StudioNestedDisclosureChevron(isExpanded: showPlannedWrites)
+                        Text("Planned table writes")
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
 
-                DisclosureGroup("Planned table writes", isExpanded: $showPlannedWrites) {
+                if showPlannedWrites {
                     let rows = editor.openTypePreviewRows(for: instance)
                     if rows.isEmpty {
                         Text("No planned writes for this instance.")
@@ -185,8 +194,6 @@ struct InstanceInspectorContent: View {
                             .padding(.top, 6)
                     }
                 }
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
             }
         }
     }

@@ -13,9 +13,7 @@ struct ProjectFileSubBar: View {
                let projectID = editor.activeProjectID,
                !project.fonts.isEmpty {
                 HStack(spacing: StudioSpacing.controlGap) {
-                    Text("FILE")
-                        .font(StudioTypography.sectionLabel)
-                        .foregroundStyle(.secondary)
+                    StudioSectionLabel(title: "File")
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {

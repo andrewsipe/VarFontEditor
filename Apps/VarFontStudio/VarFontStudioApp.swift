@@ -21,6 +21,11 @@ struct VarFontStudioApp: App {
                 .onAppear {
                     appDelegate.editor = editor
                 }
+                .onOpenURL { url in
+                    Task { @MainActor in
+                        await editor.openProjectFile(at: url)
+                    }
+                }
         }
         .commands {
             mainWindowCommands
@@ -60,47 +65,49 @@ struct VarFontStudioApp: App {
                 Button("Save Project") {
                     editor.saveProject()
                 }
-                .keyboardShortcut("s", modifiers: [.command, .option])
+                .keyboardShortcut("s", modifiers: .command)
                 .disabled(!editor.canSaveProject)
 
                 Button("Save Project As…") {
                     editor.saveProjectAs()
                 }
-                .keyboardShortcut("s", modifiers: [.command, .option, .shift])
+                .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(!editor.hasOpenProjects)
 
                 Divider()
 
-                Button("Save") {
-                    editor.save()
-                }
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!editor.canSave || editor.isSaveActionBlocked)
-
-                Button("Save Copy…") {
+                Button("Export…") {
                     editor.saveCopy()
                 }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .keyboardShortcut("e", modifiers: .command)
                 .disabled(!editor.canSave || editor.isSaveActionBlocked)
 
-                Button("Save to Original…") {
+                if editor.canSaveToRememberedPathForSelection {
+                    Button("Export") {
+                        editor.save()
+                    }
+                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                    .help("Write to the last export path")
+                }
+
+                if let projectID = editor.activeProjectID,
+                   editor.openProjects.first(where: { $0.id == projectID })?.document.fonts.count ?? 0 > 1 {
+                    Button("Export All…") {
+                        editor.saveAllFiles(inProjectID: projectID)
+                    }
+                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                    .help("Export every file in this project to a folder")
+                }
+
+                Button("Export to Original…") {
                     editor.requestSaveToOriginal()
                 }
                 .disabled(!editor.canSave || editor.isSaveActionBlocked)
                 .help("Overwrite the source font file after confirmation")
 
-                if let projectID = editor.activeProjectID,
-                   editor.openProjects.first(where: { $0.id == projectID })?.document.fonts.count ?? 0 > 1 {
-                    Button("Save All Files") {
-                        editor.saveAllFiles(inProjectID: projectID)
-                    }
-                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
-                    .help("Write every file in this project that has unsaved edits")
-                }
-
                 Divider()
 
-                Button("Open Save Review Window") {
+                Button("Open Review…") {
                     editor.presentSaveReviewWindow()
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
@@ -147,7 +154,7 @@ struct VarFontStudioApp: App {
 
                 Divider()
 
-                Button("Toggle Save Review Window") {
+                Button("Toggle Review Window") {
                     editor.toggleSaveReviewWindow()
                 }
                 .keyboardShortcut("4", modifiers: [.command, .control])
@@ -197,11 +204,12 @@ struct VarFontStudioApp: App {
                     layout.defaultNameIDStrategy = .reflow
                 } label: {
                     if layout.defaultNameIDStrategy == .reflow {
-                        Label("Reflow OpenType Features to 256+", systemImage: "checkmark")
+                        Label("Repack feature labels (starting at ID 256)", systemImage: "checkmark")
                     } else {
-                        Text("Reflow OpenType Features to 256+")
+                        Text("Repack feature labels (starting at ID 256)")
                     }
                 }
+                .help("Renumbers internal OpenType feature name IDs so they start at 256, avoiding conflicts with reserved low IDs.")
             }
     }
 }

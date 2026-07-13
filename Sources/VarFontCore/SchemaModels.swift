@@ -331,6 +331,15 @@ public enum NamingToken {
         }
     }
 
+    public static func clarifierPillLabel(for category: FileClarifierCategory) -> String {
+        switch category {
+        case .width: return "Width"
+        case .slope: return "Slope"
+        case .optical: return "Optical"
+        case .custom: return "Custom"
+        }
+    }
+
     public static var clarifierDisplayName: [String: String] {
         [
             NamingPolicy.clarifierTokenWidth: "width",
@@ -423,7 +432,7 @@ public struct CommitOptions: Codable, Equatable, Sendable {
     public var fixFvarDefault: Bool
     public var allocatePostscriptNames: Bool
     public var preserveStatFormat3: Bool?
-    /// nameID 25 — prefix for fvar instance PostScript names (e.g. NouveauLEDVariable).
+    /// nameID 25 — prefix for fvar instance PostScript names (e.g. FamilyVariable).
     public var familyPSPrefix: String?
     /// How OpenType feature label nameIDs (ss/cv/size) are handled on save.
     public var nameidStrategy: NameIDStrategy

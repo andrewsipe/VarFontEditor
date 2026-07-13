@@ -36,9 +36,11 @@ public enum FontAnalysisReader {
         let fullName = OpenTypeNameTable.name(id: 4, from: font) ?? ""
         let postscriptName = OpenTypeNameTable.name(id: 6, from: font)
         let nameID25 = OpenTypeNameTable.name(id: 25, from: font)
+        let typographicFamilyName = OpenTypeNameTable.name(id: 16, from: font)
         let familyPSPrefix = PostScriptPrefixInference.infer(
             nameID25: nameID25,
             postscriptName: postscriptName,
+            typographicFamilyName: typographicFamilyName,
             familyName: familyName
         )
 

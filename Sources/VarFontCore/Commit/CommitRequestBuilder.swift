@@ -34,6 +34,12 @@ public enum CommitRequestBuilder {
         return source.deletingLastPathComponent().appendingPathComponent(suffix).path
     }
 
+    /// Package export path: original basename inside a chosen folder (no `-patched` suffix).
+    public static func packageOutputPath(for sourcePath: String, in directory: URL) -> String {
+        let name = URL(fileURLWithPath: sourcePath).lastPathComponent
+        return directory.appendingPathComponent(name).path
+    }
+
     public static func orderedAxes(_ axes: [AxisDefinition], naming: NamingPolicy) -> [AxisDefinition] {
         let byTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
         var ordered: [AxisDefinition] = []

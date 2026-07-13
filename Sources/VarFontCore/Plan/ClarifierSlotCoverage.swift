@@ -61,8 +61,13 @@ public enum ClarifierSlotCoverage {
         return false
     }
 
-    private static func isReadOnlyMaster(font: FontDocument, projectFontCount: Int) -> Bool {
+    /// Multi-file projects: the master file does not carry per-file clarifiers.
+    public static func isMultiFileMaster(font: FontDocument, projectFontCount: Int) -> Bool {
         font.fileRole?.kind == .master && projectFontCount > 1
+    }
+
+    private static func isReadOnlyMaster(font: FontDocument, projectFontCount: Int) -> Bool {
+        isMultiFileMaster(font: font, projectFontCount: projectFontCount)
     }
 
     private static func registrationAxisTagCovering(

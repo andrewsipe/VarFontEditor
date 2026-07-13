@@ -2,9 +2,11 @@ import SwiftUI
 import VarFontCore
 
 /// File naming field rows only — used inside the project inspector naming block.
-struct FileNamingFields: View {
+struct FileClarifierFields: View {
     @EnvironmentObject private var editor: EditorViewModel
     let font: FontDocument
+    @FocusState private var postScriptPrefixFocused: Bool
+    @State private var highlightPostScriptPrefix = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
@@ -12,6 +14,24 @@ struct FileNamingFields: View {
             ForEach(FileClarifierCategory.allCases, id: \.self) { category in
                 clarifierRow(category: category, fontID: font.id)
             }
+        }
+        .onChange(of: editor.inspectorRevealToken) { _, _ in
+            applyFileNamingFocusIfNeeded()
+        }
+        .onAppear {
+            applyFileNamingFocusIfNeeded()
+        }
+    }
+
+    private func applyFileNamingFocusIfNeeded() {
+        guard editor.inspectorFileNamingFocus == .postScriptPrefix else { return }
+        highlightPostScriptPrefix = true
+        DispatchQueue.main.async {
+            postScriptPrefixFocused = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            highlightPostScriptPrefix = false
+            editor.clearInspectorFileNamingFocus()
         }
     }
 
@@ -23,11 +43,18 @@ struct FileNamingFields: View {
                 .frame(width: 72, alignment: .leading)
 
             StudioTextField(
-                placeholder: "MilgramVariable",
+                placeholder: "FamilyVariable",
                 text: psPrefixBinding(for: fontID),
-                filledForeground: StudioColors.clarifierForeground
+                filledForeground: StudioColors.clarifierForeground,
+                focusBinding: $postScriptPrefixFocused
             )
             .help(psPrefixHelp(for: fontID))
+            .overlay {
+                if highlightPostScriptPrefix {
+                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        .strokeBorder(Color.accentColor.opacity(0.65), lineWidth: 1.5)
+                }
+            }
         }
     }
 
@@ -42,10 +69,8 @@ struct FileNamingFields: View {
     @ViewBuilder
     private func clarifierRow(category: FileClarifierCategory, fontID: String) -> some View {
         let state = editor.clarifierSlotState(category: category, for: fontID)
-        let tokenLabel = NamingToken.token(for: category)
-
         HStack(alignment: .center, spacing: 8) {
-            ClarifierTokenPill(text: tokenLabel)
+            ClarifierTokenPill(category: category)
                 .opacity(state.isEditable ? 1 : 0.6)
                 .frame(width: 72, alignment: .leading)
 
@@ -89,7 +114,7 @@ struct FileNamingFields: View {
     }
 
     private var clarifierFieldHelp: String {
-        "File-level naming token appended before axis stop names. Clear a field to omit that clarifier."
+        "File-level naming label appended before axis stop names. Clear a field to omit that clarifier."
     }
 
     private func psPrefixBinding(for fontID: String) -> Binding<String> {
@@ -124,15 +149,24 @@ struct FileNamingFields: View {
 /// clarifier-purple that `StudioColors` reserves for per-file naming metadata
 /// (distinct from `.instance` gray and `.registration` teal).
 struct ClarifierTokenPill: View {
-    let text: String
+    let category: FileClarifierCategory
+
+    private var displayLabel: String {
+        NamingToken.clarifierPillLabel(for: category)
+    }
+
+    private var tooltip: String {
+        "Inserts the \(NamingToken.token(for: category)) token"
+    }
 
     var body: some View {
-        Text(text)
+        Text(displayLabel)
             .font(StudioTypography.tag)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .foregroundStyle(StudioColors.clarifierForeground)
             .background(StudioColors.clarifierBackground, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+            .help(tooltip)
     }
 }
 

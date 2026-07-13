@@ -29,6 +29,12 @@ struct ProjectInspectorPanel: View {
                     .frame(maxHeight: .infinity, alignment: .top)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .onChange(of: editor.inspectorRevealToken) { _, _ in
+                guard editor.inspectorFileNamingFocus != nil else { return }
+                withAnimation(.easeOut(duration: 0.12)) {
+                    isFileNamingExpanded = true
+                }
+            }
         }
     }
 
@@ -40,7 +46,7 @@ struct ProjectInspectorPanel: View {
                 fileNamingHeader(font: font)
 
                 if isFileNamingExpanded {
-                    FileNamingFields(font: font)
+                    FileClarifierFields(font: font)
                 }
             } else {
                 FileNamingSectionPlaceholder()
@@ -76,7 +82,7 @@ struct ProjectInspectorPanel: View {
             filesSectionHeader(for: openProject)
 
             if openProject.document.fonts.count > 1 {
-                Text("★ Axis tree source — shared stop layout for all files.")
+                Text("★ Master file — other files in this project inherit its axis-stop layout.")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -120,7 +126,7 @@ struct ProjectInspectorPanel: View {
     @ViewBuilder
     private func filesSectionHeader(for openProject: OpenProject) -> some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            StudioSectionLabel(title: "Files")
+            StudioSectionLabel(title: "Fonts")
 
             Text("\(openProject.document.fonts.count)")
                 .font(StudioTypography.meta)
@@ -129,7 +135,7 @@ struct ProjectInspectorPanel: View {
             Spacer(minLength: 0)
 
             if openProject.document.fonts.count > 1 {
-                Button("Save all…") {
+                Button("Export All…") {
                     editor.saveAllFiles(inProjectID: openProject.id)
                 }
                 .font(StudioTypography.meta)
@@ -157,7 +163,7 @@ struct ProjectInspectorPanel: View {
             && !editor.clarifierLabels(for: font.id).isEmpty
 
         HStack(spacing: StudioSpacing.controlGap) {
-            Button("Infer") {
+            Button("Infer Prefix") {
                 editor.selectFont(id: font.id)
                 editor.inferFileClarifiersForSelectedFont()
             }
@@ -169,9 +175,9 @@ struct ProjectInspectorPanel: View {
                 : "Axis and registration naming already cover this file, or clarifiers belong on variant files.")
 
             if showsPush {
-                Button("Push to tree") {
+                Button("Push Axis Tree") {
                     editor.selectFont(id: font.id)
-                    editor.pushMasterAxisTreeToAllFonts()
+                    editor.requestPushMasterAxisTree()
                 }
                 .font(StudioTypography.meta)
                 .buttonStyle(.plain)

@@ -155,7 +155,7 @@ struct PlanIssueResolverSheet: View {
                 dismiss()
             }
             if showsContinue {
-                Button("Apply & continue") {
+                Button("Apply and continue") {
                     applySelected(andContinue: true)
                 }
                 .disabled(!canApply)

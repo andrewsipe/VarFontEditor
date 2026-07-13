@@ -25,6 +25,7 @@ enum SaveReviewWindowLifecycle {
         if window.identifier?.rawValue == identifier {
             return true
         }
-        return window.title.lowercased().hasPrefix("save review")
+        return window.title.lowercased().hasPrefix("review")
+            || window.title.lowercased().hasPrefix("save review")
     }
 }

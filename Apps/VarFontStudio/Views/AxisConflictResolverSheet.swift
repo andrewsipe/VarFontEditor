@@ -867,7 +867,7 @@ struct AxisConflictResolverSheet: View {
                 dismiss()
             }
             if showsContinue {
-                Button("Apply & continue") {
+                Button("Apply and continue") {
                     applyFix(andContinue: true)
                 }
                 .disabled(!canApply)

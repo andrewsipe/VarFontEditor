@@ -43,13 +43,13 @@ struct NamingOrderChainFooter: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
                     if editor.projectHasMultipleFiles {
-                        Text("Purple chips are per-file labels — edit in Project menu → File naming.")
+                        Text("Purple chips are per-file labels — edit in Inspector → Project → File naming.")
                             .font(StudioTypography.meta)
                             .foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    chainTrack
+                    namingOrderTrack
 
                     exampleRow
 
@@ -71,7 +71,7 @@ struct NamingOrderChainFooter: View {
                 isExpanded.toggle()
             } label: {
                 HStack(spacing: StudioSpacing.controlGap) {
-                    StudioSquareDisclosureChevron(isExpanded: isExpanded)
+                    StudioNestedDisclosureChevron(isExpanded: isExpanded)
 
                     HStack(spacing: StudioSpacing.controlGap) {
                         HStack(spacing: 4) {
@@ -138,7 +138,7 @@ struct NamingOrderChainFooter: View {
                 .foregroundStyle(.tertiary)
         }
         .help(
-            "Hide axes that do not contribute to style names (pinned / off-grid). "
+            "Hide axes that do not contribute to composed names (pinned / off-grid). "
                 + "Registration axes stay visible because they can appear in names."
         )
     }
@@ -270,6 +270,73 @@ struct NamingOrderChainFooter: View {
     }
 
     // MARK: - Chain track
+
+    /// Fixed PostScript prefix anchor + reorderable naming chain.
+    private var namingOrderTrack: some View {
+        HStack(alignment: .center, spacing: 0) {
+            postScriptPrefixAnchor
+
+            chainLink(isActive: true)
+                .padding(.horizontal, 2)
+
+            chainTrack
+        }
+    }
+
+    private var postScriptPrefixAnchor: some View {
+        let prefix = selectedPostScriptPrefix
+        let hasPrefix = !prefix.isEmpty
+
+        return Button {
+            presentPostScriptPrefixEditing()
+        } label: {
+            HStack(spacing: 5) {
+                Text("PS")
+                    .font(StudioTypography.tag)
+                    .foregroundStyle(Color.accentColor.opacity(0.85))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 3))
+
+                Text(hasPrefix ? prefix : "Set prefix…")
+                    .font(StudioTypography.caption.weight(hasPrefix ? .semibold : .regular))
+                    .foregroundStyle(hasPrefix ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+                    .lineLimit(1)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                hasPrefix ? Color.accentColor.opacity(0.14) : Color.clear,
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .strokeBorder(
+                        hasPrefix ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.35),
+                        style: StrokeStyle(lineWidth: 1, dash: hasPrefix ? [] : [4, 3])
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .help(postScriptPrefixHelp(hasPrefix: hasPrefix))
+    }
+
+    private var selectedPostScriptPrefix: String {
+        guard let fontID = editor.selectedFontID else { return "" }
+        return editor.familyPSPrefix(for: fontID).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func postScriptPrefixHelp(hasPrefix: Bool) -> String {
+        if hasPrefix {
+            return "PostScript name prefix for this file. Click to edit in Inspector → Project → File naming."
+        }
+        return "No PostScript prefix set. Click to set it in Inspector → Project → File naming."
+    }
+
+    private func presentPostScriptPrefixEditing() {
+        editor.focusInspectorProjectScope(fileNaming: .postScriptPrefix)
+    }
 
     private var chainTrack: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -422,7 +489,7 @@ struct NamingOrderChainFooter: View {
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
-            .help("Drag to set where the PostScript hyphen splits the style segment (fvar postscriptNameID).")
+            .help("Drag to set where the PostScript hyphen splits the style segment (fvar postscriptNameID field).")
             .gesture(dragGesture(for: tag))
     }
 
@@ -446,7 +513,7 @@ struct NamingOrderChainFooter: View {
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
-            .help("Tap to edit in Project menu; drag to reorder")
+            .help("Click to edit in Inspector → Project → File naming; drag to reorder")
             .gesture(dragGesture(for: tag))
     }
 
@@ -653,7 +720,7 @@ struct NamingOrderChainFooter: View {
     // MARK: - Drag gesture
 
     private func presentClarifierNaming() {
-        editor.focusInspectorProjectScope()
+        editor.focusInspectorProjectScope(fileNaming: .section)
     }
 
     private func dragGesture(for tag: String) -> some Gesture {

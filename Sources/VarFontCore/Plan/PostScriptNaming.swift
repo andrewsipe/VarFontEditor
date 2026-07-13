@@ -1,6 +1,15 @@
 import Foundation
 
 /// Builds fvar PostScript instance names from naming order and a movable `@pshyphen` split.
+///
+/// **Canonical PostScript string rules** (shared with `PostScriptPrefixInference` and vfcommit
+/// `name_policies.py` — keep all three in sync):
+///
+/// - **Sanitize:** remove spaces, then replace any character outside
+///   `A–Z a–z 0–9 - . _ ? ! & *` with `-`.
+/// - **Strip variable tokens:** remove whole-word `Variable`, `VF`, `GX`, `Flex` (case-insensitive),
+///   then boundary-delimited suffix forms such as `-Variable`, `-VF`, ` VariableItalic`, etc.
+/// - **Prefix usability:** reject empty strings and any value containing `?` before prefix inference.
 public enum PostScriptNaming {
     public static func composeInstanceName(
         familyPrefix: String,
@@ -102,6 +111,34 @@ public enum PostScriptNaming {
         let noSpaces = value.replacingOccurrences(of: " ", with: "")
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._?!&*"))
         return String(noSpaces.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" })
+    }
+
+    /// Strips Variable/VF/GX/Flex tokens from family-like strings before prefix inference.
+    public static func stripVariableTokens(_ text: String) -> String? {
+        var s = text
+        let pattern = #"\b(Variable|VF|GX|Flex)\b"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+            let range = NSRange(s.startIndex..<s.endIndex, in: s)
+            s = regex.stringByReplacingMatches(in: s, range: range, withTemplate: "")
+        }
+        for pattern in [
+            #"(?i)(?:^|[-_\s])Variable(?:Italic)?(?=$|[-_\s])"#,
+            #"(?i)(?:^|[-_\s])(VF|GX|Flex)(?=$|[-_\s])"#,
+        ] {
+            if let regex = try? NSRegularExpression(pattern: pattern) {
+                let range = NSRange(s.startIndex..<s.endIndex, in: s)
+                s = regex.stringByReplacingMatches(in: s, range: range, withTemplate: " ")
+            }
+        }
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Rejects clearly broken placeholders (`?`). Periods are allowed — versioned families are valid.
+    public static func isUsablePrefix(_ value: String) -> Bool {
+        if value.isEmpty { return false }
+        if value.contains("?") { return false }
+        return true
     }
 
     // MARK: - Private

@@ -75,6 +75,7 @@ struct MainEditorView: View {
                 reviewTotal: session.reviewTotal
             )
             .environmentObject(editor)
+            .preferredColorScheme(.dark)
         }
         .sheet(item: $editor.planIssueResolverRequest) { session in
             PlanIssueResolverSheet(
@@ -83,7 +84,8 @@ struct MainEditorView: View {
                 reviewTotal: session.reviewTotal
             )
             .environmentObject(editor)
-            // Forces a fresh view (and fresh @State) per session — "Apply & continue" swaps
+            .preferredColorScheme(.dark)
+            // Forces a fresh view (and fresh @State) per session — "Apply and continue" swaps
             // one non-nil sheet item for another, and SwiftUI won't re-run onAppear for that
             // transition unless the view's identity actually changes.
             .id(session.id)
@@ -94,10 +96,17 @@ struct MainEditorView: View {
         }
         .sheet(isPresented: $editor.presentCommitDiffSheet) {
             if let projectID = editor.activeProjectID,
-               let fontID = editor.selectedFontID,
-               let session = editor.saveReviewSession(forProjectID: projectID, fontID: fontID) {
-                CommitDiffSheet(session: session)
-                    .environmentObject(editor)
+               let fontID = editor.selectedFontID {
+                if let session = editor.saveReviewSession(forProjectID: projectID, fontID: fontID) {
+                    CommitDiffSheet(session: session)
+                        .environmentObject(editor)
+                } else if editor.isSaveReviewLoading(forProjectID: projectID, fontID: fontID) {
+                    saveReviewSheetLoadingState
+                } else {
+                    saveReviewSheetErrorState
+                }
+            } else {
+                saveReviewSheetErrorState
             }
         }
         .sheet(isPresented: $editor.showShortcutsHelp) {
@@ -140,7 +149,7 @@ struct MainEditorView: View {
             }
         }
         .confirmationDialog(
-            "Close project?",
+            "Close Project?",
             isPresented: closeProjectConfirmBinding,
             titleVisibility: .visible
         ) {
@@ -228,6 +237,34 @@ struct MainEditorView: View {
                 Text(editor.splitFontConfirmationMessage(for: request))
             }
         }
+        .confirmationDialog(
+            "Set as Master?",
+            isPresented: setAsMasterConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Set as Master", role: .destructive) {
+                editor.confirmSetAsMasterAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmSetAsMasterFontID = nil
+            }
+        } message: {
+            Text("This file will become the shared axis-tree source for this project.")
+        }
+        .confirmationDialog(
+            "Push to Tree?",
+            isPresented: $editor.confirmPushAxisTree,
+            titleVisibility: .visible
+        ) {
+            Button("Push", role: .destructive) {
+                editor.confirmPushAxisTreeAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmPushAxisTree = false
+            }
+        } message: {
+            Text(editor.pushAxisTreeConfirmationMessage())
+        }
         .onChange(of: editor.instanceSearchFocusToken) { _, token in
             guard token != nil else { return }
             layout.showInstances = true
@@ -283,8 +320,43 @@ struct MainEditorView: View {
         )
     }
 
+    private var setAsMasterConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmSetAsMasterFontID != nil },
+            set: { if !$0 { editor.confirmSetAsMasterFontID = nil } }
+        )
+    }
+
     private var editorChrome: some View {
         VStack(spacing: 0) {
+            if let error = editor.persistentSaveError {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Cannot export")
+                            .font(StudioTypography.sectionLabel)
+                            .foregroundStyle(.secondary)
+                        Text(error)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(StudioColors.errorForeground)
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        editor.dismissPersistentSaveError()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+                )
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.top, 8)
+            }
+
             if editor.hasOpenProjects {
                 projectChrome
             }
@@ -350,8 +422,16 @@ struct MainEditorView: View {
         }
 
         ToolbarItem {
-            Button(editor.canSaveToRememberedPathForSelection ? "Save" : "Save Copy…",
-                   systemImage: "square.and.arrow.down") {
+            Button("Save Project", systemImage: "square.and.arrow.down.on.square") {
+                editor.saveProject()
+            }
+            .disabled(!editor.canSaveProject)
+            .help("Save the project file")
+        }
+
+        ToolbarItem {
+            Button(editor.canSaveToRememberedPathForSelection ? "Export" : "Export…",
+                   systemImage: "square.and.arrow.up") {
                 if editor.canSaveToRememberedPathForSelection {
                     editor.save()
                 } else {
@@ -360,16 +440,16 @@ struct MainEditorView: View {
             }
             .disabled(!editor.canSave || editor.isSaveActionBlocked)
             .help(editor.canSaveToRememberedPathForSelection
-                ? "Write to the last saved copy path"
-                : "Preview and save a patched copy of the font")
+                ? "Write to the last export path"
+                : "Preview and export a patched copy of the font")
         }
 
         ToolbarItem {
-            Button("Save Review", systemImage: "doc.text.magnifyingglass") {
+            Button("Review…", systemImage: "doc.text.magnifyingglass") {
                 editor.presentSaveReviewWindow()
             }
             .disabled(!editor.canPreviewSaveReview)
-            .help("Open a save review window for the active project")
+            .help("Open a review window for the active project")
         }
     }
 
@@ -429,5 +509,37 @@ struct MainEditorView: View {
         }
         .transition(.opacity)
         .allowsHitTesting(false)
+    }
+
+    private var saveReviewSheetLoadingState: some View {
+        VStack(spacing: StudioSpacing.sectionGap) {
+            ProgressView()
+                .controlSize(.regular)
+            Text("Loading review…")
+                .font(StudioTypography.body)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 360, height: 180)
+        .preferredColorScheme(.dark)
+    }
+
+    private var saveReviewSheetErrorState: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+            Text("Review")
+                .font(StudioTypography.emphasis)
+            Text("Couldn't load the review preview. Try again from Export… or the Review window.")
+                .font(StudioTypography.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Dismiss") {
+                    editor.dismissCommitDiffSheet()
+                }
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+        .preferredColorScheme(.dark)
     }
 }

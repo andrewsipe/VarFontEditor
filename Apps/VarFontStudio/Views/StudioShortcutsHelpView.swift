@@ -15,11 +15,10 @@ struct StudioShortcutsHelpView: View {
             ShortcutRow(action: "Open project", keys: "⌘⌥O"),
             ShortcutRow(action: "Open font", keys: "⌘O"),
             ShortcutRow(action: "Add font to project", keys: "⌘⇧O"),
-            ShortcutRow(action: "Save project", keys: "⌘⌥S"),
-            ShortcutRow(action: "Save project as", keys: "⌘⌥⇧S"),
-            ShortcutRow(action: "Save", keys: "⌘S"),
-            ShortcutRow(action: "Save copy (choose path)", keys: "⌘⇧S"),
-            ShortcutRow(action: "Open save review window", keys: "⌘⇧R"),
+            ShortcutRow(action: "Save project", keys: "⌘S"),
+            ShortcutRow(action: "Save project as", keys: "⌘⇧S"),
+            ShortcutRow(action: "Export (choose path)", keys: "⌘E"),
+            ShortcutRow(action: "Open review window", keys: "⌘⇧R"),
         ]),
         ("Edit", [
             ShortcutRow(action: "Undo", keys: "⌘Z"),
@@ -30,7 +29,7 @@ struct StudioShortcutsHelpView: View {
             ShortcutRow(action: "Toggle axis tree", keys: "⌃⌘1"),
             ShortcutRow(action: "Toggle instances", keys: "⌃⌘2"),
             ShortcutRow(action: "Toggle inspector", keys: "⌃⌘3"),
-            ShortcutRow(action: "Toggle save review window", keys: "⌃⌘4"),
+            ShortcutRow(action: "Toggle review window", keys: "⌃⌘4"),
         ]),
         ("Instances", [
             ShortcutRow(action: "Include all shown", keys: "⌥⌘I"),
@@ -40,7 +39,7 @@ struct StudioShortcutsHelpView: View {
         ]),
         ("Preferences", [
             ShortcutRow(action: "OpenType feature name IDs (app default)", keys: "Preferences menu"),
-            ShortcutRow(action: "Preserve vs reflow to 256+ (this project)", keys: "Save review tab bar"),
+            ShortcutRow(action: "Preserve vs reflow to 256+ (this project)", keys: "Review tab bar"),
         ]),
     ]
 
@@ -49,7 +48,7 @@ struct StudioShortcutsHelpView: View {
             Text("WORKFLOW")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
-            Text("Save Project writes a .varf file (legacy .varfont still opens). OpenType label reflow is optional: set the app default under Preferences, or override per project in Save review. Reflow compacts ss/cv/size feature labels to ID 256+ before STAT/fvar names are allocated.")
+            Text("Save writes the .varf project file (legacy .varfont still opens). Export writes patched font binaries — use Export All… to keep original filenames in a folder. OpenType label reflow is optional: set the app default under Preferences, or override per project in Review.")
                 .font(StudioTypography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -61,7 +60,7 @@ struct StudioShortcutsHelpView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("VarFont Studio Shortcuts")
                     .font(StudioTypography.emphasis)
-                Text("Alpha build — projects save as .varf; patched fonts write beside the source unless you choose another path.")
+                Text("Alpha build — Save is the project file; Export writes patched fonts beside the source or into a folder you choose.")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }

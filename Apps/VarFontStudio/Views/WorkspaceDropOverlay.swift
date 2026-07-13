@@ -57,7 +57,14 @@ struct WorkspaceDropDelegate: DropDelegate {
                     urls.append(url)
                 }
             }
-            guard !urls.isEmpty else { return }
+            guard !urls.isEmpty else {
+                await MainActor.run {
+                    // Kept empty so callers can still surface a status via importDroppedFonts —
+                    // but when only temp copies were available, tell the user explicitly.
+                    onDropURLs([], target)
+                }
+                return
+            }
             await MainActor.run {
                 onDropURLs(urls, target)
             }
@@ -80,27 +87,83 @@ struct WorkspaceDropDelegate: DropDelegate {
     }
 
     private func loadDroppedURL(from provider: NSItemProvider) async -> URL? {
+        // Always prefer the original Finder path. Never use loadFileRepresentation —
+        // that yields a temporary copy, and .varf relative font paths would resolve
+        // beside /var/folders/... instead of next to the real project file.
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
+           let url = await loadFileURLItem(from: provider) {
+            return url
+        }
+
         if provider.canLoadObject(ofClass: URL.self) {
             let url: URL? = await withCheckedContinuation { continuation in
                 _ = provider.loadObject(ofClass: URL.self) { object, _ in
                     continuation.resume(returning: object)
                 }
             }
-            if let url { return url }
-        }
-
-        return await withCheckedContinuation { continuation in
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                if let url = item as? URL {
-                    continuation.resume(returning: url)
-                } else if let data = item as? Data,
-                          let path = String(data: data, encoding: .utf8) {
-                    continuation.resume(returning: URL(fileURLWithPath: path))
-                } else {
-                    continuation.resume(returning: nil)
-                }
+            if let url, !isTemporaryDropLocation(url) {
+                return url.standardizedFileURL
             }
         }
+
+        // Last resort: in-place representation keeps the original path when possible.
+        for typeID in provider.registeredTypeIdentifiers {
+            if let url = await loadInPlaceURL(from: provider, typeIdentifier: typeID),
+               !isTemporaryDropLocation(url) {
+                return url
+            }
+        }
+
+        return nil
+    }
+
+    private func loadFileURLItem(from provider: NSItemProvider) async -> URL? {
+        await withCheckedContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                let resolved: URL?
+                if let url = item as? URL {
+                    resolved = url
+                } else if let data = item as? Data {
+                    // Finder usually provides a file:// URL as UTF-8 data — not a raw path.
+                    if let url = URL(dataRepresentation: data, relativeTo: nil) {
+                        resolved = url
+                    } else if let text = String(data: data, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) {
+                        resolved = URL(string: text) ?? URL(fileURLWithPath: text)
+                    } else {
+                        resolved = nil
+                    }
+                } else if let text = item as? String {
+                    resolved = URL(string: text) ?? URL(fileURLWithPath: text)
+                } else {
+                    resolved = nil
+                }
+                continuation.resume(returning: resolved?.standardizedFileURL)
+            }
+        }
+    }
+
+    private func loadInPlaceURL(
+        from provider: NSItemProvider,
+        typeIdentifier: String
+    ) async -> URL? {
+        await withCheckedContinuation { continuation in
+            provider.loadInPlaceFileRepresentation(forTypeIdentifier: typeIdentifier) { url, isInPlace, _ in
+                guard let url, isInPlace else {
+                    // Coordinated/temp copies are unusable for .varf (relative font paths).
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: url.standardizedFileURL)
+            }
+        }
+    }
+
+    private func isTemporaryDropLocation(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        // Coordinated/temporary copies break .varf relative font resolution.
+        return path.contains("/VarFontDrop/")
+            || path.contains("/TemporaryItems/")
     }
 }
 
@@ -116,13 +179,13 @@ struct EmptyWorkspaceView: View {
                 .foregroundStyle(isDropTargeted ? Color.accentColor : .secondary)
                 .animation(.easeOut(duration: 0.12), value: isDropTargeted)
 
-            Text(isDropTargeted ? "Drop to open" : "Drop variable fonts to begin")
+            Text(isDropTargeted ? "Drop to open" : "Drop fonts or projects to begin")
                 .font(StudioTypography.emphasis)
                 .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
 
             Text(isDropTargeted
-                ? "All files land in one project"
-                : "Or use File → Open Font… · TTF, OTF, WOFF, WOFF2 · folders OK")
+                ? "Projects open as tabs · fonts start a new project"
+                : "Or use File → Open… · TTF, OTF, WOFF, WOFF2, VARF · folders OK")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -162,48 +225,5 @@ struct WorkspaceDropZoneHighlight: ViewModifier {
 extension View {
     func workspaceDropZoneHighlight(isActive: Bool, tint: Color) -> some View {
         modifier(WorkspaceDropZoneHighlight(isActive: isActive, tint: tint))
-    }
-}
-
-/// Legacy edge-only accent — prefer `workspaceDropZoneHighlight` for panels and rows.
-enum WorkspaceDropEdge {
-    case top
-    case bottom
-    case leading
-    case trailing
-}
-
-struct WorkspaceDropEdgeHighlight: View {
-    let isActive: Bool
-    var edge: WorkspaceDropEdge = .bottom
-    var tint: Color = Color.accentColor
-    var thickness: CGFloat = 1
-
-    var body: some View {
-        GeometryReader { _ in
-            switch edge {
-            case .top:
-                edgeBar(alignment: .top)
-            case .bottom:
-                edgeBar(alignment: .bottom)
-            case .leading:
-                edgeBar(alignment: .leading, isHorizontal: false)
-            case .trailing:
-                edgeBar(alignment: .trailing, isHorizontal: false)
-            }
-        }
-        .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.12), value: isActive)
-    }
-
-    @ViewBuilder
-    private func edgeBar(alignment: Alignment, isHorizontal: Bool = true) -> some View {
-        Rectangle()
-            .fill(isActive ? tint.opacity(0.4) : .clear)
-            .frame(
-                width: isHorizontal ? nil : thickness,
-                height: isHorizontal ? thickness : nil
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
     }
 }

@@ -12,9 +12,9 @@ public enum SaveReviewDisplayCategory: String, CaseIterable, Sendable, Codable {
 
     public var filterLabel: String {
         switch self {
-        case .same: "same"
-        case .protected: "protected id"
-        case .reflow: "id reflowed"
+        case .same: "Same"
+        case .protected: "Protected ID"
+        case .reflow: "ID Reflowed"
         case .renamed: "renamed"
         case .added: "added"
         case .removed: "removed"
@@ -46,7 +46,7 @@ public enum SaveReviewTableTab: String, Sendable, Codable, CaseIterable {
         switch self {
         case .stat: "STAT"
         case .fvar: "fvar"
-        case .name: "name ≥256"
+        case .name: "Names (ID 256+)"
         }
     }
 }

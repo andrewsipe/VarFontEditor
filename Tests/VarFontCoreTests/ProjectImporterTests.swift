@@ -18,4 +18,18 @@ final class ProjectImporterTests: XCTestCase {
         XCTAssertNotNil(plan)
         XCTAssertGreaterThan(plan?.formula.totalGenerated ?? 0, 0)
     }
+
+    func testAddFontSyncsProjectNameIDStrategy() throws {
+        var project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
+        project.nameidStrategy = .reflow
+        project.syncNameIDStrategyToFonts()
+        XCTAssertEqual(project.fonts.first?.options.nameidStrategy, .reflow)
+
+        let analysis = try FixtureLoader.decode(FontAnalysis.self, from: "playfair-italic-analysis.json")
+        let sourceURL = URL(fileURLWithPath: "/tmp/Playfair-VariableFont-Micro-SemiCond-Italic.woff2")
+
+        ProjectImporter.addFont(analysis, sourceURL: sourceURL, to: &project)
+
+        XCTAssertEqual(project.fonts.last?.options.nameidStrategy, .reflow)
+    }
 }

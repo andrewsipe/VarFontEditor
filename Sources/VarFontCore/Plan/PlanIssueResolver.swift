@@ -97,7 +97,7 @@ public enum PlanIssueResolver {
         case "fvar_missing_from_stat", "stat_missing_from_fvar":
             return acknowledgeOnlyProposals(for: warning)
         case "default_instance_not_in_grid":
-            return suggestionProposals(for: warning)
+            return defaultInstanceNotInGridProposals(for: warning, font: font)
         case "default_instance_excluded":
             return defaultInstanceExcludedProposals(for: warning, font: font)
         default:
@@ -129,16 +129,22 @@ public enum PlanIssueResolver {
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
             guard !axis.isDesignRecordOnly else { return false }
             return axis.role != role
-        case .insertAxisStop(let axisTag, _, _):
+        case .insertAxisStop(let axisTag, let value, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
-            return axis.role == .instance && axis.values.isEmpty && !axis.isDesignRecordOnly
+            guard axis.role == .instance, !axis.isDesignRecordOnly else { return false }
+            return !axis.values.contains { AxisCoordinate.valuesEqual($0.value, value) }
         case .insertAxisStops(let axisTag, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
             return axis.role == .instance && axis.values.isEmpty && !axis.isDesignRecordOnly
         case .openAxisConflicts:
             return AxisStopNamingDefaults.hasInstanceAxisValueConflicts(font)
-        case .setFileRegistration, .revalueStop, .convertStopToFormat1, .renameStop:
+        case .setFileRegistration, .convertStopToFormat1, .renameStop:
             return true
+        case .revalueStop(let axisTag, let stopID, let newValue):
+            guard let axis = font.axes.first(where: { $0.tag == axisTag }),
+                  let stop = axis.values.first(where: { $0.id == stopID }) else { return false }
+            return !AxisCoordinate.valuesEqual(stop.value, newValue)
+                && !axis.values.contains { $0.id != stopID && AxisCoordinate.valuesEqual($0.value, newValue) }
         case let .updateStopFormat3Link(axisTag, stopID, linkedValue):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }),
                   let stop = axis.values.first(where: { $0.id == stopID }) else { return false }
@@ -221,6 +227,7 @@ public enum PlanIssueResolver {
         case let .insertAxisStop(axisTag, value, name):
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
             guard font.axes[axisIndex].role == .instance, !font.axes[axisIndex].isDesignRecordOnly else { return }
+            guard !font.axes[axisIndex].values.contains(where: { AxisCoordinate.valuesEqual($0.value, value) }) else { return }
             let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
             let stop = AxisValue(
                 id: stopID,
@@ -464,7 +471,7 @@ public enum PlanIssueResolver {
         return [
             PlanIssueProposal(
                 id: "orphan-convert-f1",
-                title: "Convert to Format 1",
+                title: "Keep as standalone style value (Format 1)",
                 detail: "Remove the broken Format 3 link on “\(stop.name)” and keep it as a standalone stop.",
                 action: .convertStopToFormat1(axisTag: tag, stopID: stopID),
                 isRecommended: true
@@ -493,7 +500,7 @@ public enum PlanIssueResolver {
         return [
             PlanIssueProposal(
                 id: "\(tag)-upgrade-f3",
-                title: "Upgrade to Format 3",
+                title: "Add alternate style name link (Format 3)",
                 detail: "Link “\(stop.name)” to \(linkedLabel).",
                 action: .updateStopFormat3Link(axisTag: tag, stopID: stopID, linkedValue: linked),
                 isRecommended: true
@@ -545,6 +552,65 @@ public enum PlanIssueResolver {
                 )
             )
         }
+
+        return proposals
+    }
+
+    private static func defaultInstanceNotInGridProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        guard let tag = warning.axis,
+              let axis = font.axes.first(where: { $0.tag == tag }),
+              axis.role == .instance,
+              let defaultValue = axis.default else {
+            return suggestionProposals(for: warning)
+        }
+
+        let defaultText = AxisCoordinateFormat.format(defaultValue)
+        let label = axis.displayName ?? tag
+        var proposals: [PlanIssueProposal] = []
+
+        if let nearest = OpenTypeAxisAudit.nearestStop(in: axis, to: defaultValue),
+           !AxisCoordinate.valuesEqual(nearest.value, defaultValue) {
+            let distance = abs(nearest.value - defaultValue)
+            let fromText = AxisCoordinateFormat.format(nearest.value)
+            let preferSnap = distance <= OpenTypeAxisAudit.nearbyDefaultSnapThreshold
+            proposals.append(
+                PlanIssueProposal(
+                    id: "snap-default-stop-\(tag)-\(nearest.id)",
+                    title: "Move “\(nearest.name)” to \(defaultText)",
+                    detail: "Changes the \(fromText) stop on \(label) to the fvar default (\(defaultText)). Keeps the stop name.",
+                    action: .revalueStop(axisTag: tag, stopID: nearest.id, newValue: defaultValue),
+                    isRecommended: preferSnap
+                )
+            )
+        }
+
+        if !axis.values.contains(where: { AxisCoordinate.valuesEqual($0.value, defaultValue) }) {
+            let placeholder = AxisValue(id: "preview", value: defaultValue, name: "", elidable: false)
+            let name = AxisStopNamingDefaults.suggestedName(for: placeholder, axisTag: tag)
+            let preferInsert = proposals.first(where: \.isRecommended) == nil
+            proposals.append(
+                PlanIssueProposal(
+                    id: "add-default-stop-\(tag)",
+                    title: "Add stop at \(defaultText)",
+                    detail: "Inserts a Format 1 stop at the fvar default on \(label), named “\(name)”.",
+                    action: .insertAxisStop(axisTag: tag, value: defaultValue, name: name),
+                    isRecommended: preferInsert
+                )
+            )
+        }
+
+        proposals.append(
+            PlanIssueProposal(
+                id: "keep-default-missing-\(tag)",
+                title: "Don't change",
+                detail: "Leave \(label) without a stop at the fvar default. The resting instance may be missing from the grid.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning)),
+                isRecommended: proposals.isEmpty
+            )
+        )
 
         return proposals
     }

@@ -11,9 +11,11 @@ from fontTools.ttLib import TTFont
 from vfcommit_lib.nameid_allocator import (
     AxisDef,
     AxisValueDef,
+    _prefix_from_postscript_name,
     build_allocation_plan,
     check_for_collisions,
     compose_name_from_order,
+    derive_family_ps_prefix,
     enumerate_instance_names,
 )
 from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
@@ -414,6 +416,20 @@ class NameIDAllocatorTests(unittest.TestCase):
             instance_axis_defs=axis_defs,
         )
         self.assertEqual(working["name"].getDebugName(25), "Nouveau")
+
+    def test_prefix_from_postscript_name_allows_periods(self) -> None:
+        self.assertEqual(_prefix_from_postscript_name("Loes0.4-Regular"), "Loes0.4")
+
+    def test_derive_family_ps_prefix_name_id_16_loes(self) -> None:
+        from fontTools.ttLib.tables._n_a_m_e import table__n_a_m_e
+
+        font = TTFont()
+        font.setGlyphOrder([".notdef"])
+        name_table = table__n_a_m_e()
+        font["name"] = name_table
+        name_table.setName("Different Family", 1, 3, 1, 0x409)
+        name_table.setName("Loes 0.4", 16, 3, 1, 0x409)
+        self.assertEqual(derive_family_ps_prefix(font), "Loes0.4")
 
 
 if __name__ == "__main__":

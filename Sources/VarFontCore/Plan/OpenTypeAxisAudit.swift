@@ -117,16 +117,22 @@ public enum OpenTypeAxisAudit {
         font: FontDocument,
         instances: [PlannedInstance]
     ) -> [PlanWarning] {
-        guard let coords = defaultInstanceCoordinates(font: font) else {
-            if let message = defaultNotRepresentedInGridMessage(font: font) {
-                return [
-                    PlanWarning(
-                        code: "default_instance_not_in_grid",
-                        message: message,
-                        hint: "The fvar default coordinate must be reachable from instance-axis stops (and pinned axes)."
-                    ),
-                ]
+        let missingDefaultAxes = instanceAxesMissingDefaultStop(font: font)
+        if !missingDefaultAxes.isEmpty {
+            return missingDefaultAxes.map { axis in
+                let defaultValue = axis.default ?? 0
+                let nearest = nearestStop(in: axis, to: defaultValue)
+                return PlanWarning(
+                    code: "default_instance_not_in_grid",
+                    axis: axis.tag,
+                    stopIDs: nearest.map { [$0.id] },
+                    message: "Instance axis '\(axis.tag)' has no stop at the fvar default (\(AxisCoordinateFormat.format(defaultValue))).",
+                    hint: "Add a stop at the fvar default, or move a nearby stop onto it. fvar min/default/max themselves are not rewritten on save."
+                )
             }
+        }
+
+        guard let coords = defaultInstanceCoordinates(font: font) else {
             return []
         }
 
@@ -249,14 +255,26 @@ public enum OpenTypeAxisAudit {
 
     // MARK: - Private
 
-    private static func defaultNotRepresentedInGridMessage(font: FontDocument) -> String? {
-        for axis in font.axes where axis.role == .instance {
-            guard let defaultValue = axis.default else { continue }
-            let represented = axis.values.contains { AxisCoordinate.valuesEqual($0.value, defaultValue) }
-            if !represented {
-                return "Instance axis '\(axis.tag)' has no stop at the fvar default (\(AxisCoordinateFormat.format(defaultValue)))."
-            }
+    /// Absolute distance at or below which snapping a nearby stop onto the fvar default
+    /// is preferred over inserting a new stop (e.g. wght stop at 1 with default 0).
+    public static let nearbyDefaultSnapThreshold: Double = 1
+
+    static func nearestStop(in axis: AxisDefinition, to value: Double) -> AxisValue? {
+        axis.values.min { lhs, rhs in
+            abs(lhs.value - value) < abs(rhs.value - value)
         }
-        return nil
+    }
+
+    private static func instanceAxesMissingDefaultStop(font: FontDocument) -> [AxisDefinition] {
+        font.axes.filter { axis in
+            guard axis.role == .instance, let defaultValue = axis.default else { return false }
+            return !axis.values.contains { AxisCoordinate.valuesEqual($0.value, defaultValue) }
+        }
+    }
+
+    private static func defaultNotRepresentedInGridMessage(font: FontDocument) -> String? {
+        guard let axis = instanceAxesMissingDefaultStop(font: font).first,
+              let defaultValue = axis.default else { return nil }
+        return "Instance axis '\(axis.tag)' has no stop at the fvar default (\(AxisCoordinateFormat.format(defaultValue)))."
     }
 }

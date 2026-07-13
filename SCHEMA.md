@@ -17,11 +17,11 @@ Font file ──analyze──► FontAnalysis
                           ▼ plan (Swift, live)
                      InstancePlan
                           │
-                          ▼ save
+                          ▼ export
                      CommitRequest ──vfcommit──► CommitResult
                                                     │
                                                     ▼
-                                              Patched font file
+                                              Exported font file
 ```
 
 | Artifact | Mutable | Persisted | Owner |

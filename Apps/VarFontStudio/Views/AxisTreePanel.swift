@@ -99,8 +99,8 @@ struct AxisTreePanel: View {
                     }
 
                     if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
-                        Button("Push to tree") {
-                            editor.pushMasterAxisTreeToAllFonts()
+                        Button("Push Axis Tree") {
+                            editor.requestPushMasterAxisTree()
                         }
                         .font(StudioTypography.meta)
                         .buttonStyle(.plain)
@@ -118,13 +118,12 @@ struct AxisTreePanel: View {
                 }
             }
 
+            if editor.selectedFont != nil {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        if editor.selectedFont != nil {
-                            gridSummaryContent
-                            axesContent(scrollProxy: scrollProxy)
-                        }
+                        gridSummaryContent
+                        axesContent(scrollProxy: scrollProxy)
                     }
                     .padding(.leading, StudioSpacing.scrollContentHorizontal)
                     .padding(.trailing, StudioSpacing.scrollContentHorizontal + StudioSpacing.scrollGutter)
@@ -154,6 +153,14 @@ struct AxisTreePanel: View {
                         }
                     }
                 }
+            }
+            } else {
+                ContentUnavailableView(
+                    "No Axis Tree",
+                    systemImage: "point.3.connected.trianglepath.dotted",
+                    description: Text("Select a file to view its axis tree.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -822,7 +829,7 @@ private struct AxisTreeAxisHeader: View {
                     .padding(.vertical, 1)
                     .background(Color.secondary.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .help("fvar HIDDEN_AXIS — designer recommends this axis stay out of user-facing UIs.")
+                    .help("Hide this axis from user-facing controls (fvar HIDDEN_AXIS flag).")
             }
 
             VStack(alignment: .leading, spacing: 1) {
@@ -849,7 +856,7 @@ private struct AxisTreeAxisHeader: View {
                         .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                        .help("fvar min/default/max from the source font. Not editable here. D icon = default coordinate.")
+                        .help("The lowest and highest values this axis supports, and its default (fvar min/default/max). D icon = default coordinate.")
                 }
             }
 
@@ -1193,7 +1200,7 @@ private struct AxisTreeStopRow: View {
                 .padding(.leading, AxisBlockLayout.nameGap)
 
             if showElidable {
-                ElidableColumn(isOn: isElidable, action: onToggleElidable)
+                StudioElidableRadio(isOn: isElidable, action: onToggleElidable)
                     .frame(width: AxisBlockLayout.elidableWidth)
             }
 
@@ -1544,45 +1551,6 @@ private struct AxisTreeStopRow: View {
     private func cancelInlineEdit() {
         syncDrafts()
         onEndEdit()
-    }
-}
-
-private struct ElidableColumn: View {
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        ZStack {
-            ElidableDot(isOn: isOn)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .highPriorityGesture(
-            TapGesture().onEnded { action() }
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Elidable")
-        .accessibilityAddTraits(isOn ? .isSelected : [])
-        .accessibilityAction { action() }
-        .help(isOn ? "Clear elidable stop" : "Mark as elidable stop")
-    }
-}
-
-private struct ElidableDot: View {
-    let isOn: Bool
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1)
-                .frame(width: 14, height: 14)
-            if isOn {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 8, height: 8)
-            }
-        }
-        .allowsHitTesting(false)
     }
 }
 

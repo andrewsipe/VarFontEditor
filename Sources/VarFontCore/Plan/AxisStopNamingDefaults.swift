@@ -103,7 +103,7 @@ public enum AxisStopNamingDefaults {
         }
     }
 
-    /// True when any instance axis has every stop sharing one name (NouveauLED-style).
+    /// True when any instance axis has every stop sharing one name.
     public static func hasUniformStopNamesOnInstanceAxes(_ font: FontDocument) -> Bool {
         font.axes.contains { hasUniformStopNames(on: $0) }
     }
