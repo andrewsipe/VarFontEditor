@@ -4,7 +4,7 @@
 
 **VarFont Studio** is a macOS app for planning and writing **variable font instances** — the combinations of weight, width, optical size, and other axes that show up in design apps and in your font’s `STAT`, `fvar`, and `name` tables.
 
-You define axis stops, generate the instance grid, tune naming, preview what will change, then save a patched copy of your font. No glyph editing; no raw TTX browser.
+You define axis stops, generate the instance grid, tune naming, preview what will change in **Review**, then **Export** a patched copy of your font. **Save** keeps your `.varf` project. No glyph editing; no raw TTX browser.
 
 ---
 
@@ -30,7 +30,7 @@ Each release attaches **two** zip files. Names look like:
 
 **Apple menu → About This Mac** shows both your macOS version and Chip / Processor.
 
-The app UI is a Universal binary, but **Save** uses a bundled Python runtime that is **native to the zip you downloaded**. An Apple Silicon zip on an Intel Mac will open fine until you try to Save — download the matching zip instead.
+The app UI is a Universal binary, but **Export** uses a bundled Python runtime that is **native to the zip you downloaded**. An Apple Silicon zip on an Intel Mac will open fine until you try to Export — download the matching zip instead.
 
 ### 2. Unzip and move to Applications
 
@@ -64,14 +64,18 @@ open /Applications/VarFontStudio.app
 
 That removes the download quarantine flag so Gatekeeper stops blocking the ad-hoc build.
 
-### 4. Open a font and work
+### 4. Open a font or project and work
 
-- **File → Open Font…** (⌘O) — start a new project from a variable font.
-- **File → Open Project…** (⌘⌥O) — reopen a saved `.varf` project.
-- Edit axis stops and instance inclusion, then **File → Open Review…** (⌘⇧R) before exporting.
+- **Drop** fonts or `.varf` projects onto the empty window (or **File → Open Font…** / **Open Project…**).
+- **⌘S** — **Save Project** (writes `.varf`).
+- **⌘E** — **Export…** (writes patched font binaries; default name uses `-patched` beside the source).
+- **Export All…** (multi-file projects) — folder of fonts keeping original filenames.
+- **⌘⇧R** — **Review** before exporting.
 - **Help → VarFont Studio Shortcuts…** lists keyboard shortcuts.
 
-Save writes a **patched copy** next to your source file unless you choose another path. Python and fontTools are **bundled inside the app** — nothing extra to install.
+Quit only prompts when a **project file** has unsaved changes — unexported font edits do not block exit.
+
+Python and fontTools are **bundled inside the app** — nothing extra to install.
 
 ---
 
@@ -99,8 +103,8 @@ chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
 **Publish via GitHub:** push a tag — CI builds **both** Apple Silicon and Intel zips and attaches them to the Release.
 
 ```bash
-git tag v0.1.0-alpha
-git push origin v0.1.0-alpha
+git tag v0.1.1-alpha
+git push origin v0.1.1-alpha
 ```
 
 ---
@@ -108,6 +112,7 @@ git push origin v0.1.0-alpha
 ## Alpha scope
 
 - Instance modeling, naming, STAT/fvar commit via bundled **vfcommit**
-- Optional **OpenType feature label reflow** (Preferences menu + Save review)
-- Project files: **`.varf`** (legacy `.varfont` still opens)
+- **Save** = project (`.varf`); **Export** = patched fonts; **Review** = preflight diff
+- Optional **OpenType feature label reflow** (Preferences menu + Review tab bar)
+- Drag/drop fonts and **`.varf`** projects (legacy `.varfont` still opens)
 - Notarized / Developer ID distribution: not yet — use right-click → Open on first launch

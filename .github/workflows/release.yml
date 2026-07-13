@@ -78,5 +78,14 @@ jobs:
             2. First launch: **Control-click → Open** (ad-hoc signed; Gatekeeper warning is expected).
 
             See the [README](https://github.com/andrewsipe/VarFontEditor#install-no-xcode-required) for details.
+
+            ## What’s new in this alpha
+
+            - **Save vs Export:** **Save** (⌘S) writes the `.varf` project; **Export…** (⌘E) writes patched fonts. Multi-file projects can **Export All…** into a folder with original filenames.
+            - **Review:** The preflight window is **Review** (⌘⇧R). JSON “save plan” dump removed from the chrome.
+            - **Safer single Export…:** defaults to a `-patched` name beside the source; macOS warns if the name already exists.
+            - **Quit:** only prompts for unsaved **project** files — unexported font edits no longer block exit.
+            - **Drop `.varf`:** empty workspace accepts project files (opens at the real path so relative fonts resolve correctly).
+            - Copy and inclusion labels aligned (**Export inclusion**, shortcuts help, empty-state hint).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
