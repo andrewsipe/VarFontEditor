@@ -100,14 +100,25 @@ case "$(uname -m)" in
   x86_64) ARCH_LABEL="Intel" ;;
   *) ARCH_LABEL="$(uname -m)" ;;
 esac
-ZIP_NAME="VarFontStudio-${VERSION}-${MACOS_LABEL}-${ARCH_LABEL}.zip"
+FOLDER_NAME="VarFontStudio-${VERSION}-${MACOS_LABEL}-${ARCH_LABEL}"
+ZIP_NAME="${FOLDER_NAME}.zip"
 
 mkdir -p "$DIST"
+STAGE="$DIST/$FOLDER_NAME"
+rm -rf "$STAGE"
+mkdir -p "$STAGE"
+ditto "$APP" "$STAGE/VarFontStudio.app"
+cp "$ROOT/packaging/Allow First Launch.command" "$STAGE/Allow First Launch.command"
+chmod +x "$STAGE/Allow First Launch.command"
+cp "$ROOT/packaging/INSTALL.txt" "$STAGE/INSTALL.txt"
+
 ZIP_PATH="$DIST/$ZIP_NAME"
 rm -f "$ZIP_PATH"
-ditto -c -k --norsrc --keepParent "$APP" "$ZIP_PATH"
+# Folder wrapper so the helper ships beside the app (not a bare .app zip).
+(cd "$DIST" && ditto -c -k --norsrc --keepParent "$FOLDER_NAME" "$ZIP_NAME")
+rm -rf "$STAGE"
 
 echo ""
 echo "Release artifact: $ZIP_PATH"
-echo "Upload this zip to GitHub Releases. Users unzip and drag VarFontStudio.app to Applications."
-echo "First launch: if macOS blocks the app, right-click → Open (unsigned/ad-hoc build)."
+echo "Contents: VarFontStudio.app + Allow First Launch.command + INSTALL.txt"
+echo "Users: drag app to Applications, then double-click Allow First Launch (clears quarantine)."

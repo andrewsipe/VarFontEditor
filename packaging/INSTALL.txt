@@ -1,0 +1,15 @@
+VarFont Studio (alpha) — install
+
+1. Drag VarFontStudio.app into Applications.
+2. Double-click “Allow First Launch”.
+   • That removes the download quarantine so macOS will open the app.
+   • If macOS blocks the helper too: Control-click it → Open.
+
+Why? Alpha builds are not Apple-notarized. Recent macOS often shows only
+“Done” / “Move to Trash” on double-click — no “Open Anyway” in that dialog.
+
+Alternate (no helper): System Settings → Privacy & Security → Open Anyway
+(after clicking Done on the block alert), or in Terminal:
+
+  xattr -cr /Applications/VarFontStudio.app
+  open /Applications/VarFontStudio.app

@@ -32,37 +32,32 @@ Each release attaches **two** zip files. Names look like:
 
 The app UI is a Universal binary, but **Export** uses a bundled Python runtime that is **native to the zip you downloaded**. An Apple Silicon zip on an Intel Mac will open fine until you try to Export — download the matching zip instead.
 
-### 2. Unzip and move to Applications
+### 2. Unzip, install, allow first launch
 
-1. Download the zip for your Mac.
-2. Double-click to unzip.
-3. Drag **VarFont Studio.app** into **Applications**.
+1. Download the zip for your Mac and double-click to unzip.
+2. Open the unzipped folder. Drag **VarFontStudio.app** into **Applications**.
+3. Double-click **Allow First Launch** (in that same folder).
 
-### 3. First launch — “Not Opened” / unidentified developer is expected
+That clears the download quarantine so Gatekeeper lets this **ad-hoc alpha** open. Alpha builds are **not** Apple-notarized — that block is expected, not malware.
 
-Alpha builds are **not** notarized. On recent macOS, double-click often shows **“VarFontStudio.app” Not Opened** with only **Done** / **Move to Trash**. **This is normal, not malware.**
+If macOS also blocks the helper: **Control-click** **Allow First Launch** → **Open**.
 
-**Option A — System Settings (usual path on macOS 15):**
+`INSTALL.txt` in the zip repeats these steps.
 
-1. Click **Done** on the alert (do **not** Move to Trash).
-2. Open **System Settings → Privacy & Security**.
-3. Scroll to the message that **VarFont Studio** was blocked.
-4. Click **Open Anyway**, then confirm **Open**.
+### 3. If you skipped the helper
 
-**Option B — Finder:**
+On recent macOS, double-click often shows **“Not Opened”** with only **Done** / **Move to Trash** (no **Open Anyway** in that dialog). Click **Done**, then:
 
-1. Open **Finder → Applications**.
-2. **Control-click** (right-click) **VarFont Studio.app** → **Open**.
-3. If macOS still blocks it, use Option A.
+1. **System Settings → Privacy & Security**
+2. Scroll to the message that **VarFont Studio** was blocked
+3. Click **Open Anyway**, then confirm **Open**
 
-**Option C — Terminal (if A/B fail):**
+Or in Terminal:
 
 ```bash
 xattr -cr /Applications/VarFontStudio.app
 open /Applications/VarFontStudio.app
 ```
-
-That removes the download quarantine flag so Gatekeeper stops blocking the ad-hoc build.
 
 ### 4. Open a font or project and work
 
@@ -103,8 +98,8 @@ chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
 **Publish via GitHub:** push a tag — CI builds **both** Apple Silicon and Intel zips and attaches them to the Release.
 
 ```bash
-git tag v0.1.1-alpha
-git push origin v0.1.1-alpha
+git tag v0.1.2-alpha
+git push origin v0.1.2-alpha
 ```
 
 ---
@@ -115,4 +110,4 @@ git push origin v0.1.1-alpha
 - **Save** = project (`.varf`); **Export** = patched fonts; **Review** = preflight diff
 - Optional **OpenType feature label reflow** (Preferences menu + Review tab bar)
 - Drag/drop fonts and **`.varf`** projects (legacy `.varfont` still opens)
-- Notarized / Developer ID distribution: not yet — use right-click → Open on first launch
+- Notarized / Developer ID distribution: not yet — use **Allow First Launch** in the release zip
