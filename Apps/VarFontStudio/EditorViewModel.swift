@@ -332,6 +332,7 @@ final class EditorViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        issueResolvers.host = self
         issueResolvers.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -3190,3 +3191,5 @@ final class EditorViewModel: ObservableObject {
 
 
 extension EditorViewModel: SaveReviewHost {}
+
+extension EditorViewModel: IssueResolverHost {}

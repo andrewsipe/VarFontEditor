@@ -20,10 +20,19 @@ struct AxisTreeReviewSession {
     var state: AxisTreeReviewSessionState
 }
 
-/// Modal session state for axis-conflict and plan-issue resolvers (and the review-queue walk).
-/// Owned by `EditorViewModel`; apply/fix mutations stay on the editor.
+/// Conflict / plan-issue session state **and** orchestration (via `IssueResolverHost`).
 @MainActor
 final class IssueResolverStore: ObservableObject {
+    /// Set by `EditorViewModel` in `init`.
+    weak var host: (any IssueResolverHost)?
+
+    var requireHost: any IssueResolverHost {
+        guard let host else {
+            preconditionFailure("IssueResolverStore.host was not set")
+        }
+        return host
+    }
+
     @Published var conflictResolverRequest: AxisConflictResolverSession?
     @Published var planIssueResolverRequest: PlanIssueResolverSession?
 
