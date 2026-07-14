@@ -10,7 +10,12 @@
     "preserve_stat_format_3": true
   },
   "naming": {
-    "order": ["opsz", "wdth", "wght", "ital"],
+    "order": [
+      "opsz",
+      "wdth",
+      "wght",
+      "ital"
+    ],
     "elided_fallback": "Regular"
   },
   "axes": [
@@ -22,8 +27,20 @@
       "max": 1200,
       "role": "instance",
       "values": [
-        { "id": "o1", "value": 5, "name": "Micro", "elidable": false, "stat_format": 1 },
-        { "id": "o2", "value": 12, "name": "Pica", "elidable": true, "stat_format": 1 }
+        {
+          "id": "o1",
+          "value": 5,
+          "name": "Micro",
+          "elidable": false,
+          "stat_format": 1
+        },
+        {
+          "id": "o2",
+          "value": 12,
+          "name": "Pica",
+          "elidable": true,
+          "stat_format": 1
+        }
       ]
     },
     {
@@ -34,8 +51,20 @@
       "max": 113,
       "role": "instance",
       "values": [
-        { "id": "d1", "value": 88, "name": "SemiCond", "elidable": false, "stat_format": 1 },
-        { "id": "d2", "value": 100, "name": "Normal", "elidable": true, "stat_format": 1 }
+        {
+          "id": "d1",
+          "value": 88,
+          "name": "SemiCond",
+          "elidable": false,
+          "stat_format": 1
+        },
+        {
+          "id": "d2",
+          "value": 100,
+          "name": "Normal",
+          "elidable": true,
+          "stat_format": 1
+        }
       ]
     },
     {
@@ -46,8 +75,21 @@
       "max": 900,
       "role": "instance",
       "values": [
-        { "id": "w1", "value": 400, "name": "Normal", "elidable": true, "stat_format": 3, "linked_value": 700 },
-        { "id": "w2", "value": 700, "name": "Bold", "elidable": false, "stat_format": 1 }
+        {
+          "id": "w1",
+          "value": 400,
+          "name": "Normal",
+          "elidable": true,
+          "stat_format": 3,
+          "linked_value": 700
+        },
+        {
+          "id": "w2",
+          "value": 700,
+          "name": "Bold",
+          "elidable": false,
+          "stat_format": 1
+        }
       ]
     },
     {
@@ -55,9 +97,15 @@
       "display_name": "Italic",
       "role": "design_record_only",
       "values": [
-        { "id": "i0", "value": 0, "name": "Roman", "elidable": true, "stat_format": 3, "linked_value": 1 }
+        {
+          "id": "i0",
+          "value": 0,
+          "name": "Roman",
+          "elidable": true,
+          "stat_format": 3,
+          "linked_value": 1
+        }
       ]
     }
-  ],
-  "included_instance_keys": []
+  ]
 }

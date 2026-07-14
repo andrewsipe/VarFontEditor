@@ -77,7 +77,19 @@ extension SaveReviewStore {
             ensureSelectedFont(projectID: targetID, fontID: fontID)
         }
         let fontID = saveReviewSelectedFontID(forProjectID: targetID)
-        refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID, presentSheet: false)
+        let hasFreshSession: Bool = {
+            guard let fontID,
+                  let session = session(projectID: targetID, fontID: fontID),
+                  session.preflight.ok,
+                  let font = requireHost.font(forProjectID: targetID, fontID: fontID) else {
+                return false
+            }
+            // Rebuild when the project still has unsaved font edits.
+            return !font.dirty
+        }()
+        if !hasFreshSession {
+            refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID, presentSheet: false)
+        }
         markExplicitlyOpened(projectID: targetID)
         resetUIState(forProjectID: targetID)
         requestOpen(projectID: targetID)
@@ -313,17 +325,28 @@ extension SaveReviewStore {
         defer { endLoading(projectID: targetProjectID, fontID: targetFontID) }
 
         do {
-            let analysis = try SourceFontAccess.withReadableSourceURL(
-                bookmark: bookmark,
-                fallbackPath: font.sourcePath
-            ) { sourceURL in
-                try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+            if preferWorker {
+                await requireHost.commitService.ensureWorkerReady()
             }
-            let helperSourcePath = try SourceFontAccess.helperSourcePath(
-                bookmark: bookmark,
-                fallbackPath: font.sourcePath,
-                fontID: font.id
-            )
+            let bookmarkData = bookmark
+            let sourcePath = font.sourcePath
+            let cacheFontID = font.id
+            let analysisAndHelper = try await Task.detached(priority: .userInitiated) {
+                let analysis = try SourceFontAccess.withReadableSourceURL(
+                    bookmark: bookmarkData,
+                    fallbackPath: sourcePath
+                ) { sourceURL in
+                    try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+                }
+                let helperSourcePath = try SourceFontAccess.helperSourcePath(
+                    bookmark: bookmarkData,
+                    fallbackPath: sourcePath,
+                    fontID: cacheFontID
+                )
+                return (analysis, helperSourcePath)
+            }.value
+            let analysis = analysisAndHelper.0
+            let helperSourcePath = analysisAndHelper.1
             dryRunRequest.sourcePath = helperSourcePath
             let result = try await requireHost.commitService.commit(dryRunRequest, preferWorker: preferWorker)
             if result.ok {

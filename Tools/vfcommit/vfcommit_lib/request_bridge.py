@@ -12,6 +12,19 @@ def instance_key(coords: Dict[str, float]) -> str:
     return "|".join(f"{tag}:{_format_coord(value)}" for tag, value in sorted(coords.items()))
 
 
+def parse_instance_key(key: str) -> Dict[str, float]:
+    """Parse ``tag:value|tag:value`` keys produced by ``instance_key`` / Swift InstanceKeyBuilder."""
+    coords: Dict[str, float] = {}
+    if not key:
+        return coords
+    for part in key.split("|"):
+        if ":" not in part:
+            raise ValueError(f"invalid instance key segment: {part!r}")
+        tag, raw = part.split(":", 1)
+        coords[tag] = float(raw)
+    return coords
+
+
 def _format_coord(value: float) -> str:
     if value == int(value):
         return str(int(value))
@@ -88,24 +101,22 @@ def grid_axis_defs(axis_defs: List[AxisDef], axes_json: List[Dict[str, Any]]) ->
 
 def count_included_instances(
     grid_axes: List[AxisDef],
-    included_keys: List[str],
+    included_keys: List[str] | None,
     pinned_coords: Dict[str, float] | None = None,
 ) -> int:
-    """Count fvar instances after optional key filter."""
+    """Count fvar instances after optional key filter.
+
+    ``None`` = unrestricted cartesian product.
+    ``[]`` = explicitly include nothing.
+    """
     if not grid_axes:
         return 0
-    if not included_keys:
+    if included_keys is None:
         total = 1
         for axis in grid_axes:
             total *= len(axis.values)
         return total
-
-    allowed = set(included_keys)
-    count = 0
-    for coords in _coord_combinations(grid_axes):
-        if _instance_key_with_pinned(coords, pinned_coords) in allowed:
-            count += 1
-    return count
+    return len(set(included_keys))
 
 
 def _instance_key_with_pinned(

@@ -54,14 +54,14 @@ public enum CommitRequestBuilder {
         return ordered
     }
 
+    /// Always emit the live plan's included keys so vfcommit never treats an empty
+    /// list as “entire axis cartesian product” (which can explode on multi-axis fonts
+    /// even when the UI only shows a handful of instances).
     public static func includedInstanceKeys(font: FontDocument, plan: InstancePlan) -> [String] {
         if !font.includedInstanceKeys.isEmpty {
             return font.includedInstanceKeys
         }
-        if !font.excludedInstanceKeys.isEmpty {
-            return plan.instances.filter(\.included).map(\.key)
-        }
-        return []
+        return plan.instances.filter(\.included).map(\.key)
     }
 
     private static func namingForCommit(_ naming: NamingPolicy, axisTags: [String], font: FontDocument) -> NamingPolicy {

@@ -22,7 +22,11 @@ final class CommitRequestBuilderTests: XCTestCase {
         XCTAssertTrue(request.dryRun)
         XCTAssertEqual(request.axes.count, font.axes.count)
         XCTAssertEqual(request.axes.map(\.tag), CommitRequestBuilder.orderedAxes(font.axes, naming: project.naming).map(\.tag))
-        XCTAssertTrue(request.includedInstanceKeys.isEmpty)
+        XCTAssertEqual(request.includedInstanceKeys.count, plan.formula.totalIncluded)
+        XCTAssertEqual(
+            Set(request.includedInstanceKeys),
+            Set(plan.instances.filter(\.included).map(\.key))
+        )
     }
 
     func testIncludedKeysWhenExcluded() throws {

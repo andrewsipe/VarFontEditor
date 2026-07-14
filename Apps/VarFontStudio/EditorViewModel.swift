@@ -362,6 +362,9 @@ final class EditorViewModel: ObservableObject {
             self?.refreshInstanceListDisplay()
         }
         .store(in: &cancellables)
+
+        // Warm vfcommit so the first Review open does not pay Python/fontTools startup.
+        Task { await commitService.ensureWorkerReady() }
     }
 
     var canUndo: Bool { !undoStack.isEmpty }

@@ -221,26 +221,23 @@ def _write_fvar_instances(
     pinned_coords: dict[str, float] | None = None,
     included_instance_keys: List[str] | None = None,
 ) -> None:
-    from vfcommit_lib.request_bridge import instance_key
+    from vfcommit_lib.request_bridge import parse_instance_key
 
     fvar = font["fvar"]
     fvar.instances = []
 
     value_lists = [ad.values for ad in axis_defs]
     tag_list = [ad.tag for ad in axis_defs]
-    allowed = set(included_instance_keys) if included_instance_keys else None
     pinned = pinned_coords or {}
+    values_by_tag = {
+        ad.tag: {float(av.value): av for av in ad.values}
+        for ad in axis_defs
+    }
 
-    for combo in itertools.product(*value_lists):
+    def append_instance(combo):
         coords = {tag: float(av.value) for tag, av in zip(tag_list, combo)}
         if pinned_coords:
             coords.update(pinned_coords)
-        if allowed is not None:
-            merged = dict(coords)
-            for tag, value in pinned.items():
-                merged.setdefault(tag, float(value))
-            if instance_key(merged) not in allowed:
-                continue
         composed = compose_instance_name(
             combo,
             elided_fallback_name,
@@ -257,6 +254,34 @@ def _write_fvar_instances(
         ps_nid = plan.instance_postscript_ids.get(composed)
         inst.postscriptNameID = ps_nid if ps_nid is not None else 0xFFFF
         fvar.instances.append(inst)
+
+    if included_instance_keys is not None:
+        if not included_instance_keys:
+            return
+        for key in included_instance_keys:
+            try:
+                coords = parse_instance_key(key)
+            except ValueError:
+                continue
+            for tag, value in pinned.items():
+                coords.setdefault(tag, float(value))
+            combo = []
+            ok = True
+            for tag in tag_list:
+                if tag not in coords:
+                    ok = False
+                    break
+                av = values_by_tag.get(tag, {}).get(float(coords[tag]))
+                if av is None:
+                    ok = False
+                    break
+                combo.append(av)
+            if ok:
+                append_instance(combo)
+        return
+
+    for combo in itertools.product(*value_lists):
+        append_instance(combo)
 
 
 def _write_stat(

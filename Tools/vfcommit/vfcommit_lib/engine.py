@@ -61,7 +61,10 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     naming = request.get("naming") or {}
     file_role = request.get("file_role")
     axes_json = request.get("axes") or []
-    included_keys = list(request.get("included_instance_keys") or [])
+    if "included_instance_keys" in request:
+        included_keys: list[str] | None = list(request.get("included_instance_keys") or [])
+    else:
+        included_keys = None
     file_stat_registration = {
         str(tag): float(value)
         for tag, value in (request.get("file_stat_registration") or {}).items()
@@ -90,7 +93,8 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     try:
-        font = TTFont(source_path, lazy=False)
+        # Dry-run only needs name/fvar/STAT/GSUB/GPOS — avoid pulling glyf/gvar/CFF2.
+        font = TTFont(source_path, lazy=bool(dry_run))
     except Exception as exc:
         return _error_result(request_id, dry_run, "unreadable_font", str(exc))
 

@@ -540,22 +540,14 @@ def iterate_instance_name_entries(
     if not axis_defs:
         return
 
-    from vfcommit_lib.request_bridge import instance_key
+    from vfcommit_lib.request_bridge import parse_instance_key
 
     value_lists = [ad.values for ad in axis_defs]
     tag_list = [ad.tag for ad in axis_defs]
     seen: Set[str] = set()
-    allowed = set(included_instance_keys) if included_instance_keys else None
     pinned = pinned_coords or {}
 
-    for combo in itertools.product(*value_lists):
-        coords = {tag: float(av.value) for tag, av in zip(tag_list, combo)}
-        if allowed is not None:
-            merged = dict(coords)
-            for tag, value in pinned.items():
-                merged.setdefault(tag, float(value))
-            if instance_key(merged) not in allowed:
-                continue
+    def _emit(combo):
         composed = compose_instance_name(
             combo,
             elided_fallback_name,
@@ -566,10 +558,46 @@ def iterate_instance_name_entries(
             file_stat_registration=file_stat_registration,
         )
         if composed in seen:
-            continue
+            return
         seen.add(composed)
         combo_by_tag = {tag: av for tag, av in zip(tag_list, combo)}
         yield composed, combo_by_tag
+
+    # Allowlist mode when keys are provided (including empty = include none).
+    # ``None`` keeps the legacy “entire cartesian product” behavior for callers
+    # that omit ``included_instance_keys``.
+    if included_instance_keys is not None:
+        if not included_instance_keys:
+            return
+        values_by_tag = {
+            ad.tag: {float(av.value): av for av in ad.values}
+            for ad in axis_defs
+        }
+        for key in included_instance_keys:
+            try:
+                coords = parse_instance_key(key)
+            except ValueError:
+                continue
+            for tag, value in pinned.items():
+                coords.setdefault(tag, float(value))
+            combo = []
+            ok = True
+            for tag in tag_list:
+                if tag not in coords:
+                    ok = False
+                    break
+                av = values_by_tag.get(tag, {}).get(float(coords[tag]))
+                if av is None:
+                    ok = False
+                    break
+                combo.append(av)
+            if not ok:
+                continue
+            yield from _emit(combo)
+        return
+
+    for combo in itertools.product(*value_lists):
+        yield from _emit(combo)
 
 
 def build_allocation_plan(
