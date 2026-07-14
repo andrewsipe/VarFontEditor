@@ -38,9 +38,9 @@ The app UI is a Universal binary, but **Export** uses a bundled Python runtime t
 2. Open the unzipped folder. Drag **VarFontStudio.app** into **Applications**.
 3. Double-click **Allow First Launch** (in that same folder).
 
-That clears the download quarantine so Gatekeeper lets this **ad-hoc alpha** open. Alpha builds are **not** Apple-notarized — that block is expected, not malware.
+That clears the download quarantine so Gatekeeper lets this **ad-hoc alpha** open. Alpha builds are **not** Apple-notarized — that block is expected, not malware. The helper only runs `xattr` on the app and opens it; it prints those steps in Terminal when you run it that way.
 
-If macOS also blocks the helper: **Control-click** **Allow First Launch** → **Open**.
+If macOS also blocks the helper: **Control-click** **Allow First Launch** → **Open**, or drag the `.command` file into Terminal and press Return.
 
 `INSTALL.txt` in the zip repeats these steps.
 

@@ -77,7 +77,8 @@ jobs:
             1. Unzip the folder.
             2. Drag **VarFontStudio.app** into Applications.
             3. Double-click **Allow First Launch** (clears download quarantine — required for this ad-hoc alpha).
-               If macOS blocks the helper: Control-click it → **Open**.
+               If macOS blocks the helper: Control-click it → **Open**, or drag the `.command` into Terminal.
+               The script prints what it does (quarantine clear + open); it does not modify fonts.
 
             Recent macOS often shows only **Done** / **Move to Trash** when opening the app (no Open Anyway in that dialog). The helper is the easy path; see the [README](https://github.com/andrewsipe/VarFontStudio#install-no-xcode-required) for System Settings / Terminal alternatives.
 
