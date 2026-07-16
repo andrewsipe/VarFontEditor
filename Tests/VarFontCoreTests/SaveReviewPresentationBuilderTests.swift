@@ -20,10 +20,11 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         )
         let fvar = presentation.tabs.first { $0.id == .fvar }
         XCTAssertNotNil(fvar)
-        let axisRows = fvar?.sections.first { $0.title == "Axes" }?.rows ?? []
+        let axisRows = fvar?.sections.first { $0.title.hasPrefix("Axes") }?.rows ?? []
         XCTAssertEqual(axisRows.count, 1)
         XCTAssertTrue(axisRows.allSatisfy { $0.category == .protected })
         XCTAssertEqual(axisRows.first?.afterValue, "400 / 400 / 700")
+        XCTAssertEqual(fvar?.sections.first { $0.title.hasPrefix("Axes") }?.title, "Axes (source fvar order)")
     }
 
     func testFvarAxisRowNoteAppearsOnce() {
@@ -38,9 +39,11 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
             diff: nil
         )
         let axisRow = presentation.tabs.first { $0.id == .fvar }?
-            .sections.first { $0.title == "Axes" }?.rows.first
+            .sections.first { $0.title.hasPrefix("Axes") }?.rows.first
         XCTAssertNotNil(axisRow?.noteLine)
         XCTAssertEqual(axisRow?.noteLine?.components(separatedBy: SaveReviewRowFormatter.fvarProtectedNote).count, 2)
+        // Source scales remain in afterValue even when project default diverges.
+        XCTAssertEqual(axisRow?.afterValue, "400 / 400 / 700")
     }
 
     func testNameReflowCategory() {

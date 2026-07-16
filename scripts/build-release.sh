@@ -105,7 +105,7 @@ ZIP_NAME="${FOLDER_NAME}.zip"
 
 mkdir -p "$DIST"
 STAGE="$DIST/$FOLDER_NAME"
-rm -rf "$STAGE"
+rm -rf "$STAGE" 2>/dev/null || true
 mkdir -p "$STAGE"
 ditto "$APP" "$STAGE/VarFontStudio.app"
 cp "$ROOT/packaging/Allow First Launch.command" "$STAGE/Allow First Launch.command"
@@ -116,7 +116,8 @@ ZIP_PATH="$DIST/$ZIP_NAME"
 rm -f "$ZIP_PATH"
 # Folder wrapper so the helper ships beside the app (not a bare .app zip).
 (cd "$DIST" && ditto -c -k --norsrc --keepParent "$FOLDER_NAME" "$ZIP_NAME")
-rm -rf "$STAGE"
+rm -rf "$STAGE" 2>/dev/null || chmod -R u+w "$STAGE" 2>/dev/null || true
+rm -rf "$STAGE" 2>/dev/null || true
 
 echo ""
 echo "Release artifact: $ZIP_PATH"

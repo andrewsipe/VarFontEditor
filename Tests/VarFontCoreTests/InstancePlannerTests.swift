@@ -160,10 +160,33 @@ final class InstancePlannerTests: XCTestCase {
         }
         var liveRequest = request
         liveRequest.sourcePath = sourcePath
+        // Fixture omits included_instance_keys; Swift decode defaults to []. vfcommit treats
+        // [] as “write nothing”, so expand via the same path CommitRequestBuilder uses.
+        if liveRequest.includedInstanceKeys.isEmpty {
+            let font = FontDocument(
+                id: liveRequest.requestID,
+                sourcePath: sourcePath,
+                outputPath: nil,
+                analysisSnapshotID: nil,
+                dirty: false,
+                fileRole: liveRequest.fileRole,
+                axes: liveRequest.axes,
+                options: liveRequest.options,
+                includedInstanceKeys: [],
+                excludedInstanceKeys: [],
+                overrides: InstanceOverrides()
+            )
+            let plan = InstancePlanner.plan(font: font, naming: liveRequest.naming)
+            liveRequest.includedInstanceKeys = CommitRequestBuilder.includedInstanceKeys(
+                font: font,
+                plan: plan
+            )
+        }
         let service = try LiveFontFixture.makeCommitService()
         let result = try await service.commit(liveRequest)
         XCTAssertTrue(result.ok)
         XCTAssertTrue(result.dryRun)
-        XCTAssertEqual(result.summary?.instancesWritten, request.includedInstanceKeys.count == 0 ? 8 : request.includedInstanceKeys.count)
+        XCTAssertEqual(result.summary?.instancesWritten, liveRequest.includedInstanceKeys.count)
+        XCTAssertEqual(liveRequest.includedInstanceKeys.count, 8)
     }
 }
