@@ -154,6 +154,15 @@ struct InstanceListPanel: View {
                     : [instance.key]
                 editor.setInstancesIncluded(keys: keys, included: included)
             },
+            onHoverChange: { hovering in
+                guard editor.footerPanelMode == .preview else { return }
+                if hovering {
+                    editor.setPreviewHoverInstanceKey(instance.key, active: true)
+                } else {
+                    // Keep the last hovered instance — row gaps would otherwise flash the selection.
+                    editor.setPreviewHoverInstanceKey(nil, active: false)
+                }
+            },
             onWarningTap: hasConflict ? {
                 if let bundle = editor.primaryConflictAxis(for: instance) {
                     editor.presentConflictResolver(bundle: bundle)
@@ -334,6 +343,7 @@ private struct InstanceRowView: View {
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
     let onSetSelectionIncluded: (Bool) -> Void
+    var onHoverChange: ((Bool) -> Void)?
     var onWarningTap: (() -> Void)?
     var onDuplicateTap: (() -> Void)?
 
@@ -359,7 +369,10 @@ private struct InstanceRowView: View {
                     excludeAction: { onSetSelectionIncluded(false) }
                 )
             }
-            .onHover { isHovered = $0 }
+            .onHover { hovering in
+                isHovered = hovering
+                onHoverChange?(hovering)
+            }
     }
 
     private var rowContent: some View {

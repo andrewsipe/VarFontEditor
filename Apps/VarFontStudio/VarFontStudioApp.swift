@@ -82,18 +82,25 @@ struct VarFontStudioApp: App {
 
                 Divider()
 
-                Button("Export…") {
-                    editor.saveCopy()
-                }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(!editor.canSave || editor.isSaveActionBlocked)
-
                 if editor.canSaveToRememberedPathForSelection {
+                    Button("Export As…") {
+                        editor.saveCopy()
+                    }
+                    .keyboardShortcut("e", modifiers: .command)
+                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                    .help("Choose a new path for this font")
+
                     Button("Export") {
                         editor.save()
                     }
                     .disabled(!editor.canSave || editor.isSaveActionBlocked)
                     .help("Write to the last export path")
+                } else {
+                    Button("Export…") {
+                        editor.saveCopy()
+                    }
+                    .keyboardShortcut("e", modifiers: .command)
+                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
                 }
 
                 if let projectID = editor.activeProjectID,
@@ -102,7 +109,7 @@ struct VarFontStudioApp: App {
                         editor.saveAllFiles(inProjectID: projectID)
                     }
                     .disabled(!editor.canSave || editor.isSaveActionBlocked)
-                    .help("Export every file in this project to a folder")
+                    .help("Export every file in this project to a folder. Picking the source folder creates a Patched subfolder.")
                 }
 
                 Button("Export to Original…") {

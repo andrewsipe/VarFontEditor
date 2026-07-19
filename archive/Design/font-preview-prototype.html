@@ -3,42 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VarFont Studio — Font Preview Prototype</title>
+<title>VarFont Studio — Instance Preview Footer Prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,slnt,wdth,wght@8..144,-10..0,25..151,100..1000&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#1c1c1e; --panel:#242426; --panel-2:#2a2a2c; --border:#38383a;
+    --bg:#1c1c1e; --bar:#222224; --panel:#242426; --panel-2:#2a2a2c;
+    --border:#38383a; --border-soft:#2c2c2e;
     --text:#eaeaec; --text-dim:#9a9a9e; --text-faint:#68686c;
-    --accent:#0a84ff;
-    --c-ok:#30a46c; --c-warn:#f0a020; --c-risk:#e5484d; --c-info:#8e6ff7;
-    --mono:"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --accent:#0a84ff; --sel:rgba(10,132,255,.14); --sel-b:rgba(10,132,255,.35);
+    --hover:rgba(255,255,255,.04);
+    --mono:"SF Mono", ui-monospace, Menlo, Consolas, monospace;
     --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
-    --preview-font:"Roboto Flex", "SF Pro Display", system-ui, sans-serif;
-    --win-w:980px;
+    --preview-font:"Roboto Flex", system-ui, sans-serif;
+    --preview-h:236px;
+    --reg:#8c73f2; --reg-bg:rgba(140,115,242,.14); --reg-b:rgba(140,115,242,.35);
+    --code:#c7852e; --code-bg:rgba(199,133,46,.14); --code-b:rgba(199,133,46,.4);
+    --ital:#5b8def; --ital-bg:rgba(91,141,239,.14); --ital-b:rgba(91,141,239,.35);
   }
   *{box-sizing:border-box;}
   body{
     margin:0; background:#0e0e10; color:var(--text);
-    font-family:var(--sans); padding:16px 16px 48px;
+    font-family:var(--sans); padding:14px 14px 40px;
   }
-  .page{ max-width:var(--win-w); margin:0 auto; }
+  .page{ max-width:1180px; margin:0 auto; }
 
   .intro{ margin-bottom:10px; }
-  .intro-head{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-  }
+  .intro-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .intro h1{ font-size:15px; margin:0; font-weight:600; }
   .intro-toggle{
-    font-family:var(--sans); font-size:11px; color:var(--text-dim);
+    font:inherit; font-size:11px; color:var(--text-dim);
     background:transparent; border:none; cursor:pointer; padding:4px 0;
-    white-space:nowrap;
   }
   .intro-toggle:hover{ color:var(--text); }
   .intro-body{
-    color:var(--text-dim); font-size:11.5px; line-height:1.55; margin:8px 0 0;
-    display:none;
+    display:none; margin:8px 0 0; color:var(--text-dim);
+    font-size:11.5px; line-height:1.55;
   }
   .intro.open .intro-body{ display:block; }
   .intro-body code{
@@ -51,293 +52,306 @@
   .mockwin{
     background:var(--bg); border:1px solid #000; border-radius:11px;
     overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.65);
-    display:flex; flex-direction:column; min-height:720px;
+    display:flex; flex-direction:column; height:min(860px, calc(100vh - 80px));
+    min-height:640px;
   }
   .titlebar{
     height:38px; background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
-    display:flex; align-items:center; padding:0 12px; gap:8px; position:relative; flex-shrink:0;
+    display:flex; align-items:center; padding:0 12px; position:relative; flex-shrink:0;
   }
   .dots{ display:flex; gap:7px; }
   .dot{ width:11px; height:11px; border-radius:50%; }
   .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
-  .titlebar .wtitle{
+  .wtitle{
     position:absolute; left:0; right:0; text-align:center;
     font-size:12.5px; color:var(--text-dim); font-weight:500; pointer-events:none;
   }
 
-  .filebar{
-    display:flex; align-items:center; gap:10px; padding:8px 20px;
-    background:#1f1f21; border-bottom:1px solid var(--border); flex-shrink:0;
+  .projectbar{
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--bar); border-bottom:1px solid var(--border); flex-shrink:0;
   }
-  .filebar .lbl{ font-size:10px; font-weight:600; letter-spacing:.05em; color:var(--text-faint); }
+  .proj-tab{
+    font-size:11px; font-weight:600; padding:5px 10px; border-radius:5px;
+    background:rgba(10,132,255,.12); border:1px solid var(--sel-b); color:var(--text);
+  }
   .filechip{
-    font-size:11px; padding:4px 10px; border-radius:20px; cursor:pointer;
+    font-size:11px; padding:3px 9px; border-radius:20px;
     background:var(--panel-2); color:var(--text-dim); border:1px solid transparent;
   }
-  .filechip:hover{ color:var(--text); }
-  .filechip.on{ background:rgba(10,132,255,.12); color:var(--text); border-color:rgba(10,132,255,.35); font-weight:600; }
-
-  .modebar{
-    display:flex; align-items:center; gap:12px; padding:10px 20px;
-    border-bottom:1px solid var(--border); background:var(--panel); flex-shrink:0;
-  }
-  .modeseg{
-    display:flex; gap:2px; padding:3px;
-    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
-  }
-  .modebtn{
-    font-family:var(--sans); font-size:11.5px; padding:6px 12px; border-radius:6px;
-    border:none; background:transparent; color:var(--text-dim); cursor:pointer;
-  }
-  .modebtn:hover{ color:var(--text); background:rgba(255,255,255,.03); }
-  .modebtn.on{
-    color:var(--text); font-weight:600; background:var(--bg);
-    box-shadow:0 1px 4px rgba(0,0,0,.35);
-  }
-  .mode-hint{ font-size:11px; color:var(--text-faint); line-height:1.35; flex:1; min-width:0; }
-  .mode-hint b{ color:var(--text-dim); font-weight:600; }
-  .btn{
-    font-family:var(--sans); font-size:12px; padding:5px 12px; border-radius:6px;
-    border:1px solid var(--border); background:var(--panel-2); color:var(--text); cursor:pointer;
-  }
-  .btn:hover{ background:#333336; }
-  .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
-  .btn.primary:hover{ filter:brightness(1.08); }
-  .btn:disabled{ opacity:.4; cursor:default; }
-  .btn.ghost{
-    background:transparent; border-color:transparent; color:var(--text-dim); padding:5px 8px;
-  }
-  .btn.ghost:hover{ color:var(--text); background:rgba(255,255,255,.04); }
+  .filechip.on{ color:var(--text); border-color:var(--sel-b); background:var(--sel); font-weight:600; }
+  .sp{ flex:1; }
 
   .workspace{
-    flex:1; display:grid; grid-template-columns:300px 1fr; min-height:0;
+    flex:1; min-height:0; display:grid;
+    grid-template-columns:260px minmax(0,1fr) 260px;
   }
+  .col{
+    display:flex; flex-direction:column; min-height:0; min-width:0;
+    border-right:1px solid var(--border);
+  }
+  .col:last-child{ border-right:none; }
+  .col-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0;
+    background:var(--panel);
+  }
+  .col-head h2{ margin:0; font-size:12px; font-weight:600; }
+  .col-head .meta{ font-size:10px; color:var(--text-faint); }
+  .col-body{ flex:1; min-height:0; overflow:auto; padding:8px; }
 
-  .rail{
-    border-right:1px solid var(--border); background:#1f1f21;
-    display:flex; flex-direction:column; min-height:0; overflow:hidden;
+  /* Axis tree (static chrome) */
+  .axis-block{ margin-bottom:10px; }
+  .axis-block .ah{
+    font-size:11px; font-weight:600; color:var(--text-dim); margin-bottom:4px;
   }
-  .rail-scroll{
-    flex:1; min-height:0; overflow:auto;
+  .axis-block .ah span{ font-family:var(--mono); font-weight:400; color:var(--text-faint); margin-left:6px; }
+  .stop{
+    font-size:11px; padding:4px 7px; border-radius:5px; color:var(--text-dim);
+    display:flex; justify-content:space-between; gap:8px;
   }
-  .rail-section{
-    padding:12px 14px; border-bottom:1px solid var(--border);
-  }
-  .rail-section.sticky-risk{
-    flex-shrink:0; border-bottom:none; border-top:1px solid var(--border);
-    background:#1c1c1e;
-  }
-  .rail-section h3{
-    margin:0 0 8px; font-size:10px; font-weight:600;
-    text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint);
-  }
-  .field-label{
-    display:block; font-size:11px; color:var(--text-dim); margin-bottom:5px;
-  }
-  .select-wrap{ position:relative; }
-  .select-wrap select{
-    width:100%; appearance:none; -webkit-appearance:none;
-    padding:7px 28px 7px 10px; border-radius:7px;
-    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-    font-family:var(--sans); font-size:12px; cursor:pointer;
-  }
-  .select-wrap::after{
-    content:"▾"; position:absolute; right:10px; top:50%; transform:translateY(-55%);
-    font-size:9px; color:var(--text-faint); pointer-events:none;
-  }
-  .inst-meta{
-    margin-top:8px; font-size:10.5px; color:var(--text-faint);
-    font-family:var(--mono); line-height:1.45;
-  }
+  .stop .n{ color:var(--text); }
+  .stop .v{ font-family:var(--mono); font-size:10px; color:var(--text-faint); }
 
-  .axis-row{ margin-bottom:10px; }
-  .axis-row:last-child{ margin-bottom:0; }
-  .axis-head{
-    display:flex; align-items:baseline; justify-content:space-between; gap:8px;
-    margin-bottom:4px;
+  /* Instance list */
+  .filter-row{
+    display:flex; align-items:center; gap:8px; padding:0 2px 8px;
+    border-bottom:1px solid var(--border-soft); margin-bottom:6px;
   }
-  .axis-name{ font-size:12px; font-weight:500; color:var(--text); }
-  .axis-tag{
+  .filter-row input{
+    flex:1; min-width:0; padding:4px 8px; border-radius:5px;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text);
+    font:inherit; font-size:11px;
+  }
+  .filter-row input:focus{ outline:none; border-color:var(--sel-b); }
+  .group-label{
+    font-size:10px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--text-faint); padding:8px 6px 4px;
+  }
+  .inst-row{
+    display:flex; align-items:flex-start; gap:8px;
+    padding:6px 8px; border-radius:6px; cursor:pointer;
+    border:1px solid transparent;
+  }
+  .inst-row:hover{ background:var(--hover); }
+  .inst-row.peek{
+    background:rgba(10,132,255,.07);
+    border-color:rgba(10,132,255,.18);
+  }
+  .inst-row.sel{
+    background:var(--sel); border-color:var(--sel-b);
+  }
+  .inst-row .check{
+    width:13px; height:13px; margin-top:2px; border-radius:3px;
+    border:1px solid #555; background:#1a1a1c; flex-shrink:0;
+  }
+  .inst-row .check.on{ background:var(--accent); border-color:var(--accent); }
+  .inst-row .name{ font-size:12px; font-weight:500; color:var(--text); line-height:1.3; }
+  .inst-row .coords{
     font-family:var(--mono); font-size:10px; color:var(--text-faint);
-    margin-left:6px; font-weight:400;
+    margin-top:2px; line-height:1.35;
   }
-  .axis-val{
-    font-family:var(--mono); font-size:11px; color:var(--accent);
-    font-variant-numeric:tabular-nums; min-width:3.2em; text-align:right;
+  .hint-banner{
+    margin:4px 2px 10px; padding:7px 9px; border-radius:6px;
+    background:rgba(10,132,255,.08); border:1px solid rgba(10,132,255,.22);
+    font-size:11px; color:var(--text-dim); line-height:1.4;
   }
-  .axis-row input[type=range]{
-    width:100%; margin:0; accent-color:var(--accent); cursor:pointer;
-  }
-  .axis-bounds{
-    display:flex; justify-content:space-between; margin-top:3px;
-    font-family:var(--mono); font-size:9.5px; color:var(--text-faint);
-  }
-  .axis-row.snapped .axis-val{ color:var(--c-ok); }
-  .snap-hint{
-    font-size:10px; color:var(--text-faint); margin-top:1px; min-height:0;
-  }
-  .snap-hint.on{ color:var(--c-ok); min-height:14px; }
+  .hint-banner b{ color:var(--text); font-weight:600; }
 
-  .identity{
-    display:grid; gap:6px;
-  }
-  .id-row{
-    display:grid; grid-template-columns:72px 1fr; gap:8px; align-items:start;
-    font-size:11.5px;
-  }
-  .id-row .k{ color:var(--text-faint); padding-top:1px; }
-  .id-row .v{ font-family:var(--mono); font-size:11px; color:var(--text); word-break:break-word; line-height:1.35; }
-  .id-row .v.changed{ color:var(--c-warn); }
-  .id-was{
-    display:block; font-size:10px; color:var(--text-faint); margin-top:2px;
-    text-decoration:line-through; text-decoration-color:#5a5a5e;
+  /* Inspector (static) */
+  .insp-label{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em; margin:10px 0 4px; }
+  .insp-label:first-child{ margin-top:0; }
+  .insp-val{ font-size:12px; color:var(--text); }
+  .insp-val.mono{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .chip{
+    font-size:10px; padding:2px 7px; border-radius:4px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
   }
 
-  .risk-card{
-    border:1px solid var(--border); border-radius:8px; padding:10px 12px;
-    background:var(--panel-2);
+  /* Footer slot — same place as Naming order */
+  .footer-slot{
+    flex-shrink:0; background:var(--bar); border-top:1px solid var(--border);
   }
-  .risk-card.warn{ border-color:rgba(240,160,32,.4); background:rgba(240,160,32,.06); }
-  .risk-card.ok{ border-color:rgba(48,164,108,.3); background:rgba(48,164,108,.06); }
-  .risk-card.blocked{ border-color:rgba(142,111,247,.35); background:rgba(142,111,247,.08); }
-  .risk-title{
-    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
-    margin-bottom:6px;
+  .footer-head{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 14px; min-height:34px;
   }
-  .risk-card.warn .risk-title{ color:var(--c-warn); }
-  .risk-card.ok .risk-title{ color:var(--c-ok); }
-  .risk-card.blocked .risk-title{ color:var(--c-info); }
-  .risk-body{ font-size:11.5px; color:var(--text-dim); line-height:1.45; }
-  .risk-list{ margin:6px 0 0; padding-left:16px; font-size:11px; color:var(--text-dim); }
-  .risk-list li{ margin:2px 0; }
+  .footer-head .chev{
+    width:16px; height:16px; border-radius:3px; border:1px solid var(--border);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:8px; color:var(--text-faint); flex-shrink:0;
+    transition:transform .15s ease;
+  }
+  .footer-slot.collapsed .chev{ transform:rotate(-90deg); }
+  .footer-head .title-btn{
+    font:inherit; font-size:11px; color:var(--text-dim);
+    background:transparent; border:none; cursor:pointer; padding:0;
+    display:flex; align-items:center; gap:8px;
+  }
+  .footer-head .title-btn:hover{ color:var(--text); }
+  .footer-head .title-btn .scope{
+    color:var(--text-faint); font-weight:400;
+  }
+  .footer-modes{
+    display:flex; gap:2px; padding:2px; border-radius:6px;
+    background:var(--panel-2); border:1px solid var(--border);
+  }
+  .footer-modes button{
+    font:inherit; font-size:10.5px; padding:3px 9px; border-radius:4px;
+    border:none; background:transparent; color:var(--text-faint); cursor:pointer;
+  }
+  .footer-modes button.on{
+    background:var(--bg); color:var(--text); font-weight:600;
+    box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .footer-tools{
+    margin-left:auto; display:flex; align-items:center; gap:10px;
+  }
+  .naming-mock[hidden],
+  .preview-panel[hidden],
+  .footer-tools[hidden]{ display:none !important; }
+  .tool-toggle{
+    display:flex; align-items:center; gap:5px;
+    font-size:10.5px; color:var(--text-faint);
+  }
+  .tool-toggle input{
+    appearance:none; width:26px; height:15px; border-radius:999px;
+    background:#3a3a3c; position:relative; cursor:pointer; border:none;
+  }
+  .tool-toggle input::after{
+    content:""; position:absolute; top:2px; left:2px; width:11px; height:11px;
+    border-radius:50%; background:#fff; transition:transform .15s ease;
+  }
+  .tool-toggle input:checked{ background:#bf5af2; }
+  .tool-toggle input:checked::after{ transform:translateX(11px); }
+  .tool-restore{
+    font:inherit; font-size:10.5px; color:var(--text-faint);
+    background:transparent; border:none; cursor:pointer; padding:0;
+  }
+  .tool-restore:hover{ color:var(--text-dim); }
+  .footer-head .collapsed-summary{
+    margin-left:auto; font-size:11px; color:var(--text-dim);
+    font-weight:500; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .footer-head .collapsed-summary.peeking{ color:var(--accent); }
+  .footer-body{ display:block; }
+  .footer-slot.collapsed .footer-body{ display:none; }
 
-  .stage{
-    display:flex; flex-direction:column; min-height:0; background:var(--bg);
-    position:relative;
+  /* Naming order — matches app footer chrome */
+  .naming-mock{ padding:4px 14px 12px; }
+  .naming-hint{
+    font-size:10.5px; color:var(--text-faint); margin:0 0 8px; line-height:1.4;
   }
-  .stage-toolbar{
-    display:flex; align-items:center; gap:10px; padding:8px 16px;
-    border-bottom:1px solid var(--border); background:var(--panel); flex-shrink:0;
+  .naming-track{
+    display:flex; align-items:center; gap:3px; flex-wrap:wrap; margin-bottom:12px;
+  }
+  .nchip{
+    font-size:11px; padding:4px 8px; border-radius:5px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+    display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+  }
+  .nchip.ps{
+    color:var(--reg); border-color:var(--reg-b); background:var(--reg-bg);
+    font-family:var(--mono); font-size:10.5px;
+  }
+  .nchip.ps .tag{ opacity:.7; font-size:9px; }
+  .nchip.code{ color:var(--code); border-color:var(--code-b); background:var(--code-bg); }
+  .nchip.axis{ color:var(--text); }
+  .nchip.axis input{ accent-color:var(--accent); margin:0; }
+  .nchip.ital{ color:var(--ital); border-color:var(--ital-b); background:var(--ital-bg); }
+  .nchip .mono{ font-family:var(--mono); font-size:10px; color:var(--text-faint); }
+  .nlink{ color:var(--text-faint); font-size:10px; padding:0 1px; }
+  .naming-ex{ display:grid; gap:6px; }
+  .naming-ex .row{
+    display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-faint);
+  }
+  .naming-ex .row .k{ width:92px; flex-shrink:0; }
+  .naming-ex .row .v{
+    color:var(--text); font-weight:600; font-size:12px;
+    background:rgba(255,255,255,.06); padding:3px 8px; border-radius:5px;
+  }
+  .naming-ex .row .v.ps{ font-weight:500; }
+  .naming-ex .row .v.elided{ color:var(--accent); background:transparent; padding:0; font-weight:500; }
+
+  /* Preview panel — exclusive alternate for the same footer body */
+  .preview-panel{
+    display:flex; flex-direction:column; height:var(--preview-h);
+  }
+  .preview-toolbar{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 14px; border-bottom:1px solid var(--border-soft); flex-shrink:0;
   }
   .sample-input{
-    flex:1; min-width:0; padding:6px 10px; border-radius:6px;
+    flex:1; min-width:0; padding:5px 9px; border-radius:6px;
     background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-    font-family:var(--sans); font-size:12px;
+    font:inherit; font-size:12px;
   }
-  .sample-input:focus{ outline:none; border-color:rgba(10,132,255,.5); }
+  .sample-input:focus{ outline:none; border-color:var(--sel-b); }
   .size-wrap{
     display:flex; align-items:center; gap:8px; flex-shrink:0;
     font-size:11px; color:var(--text-faint);
   }
-  .size-wrap input[type=range]{ width:90px; accent-color:var(--accent); }
+  .size-wrap input[type=range]{ width:88px; accent-color:var(--accent); }
   .size-wrap .sz{
-    font-family:var(--mono); color:var(--text-dim); min-width:2.6em; text-align:right;
+    font-family:var(--mono); color:var(--text-dim); min-width:2.4em; text-align:right;
   }
 
-  .canvas-wrap{
-    flex:1; min-height:0; position:relative; overflow:auto;
+  .preview-canvas{
+    flex:1; min-height:0; overflow:auto;
+    display:flex; align-items:center; padding:18px 28px;
     background:
-      radial-gradient(ellipse 80% 60% at 50% 40%, rgba(10,132,255,.04), transparent 70%),
+      radial-gradient(ellipse 70% 55% at 50% 45%, rgba(10,132,255,.035), transparent 70%),
       var(--bg);
-  }
-  .canvas{
-    min-height:100%; padding:36px 40px 48px;
-    display:flex; flex-direction:column; justify-content:center;
   }
   .preview-text{
     font-family:var(--preview-font);
-    font-size:72px; line-height:1.15; color:var(--text);
-    outline:none; word-break:break-word;
-    font-variation-settings: "wght" 400, "wdth" 100, "opsz" 14, "slnt" 0;
-    transition: font-variation-settings .05s linear, opacity .2s ease;
+    font-size:64px; line-height:1.12; color:var(--text);
+    outline:none; word-break:break-word; width:100%;
+    font-variation-settings:"wght" 400,"wdth" 100,"opsz" 14,"slnt" 0;
+    transition:font-variation-settings .08s ease, opacity .12s ease;
   }
-  .preview-text[contenteditable]:empty::before{
-    content:attr(data-placeholder); color:var(--text-faint);
-  }
-  .preview-text.ghosting{ opacity:.35; }
-  .waterfall{
-    display:none; flex-direction:column; gap:10px; margin-top:28px;
-  }
-  .waterfall.on{ display:flex; }
-  .wf-line{
-    font-family:var(--preview-font);
-    color:var(--text-dim); white-space:nowrap; overflow:hidden;
-    font-variation-settings: "wght" 400, "wdth" 100, "opsz" 14, "slnt" 0;
-  }
-  .wf-meta{
-    font-family:var(--mono); font-size:9px; color:var(--text-faint);
-    margin-bottom:2px;
-  }
+  .preview-text.peeking{ opacity:.92; }
 
-  .compare-ghost{
-    display:none; position:absolute; inset:0; pointer-events:none;
-    padding:36px 40px 48px; align-items:center;
-  }
-  .compare-ghost.on{ display:flex; }
-  .compare-ghost .ghost-text{
-    font-family:var(--preview-font);
-    font-size:72px; line-height:1.15; color:rgba(229,72,77,.28);
-    font-variation-settings: "wght" 400, "wdth" 100, "opsz" 14, "slnt" 0;
-  }
-
-  .overlay-gate{
-    display:none; position:absolute; inset:0; z-index:5;
-    background:rgba(14,14,16,.72); backdrop-filter:blur(6px);
-    align-items:center; justify-content:center; padding:24px;
-  }
-  .overlay-gate.on{ display:flex; }
-  .gate-card{
-    width:min(380px, 100%); background:var(--panel); border:1px solid var(--border);
-    border-radius:12px; padding:22px 22px 18px;
-    box-shadow:0 20px 50px rgba(0,0,0,.45);
-  }
-  .gate-card h4{ margin:0 0 8px; font-size:14px; font-weight:600; }
-  .gate-card p{ margin:0 0 16px; font-size:12px; color:var(--text-dim); line-height:1.5; }
-  .gate-card .btns{ display:flex; gap:8px; justify-content:flex-end; }
-  .spinner{
-    width:14px; height:14px; border:2px solid rgba(255,255,255,.2);
-    border-top-color:#fff; border-radius:50%;
-    animation:spin .7s linear infinite; display:inline-block; vertical-align:-2px; margin-right:6px;
-  }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
-
-  .statusline{
+  .preview-status{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding:8px 16px; border-top:1px solid var(--border); background:#1a1a1c;
-    font-size:11px; color:var(--text-faint); flex-shrink:0;
+    padding:6px 14px; border-top:1px solid var(--border-soft);
+    background:#1a1a1c; flex-shrink:0;
+    font-size:11px; color:var(--text-faint);
   }
-  .statusline .coords{ font-family:var(--mono); color:var(--text-dim); }
-  .statusline .pill{
+  .preview-status .coords{ font-family:var(--mono); color:var(--text-dim); }
+  .preview-status .inst-label{ color:var(--text-dim); }
+  .preview-status .inst-label em{
+    font-style:normal; color:var(--accent); font-weight:500;
+  }
+  .pill{
     font-size:10px; padding:2px 8px; border-radius:20px;
-    border:1px solid var(--border); color:var(--text-dim);
+    border:1px solid var(--border); color:var(--text-dim); white-space:nowrap;
   }
-  .statusline .pill.source{ color:var(--text-dim); }
-  .statusline .pill.planned{ color:var(--accent); border-color:rgba(10,132,255,.35); background:rgba(10,132,255,.1); }
-  .statusline .pill.stale{ color:var(--c-warn); border-color:rgba(240,160,32,.35); background:rgba(240,160,32,.1); }
+  .pill.peek{ color:var(--accent); border-color:var(--sel-b); background:var(--sel); }
 
-  .footer{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding:10px 20px; border-top:1px solid var(--border); background:#1f1f21; flex-shrink:0;
+  .statusbar{
+    display:flex; align-items:center; gap:8px;
+    padding:5px 14px; border-top:1px solid var(--border);
+    background:#1a1a1c; font-size:10.5px; color:var(--text-faint); flex-shrink:0;
   }
-  .footer .btns{ display:flex; gap:8px; }
+  .statusbar .accent{ color:var(--accent); }
 
   .settings-fab{
-    position:fixed; right:20px; bottom:20px; z-index:100;
-    font-family:var(--sans); font-size:12px; font-weight:500;
+    position:fixed; right:18px; bottom:18px; z-index:40;
+    font:inherit; font-size:12px; font-weight:500;
     padding:8px 14px; border-radius:20px;
     background:var(--panel); color:var(--text);
-    border:1px solid var(--border);
-    box-shadow:0 8px 24px rgba(0,0,0,.45);
+    border:1px solid var(--border); box-shadow:0 8px 24px rgba(0,0,0,.45);
     cursor:pointer;
   }
   .settings-fab:hover{ background:#333336; }
   .settings-backdrop{
-    display:none; position:fixed; inset:0; z-index:101; background:rgba(0,0,0,.35);
+    display:none; position:fixed; inset:0; z-index:41; background:rgba(0,0,0,.35);
   }
   .settings-backdrop.open{ display:block; }
   .settings-drawer{
-    position:fixed; top:0; right:0; z-index:102;
-    width:min(300px, 92vw); max-height:100vh;
+    position:fixed; top:0; right:0; z-index:42; width:min(290px,92vw); height:100vh;
     background:var(--panel); border-left:1px solid var(--border);
     box-shadow:-12px 0 40px rgba(0,0,0,.4);
     transform:translateX(100%); transition:transform .2s ease;
@@ -346,16 +360,14 @@
   .settings-drawer.open{ transform:translateX(0); }
   .settings-drawer-head{
     display:flex; align-items:center; justify-content:space-between;
-    padding:12px 14px; border-bottom:1px solid var(--border); flex-shrink:0;
+    padding:12px 14px; border-bottom:1px solid var(--border);
   }
   .settings-drawer-head h3{ margin:0; font-size:13px; font-weight:600; }
   .settings-close{
-    font-family:var(--sans); font-size:18px; line-height:1;
-    background:transparent; border:none; color:var(--text-dim);
-    cursor:pointer; padding:2px 6px;
+    font:inherit; font-size:18px; line-height:1; background:transparent;
+    border:none; color:var(--text-dim); cursor:pointer; padding:2px 6px;
   }
-  .settings-close:hover{ color:var(--text); }
-  .settings-drawer-body{ padding:12px 14px 20px; overflow:auto; flex:1; }
+  .settings-drawer-body{ padding:12px 14px 20px; overflow:auto; }
   .settings-drawer-body h4{
     margin:12px 0 6px; font-size:10px; font-weight:600;
     color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em;
@@ -366,11 +378,11 @@
     display:flex; align-items:flex-start; gap:8px;
     font-size:11.5px; color:var(--text-dim); cursor:pointer; line-height:1.35;
   }
-  .ctrl input[type=checkbox]{ margin-top:2px; accent-color:var(--accent); flex-shrink:0; }
-  .ctrl select, .ctrl input[type=text]{
+  .ctrl input[type=checkbox]{ margin-top:2px; accent-color:var(--accent); }
+  .ctrl select{
     width:100%; margin-top:3px; padding:5px 8px; border-radius:6px;
     background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-    font-family:var(--sans); font-size:11.5px;
+    font:inherit; font-size:11.5px;
   }
   .ctrl-hint{ font-size:10px; color:var(--text-faint); margin-top:3px; line-height:1.35; }
   .kbd{
@@ -378,10 +390,7 @@
     padding:1px 4px; border-radius:3px; border:1px solid var(--border);
   }
 
-  @media (max-width:820px){
-    .workspace{ grid-template-columns:1fr; }
-    .rail{ border-right:none; border-bottom:1px solid var(--border); max-height:42vh; }
-  }
+  /* Keep three columns — this prototypes a desktop app footer, not a phone layout. */
 </style>
 </head>
 <body>
@@ -389,688 +398,414 @@
 <div class="page">
   <div class="intro" id="intro">
     <div class="intro-head">
-      <h1>Font Preview prototype</h1>
+      <h1>Instance preview footer prototype</h1>
       <button type="button" class="intro-toggle" id="introToggle">About this prototype</button>
     </div>
     <div class="intro-body">
-      Separate window for visually testing the variable font — axis sliders + named-instance picker —
-      so you can catch rendering / identity problems before export (the kind that bite undo in host apps
-      when PS names or instance coordinates shift).
+      Preview and Naming order share one footer slot — never stacked, never both open.
+      <b>Naming order</b> is the default on load. Switch to <b>Preview</b> to glyph-test the
+      selected (or hovered) instance. No fvar sliders; location comes from the Instances panel.
       <ul>
-        <li><b>Source</b> — open anytime from the on-disk font + live project axes. No <code>vfcommit</code>.</li>
-        <li><b>Planned</b> — needs a temp materialize (same dry-run write path as Review, without opening Review). Core Text only sees new names/instances from real font bytes.</li>
-        <li>Sliders drive live <code>font-variation-settings</code>. Instance dropdown snaps to named coords. Roboto Flex stands in for the project VF.</li>
+        <li>Mode toggle in the footer header swaps the body content exclusively.</li>
+        <li>Naming tools (Code / Hide pinned / Restore) show only in Naming order mode.</li>
+        <li>Collapsed footer shows a one-line summary for whichever mode is active.</li>
       </ul>
     </div>
   </div>
 
-  <div class="mockwin" id="mockwin">
+  <div class="mockwin">
     <div class="titlebar">
       <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
-      <div class="wtitle" id="wtitle">Font Preview — ABCGravitySuperfamilyVariable.ttf</div>
+      <div class="wtitle">VarFont Studio — FC Crimp</div>
     </div>
 
-    <div class="filebar" id="filebar">
-      <span class="lbl">FILE</span>
-      <div class="filechip on" data-file="gravity">ABCGravitySuperfamilyVariable.ttf</div>
-      <div class="filechip" data-file="display">PlayfairDisplayVF.ttf</div>
-    </div>
-
-    <div class="modebar">
-      <div class="modeseg" role="group" aria-label="Preview source">
-        <button type="button" class="modebtn on" data-mode="source" id="modeSource">Source</button>
-        <button type="button" class="modebtn" data-mode="planned" id="modePlanned">Planned</button>
-      </div>
-      <div class="mode-hint" id="modeHint">
-        Reading the <b>on-disk</b> font. Axes and instances from current fvar — no write needed.
-      </div>
-      <button type="button" class="btn" id="btnMaterialize" style="display:none">Materialize…</button>
+    <div class="projectbar">
+          <div class="proj-tab">FC Crimp</div>
+      <div class="filechip on">FCCrimp[wdth,wght,ital].ttf</div>
+      <div class="sp"></div>
     </div>
 
     <div class="workspace">
-      <aside class="rail">
-        <div class="rail-scroll">
-          <div class="rail-section">
-            <h3>Named instance</h3>
-            <label class="field-label" for="instSelect">Jump to instance</label>
-            <div class="select-wrap">
-              <select id="instSelect"></select>
-            </div>
-            <div class="inst-meta" id="instMeta"></div>
-          </div>
-
-          <div class="rail-section" style="border-bottom:none">
-            <h3>Axes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(fvar)</span></h3>
-            <div id="axisSliders"></div>
-          </div>
-        </div>
-
-        <div class="rail-section sticky-risk">
-          <h3>Identity</h3>
-          <div class="identity" id="identity" style="margin-bottom:12px"></div>
-          <h3>Undo risk</h3>
-          <div class="risk-card" id="riskCard">
-            <div class="risk-title" id="riskTitle">Checking…</div>
-            <div class="risk-body" id="riskBody"></div>
-            <ul class="risk-list" id="riskList"></ul>
-          </div>
-        </div>
+      <aside class="col">
+        <div class="col-head"><h2>Axis tree</h2><span class="meta">4 axes</span></div>
+        <div class="col-body" id="axisTree"></div>
       </aside>
 
-      <section class="stage">
-        <div class="stage-toolbar">
-          <input type="text" class="sample-input" id="sampleInput" value="Handgloves" spellcheck="false" autocomplete="off">
-          <div class="size-wrap">
-            <span>Size</span>
-            <input type="range" id="sizeSlider" min="24" max="160" value="72">
-            <span class="sz" id="sizeLabel">72</span>
+      <section class="col instances">
+        <div class="col-head"><h2>Instances</h2><span class="meta" id="instCount">6 shown</span></div>
+        <div class="col-body">
+          <div class="hint-banner" id="instHint">
+            Switch footer to <b>Preview</b>, then <b>hover</b> / <b>click</b> rows to drive the glyph
           </div>
-          <button type="button" class="btn ghost" id="btnWaterfall" title="Toggle waterfall">Waterfall</button>
-        </div>
-
-        <div class="canvas-wrap">
-          <div class="canvas">
-            <div class="preview-text" id="previewText" contenteditable="true" spellcheck="false" data-placeholder="Type sample…">Handgloves</div>
-            <div class="waterfall" id="waterfall"></div>
+          <div class="filter-row">
+            <input type="search" id="instSearch" placeholder="Search names…" autocomplete="off">
           </div>
-          <div class="compare-ghost" id="compareGhost" aria-hidden="true">
-            <div class="ghost-text" id="ghostText">Handgloves</div>
-          </div>
-          <div class="overlay-gate" id="overlayGate">
-            <div class="gate-card">
-              <h4 id="gateTitle">Materialize planned font?</h4>
-              <p id="gateBody">
-                Planned preview needs a temporary vfcommit write so Core Text can load the new
-                name / fvar / STAT tables. This does not open Save Review and does not touch your export path.
-              </p>
-              <div class="btns">
-                <button type="button" class="btn" id="gateCancel">Stay on Source</button>
-                <button type="button" class="btn primary" id="gateGo">Materialize temp</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="statusline">
-          <span class="coords" id="coordReadout"></span>
-          <span class="pill source" id="statusPill">Source · live</span>
+          <div id="instList"></div>
         </div>
       </section>
+
+      <aside class="col">
+        <div class="col-head"><h2>Inspector</h2><span class="meta">Instance</span></div>
+        <div class="col-body" id="inspector"></div>
+      </aside>
     </div>
 
-    <div class="footer">
-      <button type="button" class="btn" id="btnOpenReview">Open Review…</button>
-      <div class="btns">
-        <button type="button" class="btn" id="btnReset">Reset axes</button>
-        <button type="button" class="btn primary">Done</button>
+    <div class="footer-slot" id="footerSlot">
+      <div class="footer-head">
+        <button type="button" class="title-btn" id="footerToggle" aria-expanded="true">
+          <span class="chev">▾</span>
+          <span id="footerTitle">Naming order <span class="scope">· project</span></span>
+        </button>
+
+        <div class="footer-modes" role="group" aria-label="Footer mode">
+          <button type="button" class="on" data-footer="naming">Naming order</button>
+          <button type="button" data-footer="preview">Preview</button>
+        </div>
+
+        <div class="footer-tools" id="namingTools">
+          <label class="tool-toggle"><input type="checkbox" checked disabled> Code</label>
+          <label class="tool-toggle"><input type="checkbox" checked disabled> Hide pinned axes</label>
+          <button type="button" class="tool-restore">Restore</button>
+        </div>
+
+        <div class="collapsed-summary" id="collapsedSummary" hidden></div>
       </div>
+
+      <div class="footer-body" id="footerBody">
+        <!-- Naming order (default) -->
+        <div class="naming-mock" id="namingMock">
+          <p class="naming-hint">Indigo chips are naming axes — each file carries its own stop on that axis.</p>
+          <div class="naming-track">
+            <span class="nchip ps"><span class="tag">[PS]</span> FCCrimp</span>
+            <span class="nlink">›</span>
+            <span class="nchip ps"><span class="tag">[-]</span> PS hyphen</span>
+            <span class="nlink">›</span>
+            <span class="nchip code">Code</span>
+            <span class="nlink">›</span>
+            <span class="nchip axis"><input type="checkbox" checked disabled> <span class="mono">wdth</span> Width</span>
+            <span class="nlink">›</span>
+            <span class="nchip axis"><input type="checkbox" checked disabled> <span class="mono">wght</span> Weight</span>
+            <span class="nlink">›</span>
+            <span class="nchip ital"><span class="mono">ital</span> italic</span>
+          </div>
+          <div class="naming-ex">
+            <div class="row"><span class="k">Name</span><span class="v" id="namingName">Regular</span></div>
+            <div class="row"><span class="k">PostScript</span><span class="v ps" id="namingPS">ABCGravitySuperfamilyVariable-Regular</span></div>
+            <div class="row"><span class="k">Elided fallback</span><span class="v elided">Regular</span></div>
+          </div>
+        </div>
+
+        <!-- Preview (exclusive alternate) -->
+        <div class="preview-panel" id="previewPanel" hidden>
+          <div class="preview-toolbar">
+            <input type="text" class="sample-input" id="sampleInput" value="Handgloves" spellcheck="false" autocomplete="off">
+            <div class="size-wrap">
+              <span>Size</span>
+              <input type="range" id="sizeSlider" min="28" max="120" value="64">
+              <span class="sz" id="sizeLabel">64</span>
+            </div>
+          </div>
+          <div class="preview-canvas">
+            <div class="preview-text" id="previewText" contenteditable="true" spellcheck="false">Handgloves</div>
+          </div>
+          <div class="preview-status">
+            <span>
+              <span class="inst-label" id="statusInst"></span>
+              <span class="coords" id="statusCoords"></span>
+            </span>
+            <span class="pill" id="statusPill">Source · live</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span>FC Crimp</span>
+      <span>|</span>
+      <span class="accent">FCCrimp[wdth,wght,ital].ttf</span>
+      <span class="sp"></span>
+      <span id="statusNote">Preview follows instance hover / selection</span>
     </div>
   </div>
 </div>
 
-<button type="button" class="settings-fab" id="settingsFab" aria-expanded="false">Settings</button>
-<div class="settings-backdrop" id="settingsBackdrop" aria-hidden="true"></div>
+<button type="button" class="settings-fab" id="settingsFab">Settings</button>
+<div class="settings-backdrop" id="settingsBackdrop"></div>
 <aside class="settings-drawer" id="settingsDrawer" aria-hidden="true">
   <div class="settings-drawer-head">
     <h3>Prototype settings</h3>
     <button type="button" class="settings-close" id="settingsClose" aria-label="Close">×</button>
   </div>
   <div class="settings-drawer-body">
-    <h4>Preview</h4>
+    <h4>Behavior</h4>
     <div class="ctrl">
-      <label><input type="checkbox" id="optSnapStops" checked> Snap-hint when near STAT stops</label>
-    </div>
-    <div class="ctrl">
-      <label><input type="checkbox" id="optCompare"> Ghost source under Planned</label>
-      <div class="ctrl-hint">Shows source-default shape in red tint when Planned differs.</div>
-    </div>
-    <div class="ctrl">
-      <label><input type="checkbox" id="optAutoMaterialize"> Auto-materialize on Planned</label>
-      <div class="ctrl-hint">Skip the gate dialog (simulates “already have a fresh temp”).</div>
+      <label><input type="checkbox" id="optHoverPeek" checked> Hover peeks preview</label>
+      <div class="ctrl-hint">Off = only click/selection updates the preview.</div>
     </div>
 
-    <h4>Sample presets</h4>
+    <h4>Layout</h4>
+    <div class="ctrl">
+      <label>Preview height</label>
+      <select id="optPreviewH">
+        <option value="180">180px (compact)</option>
+        <option value="236" selected>236px (default)</option>
+        <option value="300">300px (tall)</option>
+      </select>
+    </div>
+
+    <h4>Sample</h4>
     <div class="ctrl">
       <select id="optPreset">
-        <option value="Handgloves">Handgloves</option>
-        <option value="The quick brown fox">The quick brown fox</option>
-        <option value="ABCDEFGHIJKLMNOPQRSTUVWXYZ">Uppercase</option>
-        <option value="abcdefghijklmnopqrstuvwxyz">Lowercase</option>
-        <option value="0123456789">Figures</option>
-        <option value="Hamburgefonstiv">Hamburgefonstiv</option>
+        <option>Handgloves</option>
+        <option>Hamburgefonstiv</option>
+        <option>The quick brown fox</option>
+        <option>ABCDEFGHIJKLMNOPQRSTUVWXYZ</option>
       </select>
-    </div>
-
-    <h4>Scenario</h4>
-    <div class="ctrl">
-      <label>Planned delta intensity</label>
-      <select id="optDelta">
-        <option value="mild">Mild — renames only</option>
-        <option value="medium" selected>Medium — renames + new instance</option>
-        <option value="harsh">Harsh — PS prefix + coords shift</option>
-      </select>
-      <div class="ctrl-hint">Controls how loud the Undo Risk card gets in Planned mode.</div>
     </div>
 
     <h4>Try it</h4>
     <div class="ctrl-hint" style="line-height:1.55">
-      Pick an instance · drag axes · switch to <span class="kbd">Planned</span> · materialize ·
-      watch identity + undo risk update. Waterfall shows weight ladder at current width/opsz/slant.
+      Loads on <span class="kbd">Naming order</span> · switch to <span class="kbd">Preview</span> ·
+      hover/click instances · collapse the disclosure for a one-line summary.
     </div>
   </div>
 </aside>
 
 <script>
-const FILES = {
-  gravity: {
-    title: 'ABCGravitySuperfamilyVariable.ttf',
-    familyLabel: 'ABC Gravity Superfamily',
-    psPrefixSource: 'ABCGravitySuperfamilyVariable',
-    psPrefixPlannedMild: 'ABCGravitySuperfamilyVariable',
-    psPrefixPlannedHarsh: 'ABCGravitySFVar',
-    axes: [
-      { tag:'wght', name:'Weight', min:100, max:1000, def:400, step:1,
-        stops:[100,200,300,400,500,600,700,800,900,1000] },
-      { tag:'wdth', name:'Width', min:75, max:125, def:100, step:0.5,
-        stops:[75,100,125] },
-      { tag:'slnt', name:'Slant', min:-16, max:0, def:0, step:0.5,
-        stops:[0,-16] },
-      { tag:'opsz', name:'Optical Size', min:8, max:72, def:14, step:0.5,
-        stops:[8,14,72] },
-    ],
-    instancesSource: [
-      { id:'s1', name:'Hairline', coords:{wght:100,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Hairline' },
-      { id:'s2', name:'Regular', coords:{wght:400,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Regular' },
-      { id:'s3', name:'Bold', coords:{wght:700,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Bold' },
-      { id:'s4', name:'Condensed Regular', coords:{wght:400,wdth:75,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-CondensedRegular' },
-      { id:'s5', name:'Italic', coords:{wght:400,wdth:100,slnt:-16,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Italic' },
-      { id:'s6', name:'Display Bold', coords:{wght:700,wdth:100,slnt:0,opsz:72}, ps:'ABCGravitySuperfamilyVariable-DisplayBold' },
-    ],
-    instancesPlanned: {
-      mild: [
-        { id:'p1', name:'Hairline', coords:{wght:100,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Hairline', was:null },
-        { id:'p2', name:'Regular', coords:{wght:400,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Regular', was:null },
-        { id:'p3', name:'Bold', coords:{wght:700,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Bold', was:null },
-        { id:'p4', name:'Condensed', coords:{wght:400,wdth:75,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Condensed', was:'Condensed Regular' },
-        { id:'p5', name:'Italic', coords:{wght:400,wdth:100,slnt:-16,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Italic', was:null },
-        { id:'p6', name:'Display Bold', coords:{wght:700,wdth:100,slnt:0,opsz:72}, ps:'ABCGravitySuperfamilyVariable-DisplayBold', was:null },
-      ],
-      medium: [
-        { id:'p1', name:'Hairline', coords:{wght:100,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Hairline', was:null },
-        { id:'p2', name:'Regular', coords:{wght:400,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Regular', was:null },
-        { id:'p3', name:'Bold', coords:{wght:700,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Bold', was:null },
-        { id:'p4', name:'Condensed', coords:{wght:400,wdth:75,slnt:0,opsz:14}, ps:'ABCGravitySuperfamilyVariable-Condensed', was:'Condensed Regular' },
-        { id:'p5', name:'Regular Italic', coords:{wght:400,wdth:100,slnt:-16,opsz:14}, ps:'ABCGravitySuperfamilyVariable-RegularItalic', was:'Italic' },
-        { id:'p6', name:'Display Bold', coords:{wght:700,wdth:100,slnt:0,opsz:72}, ps:'ABCGravitySuperfamilyVariable-DisplayBold', was:null },
-        { id:'p7', name:'Small Regular', coords:{wght:400,wdth:100,slnt:0,opsz:8}, ps:'ABCGravitySuperfamilyVariable-SmallRegular', was:'(new)' },
-      ],
-      harsh: [
-        { id:'p1', name:'Hairline', coords:{wght:100,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySFVar-Hairline', was:null },
-        { id:'p2', name:'Regular', coords:{wght:400,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySFVar-Regular', was:null },
-        { id:'p3', name:'Bold', coords:{wght:700,wdth:100,slnt:0,opsz:14}, ps:'ABCGravitySFVar-Bold', was:null },
-        { id:'p4', name:'Condensed', coords:{wght:400,wdth:80,slnt:0,opsz:14}, ps:'ABCGravitySFVar-Condensed', was:'Condensed Regular @ wdth 75' },
-        { id:'p5', name:'Regular Italic', coords:{wght:400,wdth:100,slnt:-16,opsz:14}, ps:'ABCGravitySFVar-RegularItalic', was:'Italic' },
-        { id:'p6', name:'Display Bold', coords:{wght:700,wdth:100,slnt:0,opsz:72}, ps:'ABCGravitySFVar-DisplayBold', was:null },
-        { id:'p7', name:'Small Regular', coords:{wght:400,wdth:100,slnt:0,opsz:8}, ps:'ABCGravitySFVar-SmallRegular', was:'(new)' },
-      ],
-    },
-  },
-  display: {
-    title: 'PlayfairDisplayVF.ttf',
-    familyLabel: 'Playfair Display',
-    psPrefixSource: 'PlayfairDisplayVF',
-    psPrefixPlannedMild: 'PlayfairDisplayVF',
-    psPrefixPlannedHarsh: 'PlayfairDispVF',
-    axes: [
-      { tag:'opsz', name:'Optical Size', min:5, max:72, def:12, step:0.5, stops:[5,12,72] },
-      { tag:'wght', name:'Weight', min:300, max:900, def:400, step:1, stops:[400,700,900] },
-    ],
-    instancesSource: [
-      { id:'s1', name:'Regular', coords:{opsz:12,wght:400}, ps:'PlayfairDisplayVF-Regular' },
-      { id:'s2', name:'Bold', coords:{opsz:12,wght:700}, ps:'PlayfairDisplayVF-Bold' },
-      { id:'s3', name:'Black', coords:{opsz:12,wght:900}, ps:'PlayfairDisplayVF-Black' },
-      { id:'s4', name:'Display Regular', coords:{opsz:72,wght:400}, ps:'PlayfairDisplayVF-DisplayRegular' },
-    ],
-    instancesPlanned: {
-      mild: [
-        { id:'p1', name:'Regular', coords:{opsz:12,wght:400}, ps:'PlayfairDisplayVF-Regular', was:null },
-        { id:'p2', name:'Bold', coords:{opsz:12,wght:700}, ps:'PlayfairDisplayVF-Bold', was:null },
-        { id:'p3', name:'Black', coords:{opsz:12,wght:900}, ps:'PlayfairDisplayVF-Black', was:null },
-        { id:'p4', name:'Display', coords:{opsz:72,wght:400}, ps:'PlayfairDisplayVF-Display', was:'Display Regular' },
-      ],
-      medium: [
-        { id:'p1', name:'Regular', coords:{opsz:12,wght:400}, ps:'PlayfairDisplayVF-Regular', was:null },
-        { id:'p2', name:'Bold', coords:{opsz:12,wght:700}, ps:'PlayfairDisplayVF-Bold', was:null },
-        { id:'p3', name:'Black', coords:{opsz:12,wght:900}, ps:'PlayfairDisplayVF-Black', was:null },
-        { id:'p4', name:'Display', coords:{opsz:72,wght:400}, ps:'PlayfairDisplayVF-Display', was:'Display Regular' },
-        { id:'p5', name:'Small Regular', coords:{opsz:5,wght:400}, ps:'PlayfairDisplayVF-SmallRegular', was:'(new)' },
-      ],
-      harsh: [
-        { id:'p1', name:'Regular', coords:{opsz:12,wght:400}, ps:'PlayfairDispVF-Regular', was:null },
-        { id:'p2', name:'Bold', coords:{opsz:12,wght:700}, ps:'PlayfairDispVF-Bold', was:null },
-        { id:'p3', name:'Black', coords:{opsz:14,wght:900}, ps:'PlayfairDispVF-Black', was:'Black @ opsz 12' },
-        { id:'p4', name:'Display', coords:{opsz:72,wght:400}, ps:'PlayfairDispVF-Display', was:'Display Regular' },
-        { id:'p5', name:'Small Regular', coords:{opsz:5,wght:400}, ps:'PlayfairDispVF-SmallRegular', was:'(new)' },
-      ],
-    },
-  },
-};
+const AXES = [
+  { tag:'wght', name:'Weight', stops:[
+    { n:'Hairline', v:100 },{ n:'Thin', v:200 },{ n:'Light', v:300 },
+    { n:'Regular', v:400 },{ n:'Medium', v:500 },{ n:'Semibold', v:600 },
+    { n:'Bold', v:700 },{ n:'ExtraBold', v:800 },
+  ]},
+  { tag:'wdth', name:'Width', stops:[
+    { n:'Condensed', v:75 },{ n:'Normal', v:100 },{ n:'Extended', v:125 },
+  ]},
+  { tag:'slnt', name:'Slant', stops:[
+    { n:'Upright', v:0 },{ n:'Italic', v:-16 },
+  ]},
+  { tag:'opsz', name:'Optical Size', stops:[
+    { n:'Caption', v:8 },{ n:'Text', v:14 },{ n:'Display', v:72 },
+  ]},
+];
+
+const INSTANCES = [
+  { id:'i1', name:'Hairline', group:'Roman', coords:{wght:100,wdth:100,slnt:0,opsz:14}, ps:'FCCrimp-Hairline', styleName:'Hairline' },
+  { id:'i2', name:'Regular', group:'Roman', coords:{wght:400,wdth:100,slnt:0,opsz:14}, ps:'FCCrimp-Regular', styleName:'Regular' },
+  { id:'i3', name:'Bold', group:'Roman', coords:{wght:700,wdth:100,slnt:0,opsz:14}, ps:'FCCrimp-Bold', styleName:'Bold' },
+  { id:'i4', name:'Condensed Light', group:'Condensed', coords:{wght:300,wdth:75,slnt:0,opsz:14}, ps:'FCCrimp-110CondensedLight', styleName:'110 Condensed Light' },
+  { id:'i5', name:'Regular Italic', group:'Italic', coords:{wght:400,wdth:100,slnt:-16,opsz:14}, ps:'FCCrimp-RegularItalic', styleName:'Regular Italic' },
+  { id:'i6', name:'Display Bold', group:'Display', coords:{wght:700,wdth:100,slnt:0,opsz:72}, ps:'FCCrimp-DisplayBold', styleName:'Display Bold' },
+  { id:'i7', name:'Extended Medium', group:'Extended', coords:{wght:500,wdth:125,slnt:0,opsz:14}, ps:'FCCrimp-ExtendedMedium', styleName:'Extended Medium' },
+  { id:'i8', name:'Caption Light', group:'Caption', coords:{wght:300,wdth:100,slnt:0,opsz:8}, ps:'FCCrimp-CaptionLight', styleName:'Caption Light' },
+];
 
 const state = {
-  file: 'gravity',
-  mode: 'source', // source | planned
-  plannedReady: false,
-  plannedStale: false,
-  coords: {},
-  instanceId: null,
+  selectedId: 'i4',
+  hoverId: null,
+  footerMode: 'naming', // naming (default) | preview
+  footerExpanded: true,
   sample: 'Handgloves',
-  size: 72,
-  waterfall: false,
-  snapStops: true,
-  compare: false,
-  autoMaterialize: false,
-  delta: 'medium',
-  materializing: false,
+  size: 64,
+  hoverPeek: true,
+  search: '',
 };
 
-function file() { return FILES[state.file]; }
-
-function currentInstances() {
-  const f = file();
-  if (state.mode === 'source') return f.instancesSource;
-  return f.instancesPlanned[state.delta];
+function fmt(n) {
+  return Number.isInteger(n) ? String(n) : Number(n).toFixed(1).replace(/\.0$/, '');
 }
 
-function psPrefix() {
-  const f = file();
-  if (state.mode === 'source') return f.psPrefixSource;
-  if (state.delta === 'harsh') return f.psPrefixPlannedHarsh;
-  return f.psPrefixPlannedMild;
+function coordsLabel(c) {
+  return ['wght','wdth','slnt','opsz'].map(t => `${t}:${fmt(c[t])}`).join(' · ');
 }
 
-function nearestStop(axis, value) {
-  if (!axis.stops || !axis.stops.length) return null;
-  let best = axis.stops[0];
-  let bestDist = Math.abs(value - best);
-  for (const s of axis.stops) {
-    const d = Math.abs(value - s);
-    if (d < bestDist) { best = s; bestDist = d; }
+function variationSettings(c) {
+  return `"wght" ${c.wght}, "wdth" ${c.wdth}, "opsz" ${c.opsz}, "slnt" ${c.slnt}`;
+}
+
+function activeInstance() {
+  // Hover peeks while pointer is over a row; otherwise show selection.
+  if (state.hoverPeek && state.hoverId) {
+    return INSTANCES.find(i => i.id === state.hoverId) || null;
   }
-  const threshold = Math.max(axis.step * 2, (axis.max - axis.min) * 0.02);
-  return bestDist <= threshold ? best : null;
+  return INSTANCES.find(i => i.id === state.selectedId) || INSTANCES[0];
 }
 
-function findMatchingInstance() {
-  const list = currentInstances();
-  return list.find(inst =>
-    file().axes.every(a => Math.abs((inst.coords[a.tag] ?? a.def) - state.coords[a.tag]) < 0.51)
-  ) || null;
+function isPeeking() {
+  return !!(state.hoverPeek && state.hoverId && state.hoverId !== state.selectedId);
 }
 
-function variationSettings(coords) {
-  return file().axes.map(a => `"${a.tag}" ${Number(coords[a.tag] ?? a.def)}`).join(', ');
+function renderAxisTree() {
+  document.getElementById('axisTree').innerHTML = AXES.map(a => `
+    <div class="axis-block">
+      <div class="ah">${a.name}<span>${a.tag}</span></div>
+      ${a.stops.map(s => `<div class="stop"><span class="n">${s.n}</span><span class="v">${fmt(s.v)}</span></div>`).join('')}
+    </div>
+  `).join('');
 }
 
-function applyVariation(el, coords) {
-  el.style.fontVariationSettings = variationSettings(coords);
-  el.style.fontSize = state.size + 'px';
+function filteredInstances() {
+  const q = state.search.trim().toLowerCase();
+  if (!q) return INSTANCES;
+  return INSTANCES.filter(i =>
+    i.name.toLowerCase().includes(q) || coordsLabel(i.coords).toLowerCase().includes(q)
+  );
+}
+
+function renderInstList() {
+  const list = filteredInstances();
+  document.getElementById('instCount').textContent = `${list.length} shown`;
+
+  const groups = [];
+  for (const inst of list) {
+    let g = groups.find(x => x.label === inst.group);
+    if (!g) { g = { label: inst.group, items: [] }; groups.push(g); }
+    g.items.push(inst);
+  }
+
+  document.getElementById('instList').innerHTML = groups.map(g => `
+    <div class="group-label">${g.label}</div>
+    ${g.items.map(i => {
+      const sel = i.id === state.selectedId;
+      const peek = i.id === state.hoverId && !sel;
+      return `<div class="inst-row ${sel ? 'sel' : ''} ${peek ? 'peek' : ''}"
+        data-id="${i.id}" role="option" aria-selected="${sel}">
+        <div class="check on"></div>
+        <div>
+          <div class="name">${escapeHtml(i.name)}</div>
+          <div class="coords">${coordsLabel(i.coords)}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  `).join('');
+
+  document.querySelectorAll('.inst-row').forEach(row => {
+    const id = row.dataset.id;
+    row.addEventListener('mouseenter', () => {
+      if (!state.hoverPeek) return;
+      state.hoverId = id;
+      syncPreview();
+      paintRowStates();
+    });
+    row.addEventListener('mouseleave', () => {
+      if (state.hoverId === id) {
+        state.hoverId = null;
+        syncPreview();
+        paintRowStates();
+      }
+    });
+    row.addEventListener('click', () => {
+      state.selectedId = id;
+      state.hoverId = null;
+      syncPreview();
+      paintRowStates();
+      renderInspector();
+    });
+  });
+}
+
+function paintRowStates() {
+  document.querySelectorAll('.inst-row').forEach(row => {
+    const id = row.dataset.id;
+    row.classList.toggle('sel', id === state.selectedId);
+    row.classList.toggle('peek', id === state.hoverId && id !== state.selectedId);
+  });
+}
+
+function renderInspector() {
+  const inst = INSTANCES.find(i => i.id === state.selectedId) || INSTANCES[0];
+  document.getElementById('inspector').innerHTML = `
+    <div class="insp-label">Style name</div>
+    <div class="insp-val">${escapeHtml(inst.name)}</div>
+    <div class="insp-label">PostScript</div>
+    <div class="insp-val mono">${escapeHtml(inst.ps)}</div>
+    <div class="insp-label">Coordinates</div>
+    <div class="insp-val mono">${coordsLabel(inst.coords)}</div>
+    <div class="insp-label">Naming chain</div>
+    <div class="chip-row">
+      ${['opsz','wdth','wght','slnt'].map(t =>
+        `<span class="chip">${t} ${fmt(inst.coords[t])}</span>`
+      ).join('')}
+    </div>
+  `;
 }
 
 function syncPreview() {
-  const preview = document.getElementById('previewText');
-  const ghost = document.getElementById('ghostText');
-  applyVariation(preview, state.coords);
-  if (preview.textContent !== state.sample && document.activeElement !== preview) {
-    preview.textContent = state.sample;
+  const inst = activeInstance();
+  const peeking = isPeeking();
+  const text = document.getElementById('previewText');
+  text.style.fontVariationSettings = variationSettings(inst.coords);
+  text.style.fontSize = state.size + 'px';
+  text.classList.toggle('peeking', peeking);
+  if (document.activeElement !== text && text.textContent !== state.sample) {
+    text.textContent = state.sample;
   }
-  ghost.textContent = state.sample;
-  applyVariation(ghost, Object.fromEntries(file().axes.map(a => [a.tag, a.def])));
-  ghost.style.fontSize = state.size + 'px';
 
-  const showGhost = state.compare && state.mode === 'planned' && state.plannedReady;
-  document.getElementById('compareGhost').classList.toggle('on', showGhost);
+  const statusInst = document.getElementById('statusInst');
+  statusInst.innerHTML = peeking
+    ? `<em>${escapeHtml(inst.name)}</em> · `
+    : `<span style="color:var(--text)">${escapeHtml(inst.name)}</span> · `;
 
-  renderWaterfall();
-  updateCoordReadout();
-  updateIdentity();
-  updateRisk();
-  updateStatusPill();
-  updateSnapHints();
-}
+  document.getElementById('statusCoords').textContent = coordsLabel(inst.coords);
 
-function renderWaterfall() {
-  const el = document.getElementById('waterfall');
-  el.classList.toggle('on', state.waterfall);
-  if (!state.waterfall) return;
-  const wghtAxis = file().axes.find(a => a.tag === 'wght');
-  const weights = wghtAxis
-    ? (wghtAxis.stops || [wghtAxis.min, wghtAxis.def, wghtAxis.max])
-    : [400];
-  const base = { ...state.coords };
-  el.innerHTML = weights.map(w => {
-    const c = { ...base, wght: w };
-    const size = Math.max(18, Math.round(state.size * 0.42));
-    return `<div>
-      <div class="wf-meta">wght ${w}</div>
-      <div class="wf-line" style="font-size:${size}px;font-variation-settings:${variationSettings(c).replace(/"/g, '&quot;')}">${escapeHtml(state.sample)}</div>
-    </div>`;
-  }).join('');
-  // set via style properly
-  el.querySelectorAll('.wf-line').forEach((node, i) => {
-    const c = { ...base, wght: weights[i] };
-    node.style.fontVariationSettings = variationSettings(c);
-  });
+  const pill = document.getElementById('statusPill');
+  pill.textContent = peeking ? 'Peek · hover' : 'Source · live';
+  pill.classList.toggle('peek', peeking);
+
+  const collapsed = document.getElementById('collapsedSummary');
+  if (state.footerMode === 'preview') {
+    collapsed.textContent = inst.name + (peeking ? ' (peek)' : '');
+    collapsed.classList.toggle('peeking', peeking);
+  } else {
+    collapsed.textContent = inst.name;
+    collapsed.classList.remove('peeking');
+  }
+
+  document.getElementById('namingName').textContent = inst.styleName || inst.name;
+  document.getElementById('namingPS').textContent = inst.ps;
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function updateCoordReadout() {
-  const parts = file().axes.map(a => `${a.tag}:${formatNum(state.coords[a.tag])}`);
-  document.getElementById('coordReadout').textContent = parts.join('  ·  ');
-}
-
-function formatNum(n) {
-  return Number.isInteger(n) ? String(n) : Number(n).toFixed(1).replace(/\.0$/, '');
-}
-
-function updateIdentity() {
-  const match = findMatchingInstance();
-  const styleName = match ? match.name : 'Custom location';
-  const psName = match
-    ? match.ps
-    : `${psPrefix()}-Custom`;
-  const was = match && match.was ? match.was : null;
-  const psChanged = state.mode === 'planned' && state.plannedReady && (
-    state.delta === 'harsh' || (match && match.ps !== sourcePsForCoords(match.coords))
-  );
-
-  document.getElementById('identity').innerHTML = `
-    <div class="id-row"><span class="k">Style</span><span class="v ${was ? 'changed' : ''}">${escapeHtml(styleName)}${was ? `<span class="id-was">${escapeHtml(was)}</span>` : ''}</span></div>
-    <div class="id-row"><span class="k">PS name</span><span class="v ${psChanged ? 'changed' : ''}">${escapeHtml(psName)}</span></div>
-    <div class="id-row"><span class="k">Family</span><span class="v">${escapeHtml(file().familyLabel)}</span></div>
-  `;
-
-  const meta = match
-    ? `Matched · ${file().axes.map(a => `${a.tag} ${formatNum(match.coords[a.tag])}`).join(' · ')}`
-    : 'Off-instance — free axis location';
-  document.getElementById('instMeta').textContent = meta;
-
-  // keep select in sync without firing change
-  const sel = document.getElementById('instSelect');
-  const want = match ? match.id : '';
-  if (sel.value !== want) sel.value = want;
-  state.instanceId = match ? match.id : null;
-}
-
-function sourcePsForCoords(coords) {
-  const src = file().instancesSource.find(inst =>
-    file().axes.every(a => Math.abs((inst.coords[a.tag] ?? a.def) - (coords[a.tag] ?? a.def)) < 0.51)
-  );
-  return src ? src.ps : null;
-}
-
-function updateRisk() {
-  const card = document.getElementById('riskCard');
-  const title = document.getElementById('riskTitle');
-  const body = document.getElementById('riskBody');
-  const list = document.getElementById('riskList');
-  card.className = 'risk-card';
-  list.innerHTML = '';
-
-  if (state.mode === 'source') {
-    card.classList.add('ok');
-    title.textContent = 'Source · baseline';
-    body.textContent = 'Previewing the installed font. No planned identity changes — undo risk is N/A until you switch to Planned.';
-    return;
-  }
-
-  if (!state.plannedReady) {
-    card.classList.add('blocked');
-    title.textContent = 'Needs materialize';
-    body.textContent = 'Planned names and instances are not in a loadable font yet. Run a temp vfcommit write (or open Review, which already dry-runs) to populate this view.';
-    return;
-  }
-
-  const risks = [];
-  const planned = currentInstances();
-  const source = file().instancesSource;
-
-  if (state.delta === 'harsh' || psPrefix() !== file().psPrefixSource) {
-    risks.push(`PostScript prefix changes (${file().psPrefixSource} → ${psPrefix()}) — host apps often key undo stacks on PS names.`);
-  }
-
-  const renamed = planned.filter(p => p.was && p.was !== '(new)');
-  if (renamed.length) {
-    risks.push(`${renamed.length} instance rename${renamed.length > 1 ? 's' : ''} (style menu / sticky styles may desync).`);
-  }
-
-  const added = planned.filter(p => p.was === '(new)');
-  if (added.length) {
-    risks.push(`${added.length} new named instance${added.length > 1 ? 's' : ''} added.`);
-  }
-
-  const removed = source.filter(s =>
-    !planned.some(p => file().axes.every(a =>
-      Math.abs((p.coords[a.tag] ?? a.def) - (s.coords[a.tag] ?? a.def)) < 0.51
-    ))
-  );
-  if (removed.length) {
-    risks.push(`${removed.length} source instance location${removed.length > 1 ? 's' : ''} missing from planned set.`);
-  }
-
-  const coordShifts = planned.filter(p => {
-    const src = source.find(s => s.name === (p.was && p.was !== '(new)' ? p.was : p.name) || s.ps.endsWith(p.name.replace(/\s+/g, '')));
-    if (!src) return p.was && p.was.includes('@');
-    return file().axes.some(a => Math.abs((src.coords[a.tag] ?? a.def) - (p.coords[a.tag] ?? a.def)) > 0.51);
+function setFooterMode(mode) {
+  state.footerMode = mode;
+  document.querySelectorAll('.footer-modes button').forEach(b => {
+    b.classList.toggle('on', b.dataset.footer === mode);
   });
-  if (state.delta === 'harsh') {
-    risks.push('At least one instance moved to new coordinates — documents pinned to old locs may look “undone” incorrectly.');
-  }
+  const isPreview = mode === 'preview';
+  document.getElementById('previewPanel').hidden = !isPreview;
+  document.getElementById('namingMock').hidden = isPreview;
+  document.getElementById('namingTools').hidden = isPreview;
 
-  if (!risks.length) {
-    card.classList.add('ok');
-    title.textContent = 'Low undo risk';
-    body.textContent = 'Planned identity matches source closely. Visual check still recommended at extremes.';
-    return;
-  }
+  document.getElementById('footerTitle').innerHTML = isPreview
+    ? 'Preview'
+    : 'Naming order <span class="scope">· project</span>';
 
-  card.classList.add('warn');
-  title.textContent = risks.length >= 3 ? 'Elevated undo risk' : 'Watch undo risk';
-  body.textContent = 'These planned writes can confuse apps that cache style identity across undo:';
-  list.innerHTML = risks.map(r => `<li>${escapeHtml(r)}</li>`).join('');
-}
-
-function updateStatusPill() {
-  const pill = document.getElementById('statusPill');
-  pill.className = 'pill';
-  if (state.mode === 'source') {
-    pill.classList.add('source');
-    pill.textContent = 'Source · live';
-  } else if (!state.plannedReady) {
-    pill.classList.add('stale');
-    pill.textContent = 'Planned · not materialized';
-  } else if (state.plannedStale) {
-    pill.classList.add('stale');
-    pill.textContent = 'Planned · stale (re-materialize)';
+  const hint = document.getElementById('instHint');
+  if (isPreview) {
+    hint.innerHTML = '<b>Hover</b> a row to peek · <b>Click</b> to pin the preview';
+    document.getElementById('statusNote').textContent = 'Preview follows instance hover / selection';
   } else {
-    pill.classList.add('planned');
-    pill.textContent = 'Planned · temp font';
+    hint.innerHTML = 'Switch footer to <b>Preview</b>, then <b>hover</b> / <b>click</b> rows to drive the glyph';
+    document.getElementById('statusNote').textContent = 'Naming order · default footer mode';
   }
-}
 
-function updateSnapHints() {
-  document.querySelectorAll('.axis-row').forEach(row => {
-    const tag = row.dataset.tag;
-    const axis = file().axes.find(a => a.tag === tag);
-    if (!axis) return;
-    const snap = state.snapStops ? nearestStop(axis, state.coords[tag]) : null;
-    const hint = row.querySelector('.snap-hint');
-    row.classList.toggle('snapped', !!snap);
-    if (!hint) return;
-    if (snap != null && Math.abs(snap - state.coords[tag]) > 0.001) {
-      hint.textContent = `Near stop ${formatNum(snap)} — click value to snap`;
-      hint.classList.add('on');
-      hint.onclick = () => { state.coords[tag] = snap; row.querySelector('input').value = snap; syncPreview(); };
-    } else if (snap != null) {
-      hint.textContent = `On stop ${formatNum(snap)}`;
-      hint.classList.add('on');
-      hint.onclick = null;
-    } else {
-      hint.textContent = '';
-      hint.classList.remove('on');
-      hint.onclick = null;
-    }
-  });
-}
-
-function renderAxisSliders() {
-  const host = document.getElementById('axisSliders');
-  host.innerHTML = file().axes.map(a => `
-    <div class="axis-row" data-tag="${a.tag}">
-      <div class="axis-head">
-        <div><span class="axis-name">${escapeHtml(a.name)}</span><span class="axis-tag">${a.tag}</span></div>
-        <div class="axis-val" id="val-${a.tag}">${formatNum(state.coords[a.tag] ?? a.def)}</div>
-      </div>
-      <input type="range" min="${a.min}" max="${a.max}" step="${a.step}" value="${state.coords[a.tag] ?? a.def}" data-tag="${a.tag}">
-      <div class="axis-bounds"><span>${formatNum(a.min)}</span><span>${formatNum(a.max)}</span></div>
-      <div class="snap-hint"></div>
-    </div>
-  `).join('');
-
-  host.querySelectorAll('input[type=range]').forEach(input => {
-    input.addEventListener('input', () => {
-      const tag = input.dataset.tag;
-      state.coords[tag] = Number(input.value);
-      document.getElementById(`val-${tag}`).textContent = formatNum(state.coords[tag]);
-      syncPreview();
-    });
-  });
-}
-
-function renderInstanceSelect() {
-  const sel = document.getElementById('instSelect');
-  const list = currentInstances();
-  const custom = `<option value="">Custom location</option>`;
-  sel.innerHTML = custom + list.map(i => {
-    const mark = i.was === '(new)' ? ' · new' : (i.was ? ' · renamed' : '');
-    return `<option value="${i.id}">${escapeHtml(i.name)}${mark}</option>`;
-  }).join('');
-  if (state.instanceId && list.some(i => i.id === state.instanceId)) {
-    sel.value = state.instanceId;
-  }
-}
-
-function resetCoordsToDefaults() {
-  state.coords = Object.fromEntries(file().axes.map(a => [a.tag, a.def]));
-  state.instanceId = null;
-}
-
-function applyInstance(id) {
-  const inst = currentInstances().find(i => i.id === id);
-  if (!inst) return;
-  state.instanceId = id;
-  state.coords = { ...inst.coords };
-  // ensure all axes present
-  file().axes.forEach(a => {
-    if (state.coords[a.tag] == null) state.coords[a.tag] = a.def;
-  });
-  renderAxisSliders();
+  setFooterExpanded(state.footerExpanded);
   syncPreview();
 }
 
-function setMode(mode, { skipGate = false } = {}) {
-  if (mode === 'planned' && !state.plannedReady && !skipGate && !state.autoMaterialize) {
-    showGate(true);
-    return;
-  }
-  if (mode === 'planned' && !state.plannedReady && state.autoMaterialize) {
-    materialize().then(() => finishMode(mode));
-    return;
-  }
-  finishMode(mode);
-}
-
-function finishMode(mode) {
-  state.mode = mode;
-  document.querySelectorAll('.modebtn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-  const hint = document.getElementById('modeHint');
-  const matBtn = document.getElementById('btnMaterialize');
-  if (mode === 'source') {
-    hint.innerHTML = 'Reading the <b>on-disk</b> font. Axes and instances from current fvar — no write needed.';
-    matBtn.style.display = 'none';
-    showGate(false);
-  } else {
-    hint.innerHTML = state.plannedReady
-      ? 'Rendering from a <b>temp materialized</b> font (vfcommit write to cache). Not your export destination.'
-      : 'Planned tables exist only after a <b>temp vfcommit</b> — same engine as Review, no Review UI required.';
-    matBtn.style.display = state.plannedReady ? 'none' : '';
-  }
-  renderInstanceSelect();
-  // Prefer Regular-like default when switching
-  const prefer = currentInstances().find(i => /regular/i.test(i.name)) || currentInstances()[0];
-  if (prefer) applyInstance(prefer.id);
-  else { renderAxisSliders(); syncPreview(); }
-  updateModeChrome();
-}
-
-function updateModeChrome() {
-  document.getElementById('btnMaterialize').style.display =
-    state.mode === 'planned' && (!state.plannedReady || state.plannedStale) ? '' : 'none';
-  if (state.mode === 'planned' && state.plannedReady) {
-    document.getElementById('modeHint').innerHTML =
-      'Rendering from a <b>temp materialized</b> font (vfcommit write to cache). Not your export destination.';
-  }
-  updateStatusPill();
-  updateRisk();
-}
-
-function showGate(on) {
-  document.getElementById('overlayGate').classList.toggle('on', on);
-  if (on) {
-    document.getElementById('gateTitle').textContent = 'Materialize planned font?';
-    document.getElementById('gateBody').textContent =
-      'Planned preview needs a temporary vfcommit write so Core Text can load the new name / fvar / STAT tables. This does not open Save Review and does not touch your export path.';
-    document.getElementById('gateGo').disabled = false;
-    document.getElementById('gateGo').innerHTML = 'Materialize temp';
-  }
-}
-
-function materialize() {
-  return new Promise(resolve => {
-    state.materializing = true;
-    showGate(true);
-    const go = document.getElementById('gateGo');
-    go.disabled = true;
-    go.innerHTML = '<span class="spinner"></span>Writing temp…';
-    document.getElementById('gateTitle').textContent = 'Materializing…';
-    document.getElementById('gateBody').textContent =
-      'Simulating vfcommit dry-run write → temp URL → CTFontCreateWithData. In the app this reuses the Save Review commit bridge without presenting the Review window.';
-
-    setTimeout(() => {
-      state.plannedReady = true;
-      state.plannedStale = false;
-      state.materializing = false;
-      showGate(false);
-      updateModeChrome();
-      resolve();
-    }, 900);
-  });
-}
-
-function loadFile(key) {
-  state.file = key;
-  state.plannedReady = false;
-  state.plannedStale = false;
-  document.querySelectorAll('.filechip').forEach(c => c.classList.toggle('on', c.dataset.file === key));
-  document.getElementById('wtitle').textContent = `Font Preview — ${file().title}`;
-  resetCoordsToDefaults();
-  if (state.mode === 'planned') {
-    // force re-materialize for new file
-    state.mode = 'source';
-  }
-  finishMode('source');
+function setFooterExpanded(expanded) {
+  state.footerExpanded = expanded;
+  document.getElementById('footerSlot').classList.toggle('collapsed', !expanded);
+  document.getElementById('footerToggle').setAttribute('aria-expanded', String(expanded));
+  const collapsed = document.getElementById('collapsedSummary');
+  const tools = document.getElementById('namingTools');
+  collapsed.hidden = expanded;
+  // Naming tools only when expanded + naming mode
+  tools.hidden = !expanded || state.footerMode !== 'naming';
+  // Mode switch stays visible when collapsed so you can flip without expanding first
 }
 
 // —— wiring ——
@@ -1078,71 +813,36 @@ document.getElementById('introToggle').addEventListener('click', () => {
   document.getElementById('intro').classList.toggle('open');
 });
 
-document.querySelectorAll('.filechip').forEach(chip => {
-  chip.addEventListener('click', () => loadFile(chip.dataset.file));
-});
-
-document.querySelectorAll('.modebtn').forEach(btn => {
-  btn.addEventListener('click', () => setMode(btn.dataset.mode));
-});
-
-document.getElementById('instSelect').addEventListener('change', e => {
-  if (!e.target.value) return;
-  applyInstance(e.target.value);
+document.getElementById('instSearch').addEventListener('input', e => {
+  state.search = e.target.value;
+  renderInstList();
 });
 
 document.getElementById('sampleInput').addEventListener('input', e => {
   state.sample = e.target.value;
   syncPreview();
 });
-
 document.getElementById('previewText').addEventListener('input', e => {
   state.sample = e.target.textContent;
   document.getElementById('sampleInput').value = state.sample;
-  const ghost = document.getElementById('ghostText');
-  ghost.textContent = state.sample;
-  if (state.waterfall) renderWaterfall();
 });
-
 document.getElementById('sizeSlider').addEventListener('input', e => {
   state.size = Number(e.target.value);
   document.getElementById('sizeLabel').textContent = String(state.size);
   syncPreview();
 });
 
-document.getElementById('btnWaterfall').addEventListener('click', () => {
-  state.waterfall = !state.waterfall;
-  document.getElementById('btnWaterfall').classList.toggle('primary', state.waterfall);
-  syncPreview();
+document.getElementById('footerToggle').addEventListener('click', () => {
+  setFooterExpanded(!state.footerExpanded);
+});
+document.querySelectorAll('.footer-modes button').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    setFooterMode(btn.dataset.footer);
+    if (!state.footerExpanded) setFooterExpanded(true);
+  });
 });
 
-document.getElementById('btnReset').addEventListener('click', () => {
-  const prefer = currentInstances().find(i => /regular/i.test(i.name));
-  if (prefer) applyInstance(prefer.id);
-  else { resetCoordsToDefaults(); renderAxisSliders(); syncPreview(); }
-});
-
-document.getElementById('btnMaterialize').addEventListener('click', async () => {
-  await materialize();
-  if (state.mode !== 'planned') finishMode('planned');
-  else { renderInstanceSelect(); syncPreview(); updateModeChrome(); }
-});
-
-document.getElementById('gateCancel').addEventListener('click', () => {
-  showGate(false);
-  finishMode('source');
-});
-
-document.getElementById('gateGo').addEventListener('click', async () => {
-  await materialize();
-  finishMode('planned');
-});
-
-document.getElementById('btnOpenReview').addEventListener('click', () => {
-  alert('Prototype: would open Save Review for this file.\n\nIdea: Review’s dry-run result could also satisfy “materialized” for Planned preview — one vfcommit, two consumers.');
-});
-
-// settings
 const fab = document.getElementById('settingsFab');
 const drawer = document.getElementById('settingsDrawer');
 const backdrop = document.getElementById('settingsBackdrop');
@@ -1150,40 +850,32 @@ function setSettingsOpen(open) {
   drawer.classList.toggle('open', open);
   backdrop.classList.toggle('open', open);
   drawer.setAttribute('aria-hidden', String(!open));
-  backdrop.setAttribute('aria-hidden', String(!open));
-  fab.setAttribute('aria-expanded', String(open));
 }
 fab.addEventListener('click', () => setSettingsOpen(!drawer.classList.contains('open')));
 backdrop.addEventListener('click', () => setSettingsOpen(false));
 document.getElementById('settingsClose').addEventListener('click', () => setSettingsOpen(false));
 
-document.getElementById('optSnapStops').addEventListener('change', e => {
-  state.snapStops = e.target.checked; updateSnapHints();
+document.getElementById('optHoverPeek').addEventListener('change', e => {
+  state.hoverPeek = e.target.checked;
+  if (!state.hoverPeek) state.hoverId = null;
+  syncPreview();
+  paintRowStates();
 });
-document.getElementById('optCompare').addEventListener('change', e => {
-  state.compare = e.target.checked; syncPreview();
-});
-document.getElementById('optAutoMaterialize').addEventListener('change', e => {
-  state.autoMaterialize = e.target.checked;
+document.getElementById('optPreviewH').addEventListener('change', e => {
+  document.documentElement.style.setProperty('--preview-h', e.target.value + 'px');
 });
 document.getElementById('optPreset').addEventListener('change', e => {
   state.sample = e.target.value;
   document.getElementById('sampleInput').value = state.sample;
   syncPreview();
 });
-document.getElementById('optDelta').addEventListener('change', e => {
-  state.delta = e.target.value;
-  if (state.mode === 'planned' && state.plannedReady) {
-    state.plannedStale = true; // simulate: plan changed after materialize
-  }
-  renderInstanceSelect();
-  syncPreview();
-  updateModeChrome();
-});
 
-// init
-resetCoordsToDefaults();
-finishMode('source');
+renderAxisTree();
+renderInstList();
+renderInspector();
+setFooterMode('naming');
+setFooterExpanded(true);
+syncPreview();
 </script>
 </body>
 </html>

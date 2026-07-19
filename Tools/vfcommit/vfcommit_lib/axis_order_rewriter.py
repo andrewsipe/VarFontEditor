@@ -10,6 +10,13 @@ from __future__ import annotations
 from typing import List, Sequence
 
 from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables.otTables import AxisRecord, AxisRecordArray
+
+
+def _stat_table(font: TTFont):
+    """Return the STAT table object (loaded fonts wrap in `.table`)."""
+    stat = font["STAT"]
+    return getattr(stat, "table", stat)
 
 
 def reorder_axis_tables(
@@ -17,20 +24,53 @@ def reorder_axis_tables(
     *,
     design_axis_tags: Sequence[str],
     fvar_axis_tags: Sequence[str] | None = None,
-) -> None:
-    """Rewrite STAT DesignAxisRecord order (+ AxisOrdering). Does not touch fvar/avar.
+) -> List[str]:
+    """Ensure + rewrite STAT DesignAxisRecord order (+ AxisOrdering).
+
+    Missing tags from ``design_axis_tags`` are appended before reordering.
+    Returns tags that were newly appended to DesignAxisRecord.
 
     ``fvar_axis_tags`` is accepted for call-site compatibility and ignored.
     """
     del fvar_axis_tags  # locked: do not permute fvar / avar
-    if design_axis_tags:
-        _reorder_stat_design_axes(font, list(design_axis_tags))
+    if not design_axis_tags:
+        return []
+    tag_list = list(design_axis_tags)
+    appended = _ensure_design_axes(font, tag_list)
+    _reorder_stat_design_axes(font, tag_list)
+    return appended
+
+
+def _ensure_design_axes(font: TTFont, tag_order: List[str]) -> List[str]:
+    """Append DesignAxisRecord rows for request tags missing from STAT."""
+    if "STAT" not in font:
+        return []
+    stat = _stat_table(font)
+    design = getattr(stat, "DesignAxisRecord", None)
+    if design is None or not hasattr(design, "Axis"):
+        design = AxisRecordArray()
+        design.Axis = []
+        stat.DesignAxisRecord = design
+
+    by_tag = {ax.AxisTag: ax for ax in design.Axis}
+    appended: List[str] = []
+    for tag in tag_order:
+        if tag in by_tag:
+            continue
+        rec = AxisRecord()
+        rec.AxisTag = tag
+        rec.AxisNameID = 0  # repointed in stat_builder._write_stat
+        rec.AxisOrdering = len(design.Axis)
+        design.Axis.append(rec)
+        by_tag[tag] = rec
+        appended.append(tag)
+    return appended
 
 
 def _reorder_stat_design_axes(font: TTFont, tag_order: List[str]) -> None:
     if "STAT" not in font:
         return
-    stat = font["STAT"].table
+    stat = _stat_table(font)
     design = getattr(stat, "DesignAxisRecord", None)
     if not design or not design.Axis:
         return
@@ -44,4 +84,4 @@ def _reorder_stat_design_axes(font: TTFont, tag_order: List[str]) -> None:
         axis.AxisOrdering = index
 
 
-__all__ = ["reorder_axis_tables"]
+__all__ = ["reorder_axis_tables", "_ensure_design_axes"]

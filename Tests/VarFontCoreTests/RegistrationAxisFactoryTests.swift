@@ -167,5 +167,39 @@ final class RegistrationAxisFactoryTests: XCTestCase {
         XCTAssertNil(project.fonts[1].fileStatRegistration["wdth"])
         XCTAssertTrue(project.template.axes.contains { $0.tag == "wdth" })
         XCTAssertTrue(project.naming.order.contains("wdth"))
+        XCTAssertEqual(project.fonts[0].statDesignAxisTags, ["wght", "wdth"])
+    }
+
+    /// The override lets the user correct a wrong Roman/Italic auto-detection on the file
+    /// they're actively editing, without disturbing how siblings are auto-detected.
+    func testItalicOverrideAppliesOnlyToSelectedFont() throws {
+        let roman = FontDocument(id: "roman", sourcePath: "/tmp/Roman.ttf")
+        let sibling = FontDocument(id: "sibling", sourcePath: "/tmp/Sibling.ttf")
+
+        var project = ProjectDocument(
+            schemaVersion: 1,
+            familyLabel: "Test",
+            naming: NamingPolicy(order: ["@pshyphen", "@code", "wght"]),
+            template: ProjectTemplate(),
+            fonts: [roman, sibling]
+        )
+
+        let axis = RegistrationAxisFactory.makeTemplateAxis(kind: .slope)
+        XCTAssertTrue(
+            RegistrationAxisFactory.insertNamingAxis(
+                axis,
+                into: &project,
+                selectedFontID: "roman",
+                italicOverride: true
+            )
+        )
+
+        let romanItal = try XCTUnwrap(project.fonts[0].axes.first { $0.tag == "ital" })
+        XCTAssertEqual(romanItal.values.first?.name, "Italic")
+        XCTAssertEqual(project.fonts[0].fileStatRegistration["ital"], 1)
+
+        let siblingItal = try XCTUnwrap(project.fonts[1].axes.first { $0.tag == "ital" })
+        XCTAssertEqual(siblingItal.values.first?.name, "Roman")
+        XCTAssertEqual(project.fonts[1].fileStatRegistration["ital"], 0)
     }
 }

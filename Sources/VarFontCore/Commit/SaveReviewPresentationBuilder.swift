@@ -6,9 +6,13 @@ public enum SaveReviewPresentationBuilder {
     font: FontDocument,
     plan: InstancePlan,
     report: CommitDiffReport,
-    diff: CommitDiff?
+    diff: CommitDiff?,
+    naming: NamingPolicy
   ) -> SaveReviewPresentation {
-    let namingOrder = analysis.inferred.namingOrderSuggested
+    let namingOrder = NamingPolicy.mergedOrder(
+      projectOrder: naming.order,
+      axisTags: font.axes.map(\.tag)
+    )
     let statTab = buildStatTab(
       analysis: analysis,
       font: font,
@@ -46,7 +50,7 @@ public enum SaveReviewPresentationBuilder {
     if !designTags.isEmpty {
       let axisRows = designTags.enumerated().map { index, tag in
         let displayName = font.axes.first(where: { $0.tag == tag })?.displayName
-        return makeSyntheticAxisRow(tag: tag, displayName: displayName, index: index)
+        return makeSyntheticAxisRow(tag: tag, displayName: displayName, index: index, font: font)
       }
       sections.append(SaveReviewSectionPresentation(title: "Axis records", rows: axisRows))
     }
@@ -58,6 +62,8 @@ public enum SaveReviewPresentationBuilder {
     )
 
     for tag in font.axes.map(\.tag) {
+      let axis = font.axes.first(where: { $0.tag == tag })
+      let isNamingAxis = axis?.isDesignRecordOnly == true
       let axisStatRows = report.statRows
         .filter { $0.tag == tag }
         .sorted { $0.value < $1.value }
@@ -69,15 +75,21 @@ public enum SaveReviewPresentationBuilder {
         let afterValue = SaveReviewRowFormatter.statAfterValue(row)
         let wasLine = SaveReviewRowFormatter.statWasLine(row: row, beforeFormat: beforeFormat)
         let fieldTitle = SaveReviewRowFormatter.statFieldTitle(tag: row.tag, value: row.value)
-        let fieldSubtitle = SaveReviewRowFormatter.statFieldSubtitle(row: row, beforeFormat: beforeFormat)
-        let roleLabel = SaveReviewRowFormatter.statMachineRole(format: row.afterStatFormat)
+        var fieldSubtitle = SaveReviewRowFormatter.statFieldSubtitle(row: row, beforeFormat: beforeFormat)
+        if isNamingAxis {
+          fieldSubtitle = "Naming axis · \(fieldSubtitle)"
+        }
+        let roleLabel = isNamingAxis
+          ? "naming_axis"
+          : SaveReviewRowFormatter.statMachineRole(format: row.afterStatFormat)
+        let noteLine = isNamingAxis ? namingAxisRegistrationNote(font: font, tag: tag) : nil
         return SaveReviewRowPresentation(
           id: "stat:\(key)",
           fieldTitle: fieldTitle,
           fieldSubtitle: fieldSubtitle,
           afterValue: afterValue,
           wasLine: wasLine,
-          noteLine: nil,
+          noteLine: noteLine,
           roleLabel: roleLabel,
           category: category,
           searchText: SaveReviewRowFormatter.searchText(
@@ -85,7 +97,7 @@ public enum SaveReviewPresentationBuilder {
             fieldSubtitle: fieldSubtitle,
             afterValue: afterValue,
             wasLine: wasLine,
-            noteLine: nil,
+            noteLine: noteLine,
             roleLabel: roleLabel
           )
         )
@@ -574,28 +586,57 @@ public enum SaveReviewPresentationBuilder {
     )
   }
 
-  private static func makeSyntheticAxisRow(tag: String, displayName: String?, index: Int) -> SaveReviewRowPresentation {
+  private static func makeSyntheticAxisRow(
+    tag: String,
+    displayName: String?,
+    index: Int,
+    font: FontDocument
+  ) -> SaveReviewRowPresentation {
+    let axis = font.axes.first(where: { $0.tag == tag })
+    let isNamingAxis = axis?.isDesignRecordOnly == true
     let fieldTitle = SaveReviewRowFormatter.designAxisFieldTitle(tag: tag, displayName: displayName)
-    let fieldSubtitle = SaveReviewRowFormatter.designAxisFieldSubtitle(index: index)
+    let fieldSubtitle = isNamingAxis
+      ? "Naming axis record \(index + 1)"
+      : SaveReviewRowFormatter.designAxisFieldSubtitle(index: index)
     let afterValue = SaveReviewRowFormatter.designAxisAfterValue(tag: tag)
+    let noteLine = isNamingAxis ? namingAxisRegistrationNote(font: font, tag: tag) : nil
+    let roleLabel = isNamingAxis ? "naming_axis" : nil
     return SaveReviewRowPresentation(
       id: "stat:axis:\(tag)",
       fieldTitle: fieldTitle,
       fieldSubtitle: fieldSubtitle,
       afterValue: afterValue,
       wasLine: nil,
-      noteLine: nil,
-      roleLabel: nil,
+      noteLine: noteLine,
+      roleLabel: roleLabel,
       category: .same,
       searchText: SaveReviewRowFormatter.searchText(
         fieldTitle: fieldTitle,
         fieldSubtitle: fieldSubtitle,
         afterValue: afterValue,
         wasLine: nil,
-        noteLine: nil,
-        roleLabel: nil
+        noteLine: noteLine,
+        roleLabel: roleLabel
       )
     )
+  }
+
+  private static func namingAxisRegistrationNote(font: FontDocument, tag: String) -> String? {
+    guard let resolved = RegistrationAxisSupport.registrationStopName(
+      tag: tag,
+      axes: font.axes,
+      fileStatRegistration: font.fileStatRegistration
+    ) else {
+      return "Per-file naming axis — no registered stop on this file"
+    }
+    var parts = ["Registered stop: \(resolved.stop.name)"]
+    if let code = resolved.stop.code, !code.isEmpty {
+      parts.append("code \(code)")
+    }
+    if resolved.elided {
+      parts.append("elided in composed names")
+    }
+    return parts.joined(separator: " · ")
   }
 
   // MARK: - Helpers
@@ -619,6 +660,8 @@ public enum SaveReviewPresentationBuilder {
   }
 
   private static func statDesignTags(font: FontDocument, analysis: FontAnalysis) -> [String] {
+    let fromAxes = font.axes.map(\.tag)
+    if !fromAxes.isEmpty { return fromAxes }
     if !font.statDesignAxisTags.isEmpty { return font.statDesignAxisTags }
     return analysis.designAxisTags
   }

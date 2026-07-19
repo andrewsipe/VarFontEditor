@@ -516,6 +516,7 @@ struct AddFileAxisSheet: View {
     @State private var nameText = ""
     @State private var valueText = "0"
     @State private var codeText = ""
+    @State private var slopeOverrideIsItalic: Bool?
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -536,9 +537,15 @@ struct AddFileAxisSheet: View {
         Double(valueText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    private var isItalicFile: Bool {
+    private var detectedIsItalicFile: Bool {
         guard let font = editor.selectedFont else { return false }
         return RegistrationAxisSupport.isItalicFile(font: font)
+    }
+
+    /// What actually gets written for the slope stop: the user's override when set,
+    /// otherwise whatever the file's own filename/style flags detect.
+    private var isItalicFile: Bool {
+        slopeOverrideIsItalic ?? detectedIsItalicFile
     }
 
     private var kindEnabled: Bool {
@@ -705,6 +712,7 @@ struct AddFileAxisSheet: View {
         .onAppear {
             selectFirstAvailableKind()
             seedFields(for: kind)
+            slopeOverrideIsItalic = nil
         }
     }
 
@@ -717,7 +725,13 @@ struct AddFileAxisSheet: View {
                     kind = option
                     seedFields(for: option)
                 } label: {
-                    Text(option.title)
+                    HStack(spacing: 5) {
+                        if !enabled {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                        }
+                        Text(option.title)
+                    }
                         .font(StudioTypography.caption)
                         .fontWeight(selected ? .medium : .regular)
                         .foregroundStyle(tabForeground(enabled: enabled, selected: selected))
@@ -733,6 +747,7 @@ struct AddFileAxisSheet: View {
                         }
                 }
                 .buttonStyle(.plain)
+                .disabled(!enabled)
                 .help(enabled ? option.title : (option.template.flatMap { editor.namingAxisBlockReason(for: $0) } ?? ""))
             }
         }
@@ -775,7 +790,7 @@ struct AddFileAxisSheet: View {
     private var fieldsRow: some View {
         switch kind {
         case .slope:
-            EmptyView()
+            slopeOverrideRow
         case .width, .optical:
             HStack(spacing: 10) {
                 StudioTextField(
@@ -857,6 +872,54 @@ struct AddFileAxisSheet: View {
         }
     }
 
+    private var slopeOverrideRow: some View {
+        HStack(spacing: 10) {
+            Text("Roman / Italic")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 2) {
+                slopeOverrideOption(title: "Roman", isItalic: false)
+                slopeOverrideOption(title: "Italic", isItalic: true)
+            }
+            .padding(2)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+            }
+            if slopeOverrideIsItalic != nil {
+                Button("Reset to detected") { slopeOverrideIsItalic = nil }
+                    .buttonStyle(.plain)
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(StudioColors.registrationForeground)
+            } else {
+                Text("Auto-detected from this file")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func slopeOverrideOption(title: String, isItalic: Bool) -> some View {
+        let selected = self.isItalicFile == isItalic
+        return Button {
+            slopeOverrideIsItalic = (isItalic == detectedIsItalicFile) ? nil : isItalic
+        } label: {
+            Text(title)
+                .font(StudioTypography.caption)
+                .fontWeight(selected ? .medium : .regular)
+                .foregroundStyle(selected ? StudioColors.registrationForeground : .secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    selected ? StudioColors.registrationBackground : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 5)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var policyBox: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(kind.policyTitle)
@@ -896,10 +959,11 @@ struct AddFileAxisSheet: View {
                 return disabledReason
                     ?? "One Format 3 stop per file. This tag is already spoken for."
             }
+            let basis = slopeOverrideIsItalic != nil ? "You’ve set this file as" : "This file looks"
             if isItalicFile {
-                return "This file looks italic — you’ll get one Format 3 stop at 1 (Italic), linked to 0. The link is a convention pointer, not a second named stop on this file."
+                return "\(basis) italic — you’ll get one Format 3 stop at 1 (Italic), linked to 0. The link is a convention pointer, not a second named stop on this file."
             }
-            return "This file looks upright — you’ll get one Format 3 stop at 0 (Roman, elided), linked to 1. The link is a convention pointer, not a second named stop on this file."
+            return "\(basis) upright — you’ll get one Format 3 stop at 0 (Roman, elided), linked to 1. The link is a convention pointer, not a second named stop on this file."
         case .width:
             if !kindEnabled {
                 return disabledReason
@@ -945,31 +1009,25 @@ struct AddFileAxisSheet: View {
                         StudioTagPill(text: previewTag, compact: true, role: .registration)
                     }
 
-                    HStack(spacing: 0) {
-                        previewColumnHeader("Fmt", width: 36)
-                        previewColumnHeader("Value", width: 52)
+                    HStack(spacing: 8) {
+                        previewColumnHeader("Format", width: 48, alignment: .center)
+                        previewColumnHeader("Value", width: 44, alignment: .trailing)
+                        previewColumnHeader("Name", width: nil, alignment: .leading)
+                        previewColumnHeader("Elided", width: 44, alignment: .center)
                         if editor.isCodeNamingEnabled {
-                            previewColumnHeader("Code", width: 40)
+                            previewColumnHeader("Code", width: 36, alignment: .center)
                         }
-                        previewColumnHeader("Name", width: nil)
-                        previewColumnHeader("Elid", width: 40)
                     }
 
-                    HStack(spacing: 0) {
+                    HStack(spacing: 8) {
                         Text(previewFmt)
                             .font(StudioTypography.tag.weight(.medium))
                             .foregroundStyle(previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1)
-                            .frame(width: 36, alignment: .leading)
+                            .frame(width: 48, alignment: .center)
                         Text(previewValue)
                             .font(StudioTypography.monoMeta)
                             .foregroundStyle(StudioColors.axisValue)
-                            .frame(width: 52, alignment: .leading)
-                        if editor.isCodeNamingEnabled {
-                            Text(previewCode)
-                                .font(StudioTypography.monoMeta)
-                                .foregroundStyle(StudioColors.codeForeground)
-                                .frame(width: 40, alignment: .leading)
-                        }
+                            .frame(width: 44, alignment: .trailing)
                         HStack(spacing: 4) {
                             Text(previewStopName)
                                 .font(StudioTypography.caption)
@@ -990,7 +1048,13 @@ struct AddFileAxisSheet: View {
                                     ? StudioColors.registrationForeground
                                     : Color.secondary.opacity(0.45)
                             )
-                            .frame(width: 40, alignment: .center)
+                            .frame(width: 44, alignment: .center)
+                        if editor.isCodeNamingEnabled {
+                            Text(previewCode)
+                                .font(StudioTypography.monoMeta)
+                                .foregroundStyle(StudioColors.codeForeground)
+                                .frame(width: 36, alignment: .center)
+                        }
                     }
                 }
             }
@@ -1004,12 +1068,12 @@ struct AddFileAxisSheet: View {
         }
     }
 
-    private func previewColumnHeader(_ title: String, width: CGFloat?) -> some View {
+    private func previewColumnHeader(_ title: String, width: CGFloat?, alignment: Alignment = .leading) -> some View {
         Text(title)
             .font(StudioTypography.meta)
             .foregroundStyle(.tertiary)
-            .frame(width: width, alignment: .leading)
-            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .frame(width: width, alignment: alignment)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
     }
 
     private func selectFirstAvailableKind() {
@@ -1053,7 +1117,7 @@ struct AddFileAxisSheet: View {
         let ok: Bool
         switch kind {
         case .slope:
-            ok = editor.addRegistrationTemplate(.slope)
+            ok = editor.addRegistrationTemplate(.slope, italicOverride: slopeOverrideIsItalic)
         case .width:
             ok = editor.addRegistrationTemplate(
                 .width,

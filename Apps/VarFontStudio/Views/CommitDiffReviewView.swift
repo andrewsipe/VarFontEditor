@@ -72,7 +72,7 @@ struct CommitDiffReviewView: View {
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: SaveReviewLayout.chromeSectionGap) {
                         header
-                        fileClarifiersBanner
+                        fileNamingBanner
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -112,10 +112,26 @@ struct CommitDiffReviewView: View {
     }
 
     @ViewBuilder
-    private var fileClarifiersBanner: some View {
-        let clarifiers = editor.clarifierLabels(for: session.fontID)
+    private var fileNamingBanner: some View {
+        let font = editor.project?.fonts.first { $0.id == session.fontID }
         let psPrefix = editor.familyPSPrefix(for: session.fontID)
-        if !clarifiers.isEmpty || !psPrefix.isEmpty {
+        let covered = font.map { RegistrationAxisSupport.clarifierCategoriesCoveredByRegistration(font: $0) } ?? []
+        let clarifiers = editor.clarifierLabels(for: session.fontID)
+            .filter { !covered.contains($0.category) }
+        let registrationStops: [(tag: String, name: String, code: String?)] = {
+            guard let font else { return [] }
+            return font.axes
+                .filter(\.isDesignRecordOnly)
+                .compactMap { axis -> (String, String, String?)? in
+                    guard let resolved = RegistrationAxisSupport.registrationStopName(
+                        tag: axis.tag,
+                        axes: font.axes,
+                        fileStatRegistration: font.fileStatRegistration
+                    ) else { return nil }
+                    return (axis.tag, resolved.stop.name, resolved.stop.code)
+                }
+        }()
+        if !psPrefix.isEmpty || !registrationStops.isEmpty || !clarifiers.isEmpty {
             HStack(spacing: 6) {
                 if !psPrefix.isEmpty {
                     Text("PS prefix")
@@ -123,6 +139,32 @@ struct CommitDiffReviewView: View {
                         .foregroundStyle(.secondary)
                     Text(psPrefix)
                         .font(StudioTypography.meta.monospaced())
+                }
+                if !registrationStops.isEmpty {
+                    Text("Naming")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                    ForEach(registrationStops, id: \.tag) { stop in
+                        HStack(spacing: 4) {
+                            Text(stop.tag)
+                                .font(StudioTypography.tag)
+                                .foregroundStyle(StudioColors.registrationForeground)
+                            Text(stop.name)
+                                .font(StudioTypography.meta)
+                                .foregroundStyle(StudioColors.registrationForeground)
+                            if let code = stop.code, !code.isEmpty {
+                                Text(code)
+                                    .font(StudioTypography.monoMeta)
+                                    .foregroundStyle(StudioColors.codeForeground)
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            StudioColors.registrationBackground,
+                            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        )
+                    }
                 }
                 if !clarifiers.isEmpty {
                     Text("Clarifiers")

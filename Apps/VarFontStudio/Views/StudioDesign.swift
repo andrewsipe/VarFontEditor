@@ -75,7 +75,7 @@ enum StudioRadius {
 /// - `StudioKeyValueRow` is for simple inspector key/value rows only — not axis coordinate tables.
 enum StudioFieldMetrics {
     static let horizontalPadding: CGFloat = 6
-    static let toolbarIconPointSize: CGFloat = 14
+    static let toolbarIconPointSize: CGFloat = 12
     static let toolbarIconHitSize: CGFloat = 24
 
     /// Single-line row heights matched to `StudioTypography` tiers.

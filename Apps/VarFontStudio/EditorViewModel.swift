@@ -23,6 +23,20 @@ enum InstanceFilter: String, CaseIterable, Identifiable {
     }
 }
 
+enum StudioFooterPanelMode: String, CaseIterable, Identifiable {
+    case namingOrder
+    case preview
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .namingOrder: "Naming order"
+        case .preview: "Preview"
+        }
+    }
+}
+
 struct InstanceGroup: Identifiable, Equatable {
     var label: String
     var instances: [PlannedInstance]
@@ -54,6 +68,12 @@ final class EditorViewModel: ObservableObject {
     @Published var selectedInstanceKey: String?
     @Published var selectedInstanceKeys: Set<String> = []
     @Published var selectedAxisStopID: String?
+    /// Footer chrome: Naming order (default) or live glyph Preview.
+    @Published var footerPanelMode: StudioFooterPanelMode = .namingOrder
+    /// Last instance hovered in Preview (sticky across row gaps).
+    @Published var previewHoverInstanceKey: String?
+    /// True while the pointer is over an instance row in Preview mode.
+    @Published var isPreviewHoverActive = false
     /// Review / export chrome and preflight sessions (Track B1 carve-out).
     let saveReview = SaveReviewStore()
     /// Conflict / plan-issue resolver sheets and review-queue walk (Track B2).
@@ -62,6 +82,7 @@ final class EditorViewModel: ObservableObject {
     let inspectorFocus = InspectorFocusStore()
     /// Workspace confirmations / missing-fonts / target picker (Track B4).
     let workspace = ProjectWorkspaceStore()
+    let fontPreviewCache = SourceFontPreviewCache()
     @Published var showShortcutsHelp = false
     @Published var searchText = ""
     @Published var instanceSearchFocusToken: UUID?
@@ -70,6 +91,9 @@ final class EditorViewModel: ObservableObject {
     @Published var planRevision = 0
     @Published var statusMessage: String?
     @Published var isBusy = false
+    /// 0...1 while `isBusy`; nil means indeterminate.
+    @Published var busyProgress: Double?
+    @Published var busyStatus: String?
     @Published var instanceListDisplay = InstanceListDisplay.empty
     @Published var canSave = false
 
@@ -229,6 +253,7 @@ final class EditorViewModel: ObservableObject {
 
     func removeSourceBookmark(fontID: String) {
         sourceBookmarks.removeValue(forKey: fontID)
+        fontPreviewCache.invalidate(fontID: fontID)
     }
 
     var project: ProjectDocument? {
@@ -244,7 +269,14 @@ final class EditorViewModel: ObservableObject {
         get { activeOpenProject?.selectedFontID }
         set {
             guard let idx = activeProjectIndex else { return }
+            let previous = openProjects[idx].selectedFontID
             openProjects[idx].selectedFontID = newValue
+            if previous != newValue {
+                clearPreviewHover()
+                if let previous {
+                    fontPreviewCache.invalidate(fontID: previous)
+                }
+            }
             publishOpenProjects()
         }
     }
@@ -276,6 +308,23 @@ final class EditorViewModel: ObservableObject {
                 statusMessage = nil
             }
         }
+    }
+
+    func beginBusyWork(status: String, progress: Double? = 0) {
+        isBusy = true
+        busyStatus = status
+        busyProgress = progress
+    }
+
+    func updateBusyWork(status: String? = nil, progress: Double? = nil) {
+        if let status { busyStatus = status }
+        if let progress { busyProgress = min(1, max(0, progress)) }
+    }
+
+    func endBusyWork() {
+        isBusy = false
+        busyStatus = nil
+        busyProgress = nil
     }
 
     private func canBeginWorkspaceDrag(item: WorkspaceDragItem) -> Bool {
@@ -405,6 +454,50 @@ final class EditorViewModel: ObservableObject {
         return project.fonts.first { $0.id == selectedFontID }
     }
 
+    /// Instance driving the footer Preview (sticky last hover wins over selection).
+    var previewActiveInstance: PlannedInstance? {
+        if footerPanelMode == .preview,
+           let key = previewHoverInstanceKey,
+           let plan = instancePlan,
+           let hovered = plan.instances.first(where: { $0.key == key }) {
+            return hovered
+        }
+        if let selected = selectedInstance {
+            return selected
+        }
+        return instancePlan?.instances.first
+    }
+
+    var isPreviewHoverPeeking: Bool {
+        guard footerPanelMode == .preview,
+              isPreviewHoverActive,
+              let hover = previewHoverInstanceKey else { return false }
+        return hover != selectedInstanceKey
+    }
+
+    /// - Parameter key: Pass a key on enter; leave `nil` on exit so the last hover stays sticky.
+    func setPreviewHoverInstanceKey(_ key: String?, active: Bool) {
+        if let key, previewHoverInstanceKey != key {
+            previewHoverInstanceKey = key
+        }
+        if isPreviewHoverActive != active {
+            isPreviewHoverActive = active
+        }
+    }
+
+    func clearPreviewHover() {
+        previewHoverInstanceKey = nil
+        isPreviewHoverActive = false
+    }
+
+    func setFooterPanelMode(_ mode: StudioFooterPanelMode) {
+        guard footerPanelMode != mode else { return }
+        footerPanelMode = mode
+        if mode != .preview {
+            clearPreviewHover()
+        }
+    }
+
     var filteredInstances: [PlannedInstance] {
         instanceListDisplay.groups.flatMap(\.instances)
     }
@@ -449,6 +542,12 @@ final class EditorViewModel: ObservableObject {
             }
             selectedInstanceKeys = [key]
             selectedInstanceKey = key
+        }
+
+        // Keep Preview pinned to the click target (don’t leave a stale sticky hover).
+        if footerPanelMode == .preview, let selectedInstanceKey {
+            previewHoverInstanceKey = selectedInstanceKey
+            isPreviewHoverActive = false
         }
     }
 

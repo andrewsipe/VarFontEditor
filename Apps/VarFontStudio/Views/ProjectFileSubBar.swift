@@ -124,9 +124,10 @@ struct ProjectFileSubBar: View {
     ) -> some View {
         HStack(spacing: 4) {
             if let savedName = editor.savedOutputLabel(for: font) {
-                Text("→")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.tertiary)
+                Image(systemName: "square.and.arrow.up.badge.checkmark")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .help("Exported to \(savedName)")
                 Text(savedName)
                     .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)

@@ -10,16 +10,28 @@ struct NamingOrderChainFooter: View {
     @State private var elidedFallbackDraft = ""
     /// Stable per-tag chip frames captured in the chain coordinate space.
     @State private var chipFrames: [String: CGRect] = [:]
+    /// Shared expanded-body height so Naming order ↔ Preview don’t jump.
+    @State private var footerBodyHeight: CGFloat = 0
 
     private let coordinateSpace = "namingChain"
+    private let footerBodyHeightFallback: CGFloat = 168
 
     private var visibleTags: [String] {
         editor.visibleNamingChainTags(hideStatOnly: hideStatOnly)
     }
 
+    private var showsFooter: Bool {
+        guard let font = editor.selectedFont else { return false }
+        return !font.axes.isEmpty || !editor.namingChainTags.isEmpty
+    }
+
+    private var isPreviewMode: Bool {
+        editor.footerPanelMode == .preview
+    }
+
     var body: some View {
         Group {
-            if let font = editor.selectedFont, !font.axes.isEmpty, !editor.namingChainTags.isEmpty {
+            if showsFooter {
                 disclosureContent
             }
         }
@@ -34,6 +46,11 @@ struct NamingOrderChainFooter: View {
             // Order changed underneath us (commit, reset, undo); end any stale drag.
             session.reset()
         }
+        .onChange(of: editor.footerPanelMode) { _, mode in
+            if mode != .preview {
+                editor.clearPreviewHover()
+            }
+        }
     }
 
     private var disclosureContent: some View {
@@ -41,28 +58,68 @@ struct NamingOrderChainFooter: View {
             disclosureHeader
 
             if isExpanded {
-                VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
-                    if editor.projectHasMultipleFiles {
-                        Text("Indigo chips are naming axes — each file carries its own stop on that axis.")
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(.tertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                Group {
+                    switch editor.footerPanelMode {
+                    case .namingOrder:
+                        namingOrderBody
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: FooterBodyHeightKey.self,
+                                        value: geometry.size.height
+                                    )
+                                }
+                            }
+                    case .preview:
+                        FontPreviewPanel()
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: resolvedFooterBodyHeight,
+                                maxHeight: resolvedFooterBodyHeight
+                            )
                     }
-
-                    namingOrderTrack
-
-                    exampleRow
-
-                    elidedFallbackRow
                 }
                 .padding(.top, StudioSpacing.controlGap)
                 .padding(.bottom, StudioSpacing.toolbarVertical + 2)
+                .onPreferenceChange(FooterBodyHeightKey.self) { height in
+                    guard height > 1 else { return }
+                    if abs(footerBodyHeight - height) > 0.5 {
+                        footerBodyHeight = height
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
+        .padding(.horizontal, isPreviewMode && isExpanded ? 0 : StudioSpacing.panelHorizontal + 6)
         .padding(.top, StudioSpacing.toolbarVertical + 2)
-        .padding(.bottom, isExpanded ? StudioSpacing.toolbarVertical + 2 : StudioSpacing.toolbarVertical)
+        .padding(.bottom, StudioSpacing.toolbarVertical)
+    }
+
+    private var resolvedFooterBodyHeight: CGFloat {
+        footerBodyHeight > 1 ? footerBodyHeight : footerBodyHeightFallback
+    }
+
+    private var namingOrderBody: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+            if editor.namingChainTags.isEmpty {
+                Text("No naming axes yet.")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+            } else {
+                if editor.projectHasMultipleFiles {
+                    Text("Indigo chips are naming axes — each file carries its own stop on that axis.")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                namingOrderTrack
+
+                exampleRow
+
+                elidedFallbackRow
+            }
+        }
     }
 
     private var disclosureHeader: some View {
@@ -70,39 +127,25 @@ struct NamingOrderChainFooter: View {
             Button {
                 isExpanded.toggle()
             } label: {
-                HStack(spacing: StudioSpacing.controlGap) {
-                    StudioNestedDisclosureChevron(isExpanded: isExpanded)
-
-                    HStack(spacing: StudioSpacing.controlGap) {
-                        HStack(spacing: 4) {
-                            Text("Naming order")
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.secondary)
-
-                            if editor.projectHasMultipleFiles {
-                                Text("· project")
-                                    .font(StudioTypography.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        .help("Drag a chip to reorder; drop into the outlined gap. Use Hide pinned axes to focus on naming axes.")
-
-                        if !isExpanded {
-                            Text(editor.namingChainSummary(hideStatOnly: hideStatOnly))
-                                .font(StudioTypography.meta)
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .frame(height: StudioFieldMetrics.disclosureLabelRowHeight)
-                .contentShape(Rectangle())
+                StudioNestedDisclosureChevron(isExpanded: isExpanded)
+                    .frame(height: StudioFieldMetrics.disclosureLabelRowHeight)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .help(isExpanded ? "Collapse footer" : "Expand footer")
+
+            footerModeSwitcher
+
+            if !isExpanded {
+                Text(collapsedSummary)
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(collapsedSummaryForeground)
+                    .lineLimit(1)
+            }
 
             Spacer(minLength: StudioSpacing.controlGap)
 
-            if isExpanded {
+            if isExpanded, !isPreviewMode {
                 HStack(spacing: StudioSpacing.controlGap) {
                     codeNamingControl
 
@@ -114,20 +157,95 @@ struct NamingOrderChainFooter: View {
 
                     restoreButton
                 }
-            } else {
-                Text(editor.namingChainPreviewName)
+            } else if !isExpanded {
+                Text(collapsedTrailingLabel)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(
-                        editor.namingChainPreviewIsElidedFallback
-                            ? StudioColors.elidedFallbackForeground
-                            : .primary
-                    )
+                    .foregroundStyle(collapsedTrailingForeground)
                     .lineLimit(1)
                     .frame(maxWidth: 220, alignment: .trailing)
             }
         }
+        .padding(.horizontal, isPreviewMode && isExpanded ? StudioSpacing.panelHorizontal + 6 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: StudioFieldMetrics.disclosureLabelRowHeight)
+    }
+
+    private var footerModeSwitcher: some View {
+        HStack(spacing: 1) {
+            ForEach(StudioFooterPanelMode.allCases) { mode in
+                Button {
+                    editor.setFooterPanelMode(mode)
+                    if !isExpanded {
+                        isExpanded = true
+                    }
+                } label: {
+                    Text(mode.title)
+                        .font(StudioTypography.meta)
+                        .fontWeight(editor.footerPanelMode == mode ? .semibold : .regular)
+                        .foregroundStyle(editor.footerPanelMode == mode ? Color.accentColor : .secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background {
+                            RoundedRectangle(cornerRadius: StudioRadius.small)
+                                .fill(editor.footerPanelMode == mode ? Color.accentColor.opacity(0.12) : Color.clear)
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
+                }
+                .buttonStyle(.plain)
+                .help(modeHelp(mode))
+            }
+        }
+        .padding(2)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+    }
+
+    private func modeHelp(_ mode: StudioFooterPanelMode) -> String {
+        switch mode {
+        case .namingOrder:
+            return "Drag chips to reorder naming. Use Hide pinned axes to focus on naming axes."
+        case .preview:
+            return "Live source-font glyph preview. Hover an instance to peek; click to pin."
+        }
+    }
+
+    private var collapsedSummary: String {
+        if isPreviewMode {
+            return editor.previewActiveInstance?.composedName
+                ?? "Select an instance"
+        }
+        return editor.namingChainSummary(hideStatOnly: hideStatOnly)
+    }
+
+    private var collapsedSummaryForeground: some ShapeStyle {
+        if isPreviewMode && editor.isPreviewHoverPeeking {
+            return AnyShapeStyle(Color.accentColor)
+        }
+        return AnyShapeStyle(.tertiary)
+    }
+
+    private var collapsedTrailingLabel: String {
+        if isPreviewMode {
+            return editor.previewActiveInstance.map { coordsCaption(for: $0) } ?? ""
+        }
+        return editor.namingChainPreviewName
+    }
+
+    private var collapsedTrailingForeground: some ShapeStyle {
+        if isPreviewMode {
+            return AnyShapeStyle(.tertiary)
+        }
+        return AnyShapeStyle(
+            editor.namingChainPreviewIsElidedFallback
+                ? StudioColors.elidedFallbackForeground
+                : .primary
+        )
+    }
+
+    private func coordsCaption(for instance: PlannedInstance) -> String {
+        let order = editor.selectedFont?.axes.map(\.tag) ?? Array(instance.coords.keys).sorted()
+        return StudioFormatting.coordPairs(coords: instance.coords, namingOrder: order)
+            .joined(separator: " · ")
+            .replacingOccurrences(of: "=", with: ":")
     }
 
     private var codeNamingControl: some View {
@@ -892,5 +1010,13 @@ private struct ChainChipFramePreferenceKey: PreferenceKey {
 
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
         value.merge(nextValue()) { _, new in new }
+    }
+}
+
+private struct FooterBodyHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

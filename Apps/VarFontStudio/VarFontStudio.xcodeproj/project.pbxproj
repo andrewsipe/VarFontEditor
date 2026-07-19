@@ -56,7 +56,9 @@
 		B2000024 /* AxisConflictResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000023 /* AxisConflictResolverSheet.swift */; };
 		B2000025 /* CommitDiffSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitDiffSheet.swift */; };
 		B2000026 /* CommitPreflightSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000025 /* CommitPreflightSession.swift */; };
-		B2000027 /* SourceFontAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000026 /* SourceFontAccess.swift */; };
+				B2000027 /* SourceFontAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000026 /* SourceFontAccess.swift */; };
+		B2000080 /* SourceFontPreviewCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000080 /* SourceFontPreviewCache.swift */; };
+		B2000081 /* FontPreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000081 /* FontPreviewPanel.swift */; };
 		B2000028 /* SaveReviewWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000027 /* SaveReviewWindowLifecycle.swift */; };
 		B2000029 /* FileClarifiersBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000028 /* FileClarifiersBar.swift */; };
 		B2000030 /* ProjectFileCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000029 /* ProjectFileCommands.swift */; };
@@ -129,6 +131,8 @@
 		F2000024 /* CommitDiffSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffSheet.swift; sourceTree = "<group>"; };
 		F2000025 /* CommitPreflightSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSession.swift; sourceTree = "<group>"; };
 		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
+		F2000080 /* SourceFontPreviewCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontPreviewCache.swift; sourceTree = "<group>"; };
+		F2000081 /* FontPreviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontPreviewPanel.swift; sourceTree = "<group>"; };
 		F2000027 /* SaveReviewWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewWindowLifecycle.swift; sourceTree = "<group>"; };
 		F2000028 /* FileClarifiersBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClarifiersBar.swift; sourceTree = "<group>"; };
 		F2000029 /* ProjectFileCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileCommands.swift; sourceTree = "<group>"; };
@@ -207,6 +211,7 @@
 				F2000069 /* EditorViewModel+AxisOrder.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
+				F2000080 /* SourceFontPreviewCache.swift */,
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
@@ -267,6 +272,7 @@
 				F2000009 /* StudioDesign.swift */,
 				F2000010 /* InstanceInclusionCommands.swift */,
 				F2000011 /* NamingOrderChainFooter.swift */,
+				F2000081 /* FontPreviewPanel.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -455,6 +461,7 @@
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,
+				B2000080 /* SourceFontPreviewCache.swift in Sources */,
 				B2000028 /* SaveReviewWindowLifecycle.swift in Sources */,
 				B2000029 /* FileClarifiersBar.swift in Sources */,
 				B2000030 /* ProjectFileCommands.swift in Sources */,
@@ -465,6 +472,7 @@
 				B2000010 /* StudioDesign.swift in Sources */,
 				B2000011 /* InstanceInclusionCommands.swift in Sources */,
 				B2000012 /* NamingOrderChainFooter.swift in Sources */,
+				B2000081 /* FontPreviewPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -255,16 +255,21 @@ public enum RegistrationAxisFactory {
     public static func insertNamingAxis(
         _ axis: AxisDefinition,
         into project: inout ProjectDocument,
-        selectedFontID: String
+        selectedFontID: String,
+        italicOverride: Bool? = nil
     ) -> Bool {
         if axis.tag == "ital" {
             var changed = false
             for index in project.fonts.indices {
                 guard !project.fonts[index].axes.contains(where: { $0.tag == "ital" }) else { continue }
-                let italic = RegistrationAxisSupport.isItalicFile(font: project.fonts[index])
+                // The override only reflects the user's judgment call for the file they're actively
+                // editing; every other sibling still gets auto-detected from its own filename/style.
+                let italic = (project.fonts[index].id == selectedFontID ? italicOverride : nil)
+                    ?? RegistrationAxisSupport.isItalicFile(font: project.fonts[index])
                 let axisForFile = makeItalAxis(isItalicFile: italic)
                 project.fonts[index].axes.append(axisForFile)
                 project.fonts[index].fileStatRegistration["ital"] = axisForFile.values.first?.value ?? 0
+                syncStatDesignAxisTags(on: &project.fonts[index])
                 project.fonts[index].dirty = true
                 changed = true
             }
@@ -293,6 +298,7 @@ public enum RegistrationAxisFactory {
 
         project.fonts[index].axes.append(axis)
         project.fonts[index].fileStatRegistration[axis.tag] = axis.values.first?.value ?? 0
+        syncStatDesignAxisTags(on: &project.fonts[index])
         project.fonts[index].dirty = true
 
         if !project.template.axes.contains(where: {
@@ -354,6 +360,7 @@ public enum RegistrationAxisFactory {
                     let axis = makeItalAxis(isItalicFile: isItalic)
                     if !project.fonts[index].axes.contains(where: { $0.tag == "ital" }) {
                         project.fonts[index].axes.append(axis)
+                        syncStatDesignAxisTags(on: &project.fonts[index])
                     }
                     if let stop = axis.values.first {
                         project.fonts[index].fileStatRegistration["ital"] = stop.value
@@ -593,10 +600,16 @@ public enum RegistrationAxisFactory {
         for index in project.fonts.indices {
             guard !project.fonts[index].axes.contains(where: { $0.tag == axis.tag }) else { continue }
             project.fonts[index].axes.append(axis)
+            syncStatDesignAxisTags(on: &project.fonts[index])
         }
         if !project.template.axes.contains(where: { $0.tag == axis.tag }) {
             project.template.axes.append(axis)
         }
+    }
+
+    /// Keep import-time STAT tag list aligned with the live Axis Tree order.
+    private static func syncStatDesignAxisTags(on font: inout FontDocument) {
+        font.statDesignAxisTags = font.axes.map(\.tag)
     }
 
     @discardableResult

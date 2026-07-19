@@ -59,6 +59,33 @@ final class CommitRequestBuilderTests: XCTestCase {
         XCTAssertEqual(path, "/Users/test/ExportPackage/PlayfairRomanVF.woff2")
     }
 
+    func testPackageExportDirectoryNestsWhenCollidingWithSources() {
+        let sourceDir = URL(fileURLWithPath: "/Users/test/fonts", isDirectory: true)
+        let sources = [
+            "/Users/test/fonts/Roman.ttf",
+            "/Users/test/fonts/Italic.ttf",
+        ]
+        let resolved = CommitRequestBuilder.packageExportDirectory(
+            chosenDirectory: sourceDir,
+            sourcePaths: sources,
+            folderLabel: "FCCrimp"
+        )
+        XCTAssertTrue(resolved.nestedBecauseOfCollision)
+        XCTAssertEqual(resolved.directory.path, "/Users/test/fonts/FCCrimp Patched")
+    }
+
+    func testPackageExportDirectoryKeepsChosenWhenSafe() {
+        let chosen = URL(fileURLWithPath: "/Users/test/ExportPackage", isDirectory: true)
+        let sources = ["/Users/test/fonts/Roman.ttf"]
+        let resolved = CommitRequestBuilder.packageExportDirectory(
+            chosenDirectory: chosen,
+            sourcePaths: sources,
+            folderLabel: "FCCrimp"
+        )
+        XCTAssertFalse(resolved.nestedBecauseOfCollision)
+        XCTAssertEqual(resolved.directory.path, "/Users/test/ExportPackage")
+    }
+
     func testCommitNamingPrunesPhantomTokens() {
         let order = NamingPolicy.mergedOrder(
             projectOrder: [
@@ -106,5 +133,18 @@ final class CommitRequestBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(request.options.nameidStrategy, .reflow)
+    }
+
+    func testResolvedDesignAxisTagsPrefersLiveAxisTree() {
+        var font = FontDocument(
+            id: "f1",
+            sourcePath: "/tmp/Test.ttf",
+            axes: [
+                AxisDefinition(tag: "wght", role: .instance, values: []),
+                AxisDefinition(tag: "ital", role: .designRecordOnly, values: []),
+            ],
+            statDesignAxisTags: ["wght"]
+        )
+        XCTAssertEqual(CommitRequestBuilder.resolvedDesignAxisTags(for: font), ["wght", "ital"])
     }
 }

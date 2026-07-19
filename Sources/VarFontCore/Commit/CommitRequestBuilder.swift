@@ -46,15 +46,42 @@ public enum CommitRequestBuilder {
         return directory.appendingPathComponent(name).path
     }
 
+    /// Folder for Export All: if writing into `chosenDirectory` with original basenames would
+    /// overwrite any source file, nest under `{folderLabel} Patched` (or `Patched`).
+    public static func packageExportDirectory(
+        chosenDirectory: URL,
+        sourcePaths: [String],
+        folderLabel: String?
+    ) -> (directory: URL, nestedBecauseOfCollision: Bool) {
+        let wouldCollide = sourcePaths.contains { source in
+            let package = URL(fileURLWithPath: packageOutputPath(for: source, in: chosenDirectory))
+            return package.standardizedFileURL == URL(fileURLWithPath: source).standardizedFileURL
+        }
+        guard wouldCollide else {
+            return (chosenDirectory, false)
+        }
+        let base = folderLabel?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        let nestedName: String = {
+            if let base, !base.isEmpty {
+                return base.hasSuffix(" Patched") ? base : "\(base) Patched"
+            }
+            return "Patched"
+        }()
+        return (chosenDirectory.appendingPathComponent(nestedName, isDirectory: true), true)
+    }
+
     public static func orderedAxes(_ axes: [AxisDefinition], naming: NamingPolicy) -> [AxisDefinition] {
         axes
     }
 
     public static func resolvedDesignAxisTags(for font: FontDocument) -> [String] {
-        if !font.statDesignAxisTags.isEmpty {
-            return font.statDesignAxisTags
-        }
-        return font.axes.map(\.tag)
+        let fromAxes = font.axes.map(\.tag)
+        if !fromAxes.isEmpty { return fromAxes }
+        if !font.statDesignAxisTags.isEmpty { return font.statDesignAxisTags }
+        return []
     }
 
     public static func resolvedFvarAxisTags(for font: FontDocument) -> [String] {

@@ -64,15 +64,21 @@ private struct SaveReviewActionBar: View {
                     Button("Export All…") {
                         editor.saveAllFiles(inProjectID: projectID)
                     }
+                    .keyboardShortcut(.defaultAction)
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Export all files in this project to a folder")
-                }
+                    .help("Export all files in this project to a folder. Picking the source folder creates a Patched subfolder.")
 
-                if canExportToRememberedPath {
-                    Button("Export…") {
+                    Button("Export This File…") {
                         editor.presentSavePanel(for: session)
                     }
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
+                    .help("Choose a path for the selected file only")
+                } else if canExportToRememberedPath {
+                    Button("Export As…") {
+                        editor.presentSavePanel(for: session)
+                    }
+                    .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
+                    .help("Choose a new path for this font")
 
                     Button("Export") {
                         editor.save(session: session)
@@ -221,6 +227,35 @@ struct SaveReviewWindow: View {
         .preferredColorScheme(.dark)
         .navigationTitle(editor.saveReviewWindowTitle(forProjectID: projectID))
         .background(SaveReviewWindowConfigurator())
+        .overlay {
+            if editor.isBusy {
+                ZStack {
+                    Color.black.opacity(0.35)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(editor.busyStatus ?? "Working…")
+                            .font(StudioTypography.bodyMedium)
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let progress = editor.busyProgress {
+                            ProgressView(value: progress, total: 1)
+                                .progressViewStyle(.linear)
+                            Text("\(Int((progress * 100).rounded()))%")
+                                .font(StudioTypography.meta)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                        }
+                    }
+                    .padding(20)
+                    .frame(width: 360)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(true)
+            }
+        }
         .onAppear(perform: dismissRestoredEmptyWindowIfNeeded)
         .onChange(of: editor.openProjects) { _, projects in
             if !projects.contains(where: { $0.id == projectID }) {

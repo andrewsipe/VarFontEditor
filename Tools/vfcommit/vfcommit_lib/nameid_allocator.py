@@ -155,10 +155,12 @@ def effective_elided_fallback(naming: dict, file_role: Optional[dict]) -> str:
 
 
 def naming_order_with_defaults(naming: dict) -> List[str]:
+    """Match Swift ``NamingPolicy.mergedOrder``: ensure PS hyphen only.
+
+    Clarifier tokens are not auto-appended — file identity lives on naming axes.
+    Legacy projects may still list ``@width`` / ``@slope`` explicitly in order.
+    """
     order = list(naming.get("order") or [])
-    for token in DEFAULT_CLARIFIER_TOKENS:
-        if token not in order:
-            order.append(token)
     return ensure_postscript_hyphen(order)
 
 

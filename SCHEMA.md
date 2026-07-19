@@ -390,14 +390,16 @@ Input to `vfcommit`. Subset of project + output paths.
     "nameid_strategy": "preserve"
   },
   "naming": {
-    "order": ["opsz", "wdth", "wght", "@width", "@slope", "@optical", "@custom"],
+    "order": ["@pshyphen", "@code", "opsz", "wdth", "wght", "ital"],
     "elided_fallback": "Regular"
   },
   "file_role": {
     "kind": "variant",
-    "clarifiers": [{ "category": "slope", "label": "Italic" }]
+    "clarifiers": []
   },
   "axes": [],
+  "file_stat_registration": { "ital": 0 },
+  "stat_design_axis_tags": ["opsz", "wdth", "wght", "ital"],
   "included_instance_keys": [],
   "windows_name_patches": [
     { "name_id": 6, "string": "PlayfairDisplay-Variable" }
@@ -407,6 +409,10 @@ Input to `vfcommit`. Subset of project + output paths.
 
 `axes` uses the same shape as `ProjectDocument.fonts[].axes`.  
 `dry_run: true` → `CommitResult` without writing a file.
+
+**Naming order:** `naming.order` is sent as-is (with `@pshyphen` ensured). Clarifier tokens (`@width`, `@slope`, …) are **not** auto-appended by vfcommit — file identity lives on naming axes (`design_record_only`) and `file_stat_registration`. Legacy projects may still list clarifier tokens explicitly.
+
+**STAT design axes:** `stat_design_axis_tags` follows the live Axis Tree (`font.axes` tag order). On write, vfcommit **appends** any missing tags to STAT `DesignAxisRecord` before rewriting axis values (so newly added naming axes export without requiring the tag to pre-exist in the source font).
 
 `windows_name_patches` are Windows English (3/1/0x409) writes for IDs **0–24** (empty `string` deletes that record only). ID **25** is written from `options.family_ps_prefix`. Other platforms/langs are left alone.
 

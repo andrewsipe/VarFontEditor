@@ -211,7 +211,17 @@ extension SaveReviewStore {
 
     func savedOutputLabel(for font: FontDocument) -> String? {
         guard let outputPath = font.outputPath else { return nil }
-        return URL(fileURLWithPath: outputPath).lastPathComponent
+        let outputURL = URL(fileURLWithPath: outputPath)
+        let sourceURL = URL(fileURLWithPath: font.sourcePath)
+        if EditorViewModel.normalizedPath(outputURL) == EditorViewModel.normalizedPath(sourceURL) {
+            return "original"
+        }
+        // Package exports keep the same basename — show the destination folder instead.
+        if outputURL.lastPathComponent == sourceURL.lastPathComponent {
+            let folder = outputURL.deletingLastPathComponent().lastPathComponent
+            return folder.isEmpty ? outputURL.lastPathComponent : folder
+        }
+        return outputURL.lastPathComponent
     }
 
     private func rememberedOutputURL(forProjectID projectID: String, fontID: String) -> URL? {
@@ -359,7 +369,8 @@ extension SaveReviewStore {
                     font: font,
                     plan: plan,
                     report: diffReport,
-                    diff: result.diff
+                    diff: result.diff,
+                    naming: projectDoc.naming
                 )
                 var writeRequest = CommitRequestBuilder.make(
                     font: font,
@@ -600,8 +611,8 @@ extension SaveReviewStore {
         var outputURLs: [String: URL] = [:]
         for font in targets {
             if let url = rememberedOutputURL(forProjectID: projectID, fontID: font.id) {
-                if url.path == font.sourcePath {
-                    requireHost.postStatusMessage("Export All cannot overwrite originals — use Export to Original… per file.")
+                if EditorViewModel.normalizedPath(url) == EditorViewModel.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
+                    requireHost.postStatusMessage("Export All cannot overwrite originals — choose a folder or use Export to Original… per file.")
                     return
                 }
                 outputURLs[font.id] = url
@@ -609,17 +620,39 @@ extension SaveReviewStore {
         }
 
         var outputDirectory: URL?
+        var nestedBecauseOfCollision = false
         if targets.contains(where: { outputURLs[$0.id] == nil }) {
-            guard let directory = await chooseOutputDirectory(
+            guard let chosen = await chooseOutputDirectory(
                 title: "Export Fonts",
-                message: "Choose a folder. Fonts keep their original filenames."
+                message: "Choose a folder. Fonts keep their original filenames. If you pick the source folder, a “Patched” subfolder is created automatically."
             ) else { return }
-            outputDirectory = directory
+
+            let open = requireHost.openProject(for: projectID)
+            let folderLabel = open?.document.displayName
+                ?? open?.document.familyLabel
+            let resolved = CommitRequestBuilder.packageExportDirectory(
+                chosenDirectory: chosen,
+                sourcePaths: targets.map(\.sourcePath),
+                folderLabel: folderLabel
+            )
+            nestedBecauseOfCollision = resolved.nestedBecauseOfCollision
+            outputDirectory = resolved.directory
+
+            do {
+                try FileManager.default.createDirectory(
+                    at: resolved.directory,
+                    withIntermediateDirectories: true
+                )
+            } catch {
+                requireHost.postStatusMessage("Couldn't create export folder: \(error.localizedDescription)")
+                return
+            }
+
             for font in targets where outputURLs[font.id] == nil {
                 outputURLs[font.id] = URL(
                     fileURLWithPath: CommitRequestBuilder.packageOutputPath(
                         for: font.sourcePath,
-                        in: directory
+                        in: resolved.directory
                     )
                 )
             }
@@ -628,23 +661,54 @@ extension SaveReviewStore {
         for font in targets {
             guard let url = outputURLs[font.id] else { continue }
             if EditorViewModel.normalizedPath(url) == EditorViewModel.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
-                requireHost.postStatusMessage("Export All cannot overwrite originals — use Export to Original… per file.")
+                requireHost.postStatusMessage("Export All cannot overwrite originals — choose a different folder or use Export to Original… per file.")
                 return
             }
         }
 
-        requireHost.isBusy = true
-        defer { requireHost.isBusy = false }
+        requireHost.beginBusyWork(status: "Exporting fonts…", progress: 0)
+        defer { requireHost.endBusyWork() }
 
-        for font in targets {
+        let total = max(targets.count, 1)
+        var exportedCount = 0
+        for (index, font) in targets.enumerated() {
             guard let session = sessions[font.id], let url = outputURLs[font.id] else { continue }
-            await performSave(session: session, to: url, manageBusyState: false)
+            let name = requireHost.fontBasename(for: font)
+            requireHost.updateBusyWork(
+                status: "Exporting \(name) (\(index + 1) of \(total))…",
+                progress: Double(index) / Double(total)
+            )
+            await Task.yield()
+            await performSave(
+                session: session,
+                to: url,
+                manageBusyState: false,
+                closeReviewOnSuccess: false
+            )
+            if requireHost.font(forProjectID: projectID, fontID: font.id)?.dirty == false {
+                exportedCount += 1
+            }
+            requireHost.updateBusyWork(
+                status: "Finished \(name) (\(index + 1) of \(total))",
+                progress: Double(index + 1) / Double(total)
+            )
+            await Task.yield()
         }
+
+        clearSaveReviewState(forProjectID: projectID)
+        dismissSheet()
+        closeSaveReviewWindow(forProjectID: projectID)
 
         let folderLabel = outputDirectory?.lastPathComponent
             ?? outputURLs.values.first?.deletingLastPathComponent().lastPathComponent
             ?? "output folder"
-        requireHost.postStatusMessage("Exported \(targets.count) fonts to \(folderLabel)")
+        if nestedBecauseOfCollision {
+            requireHost.postStatusMessage(
+                "Exported \(exportedCount) fonts to \(folderLabel) (created to avoid overwriting originals)"
+            )
+        } else {
+            requireHost.postStatusMessage("Exported \(exportedCount) fonts to \(folderLabel)")
+        }
     }
 
     private func chooseOutputDirectory(title: String, message: String) async -> URL? {
@@ -672,7 +736,8 @@ extension SaveReviewStore {
         session: CommitPreflightSession,
         to outputURL: URL,
         inPlace: Bool = false,
-        manageBusyState: Bool = true
+        manageBusyState: Bool = true,
+        closeReviewOnSuccess: Bool = true
     ) async {
         guard let projectIndex = requireHost.openProjects.firstIndex(where: { $0.id == session.projectID }),
               let fontIndex = requireHost.openProjects[projectIndex].document.fonts.firstIndex(where: { $0.id == session.fontID }) else {
@@ -692,15 +757,31 @@ extension SaveReviewStore {
         request.dryRun = false
         request.requestID = UUID().uuidString.lowercased()
 
-        if manageBusyState { requireHost.isBusy = true }
-        defer { if manageBusyState { requireHost.isBusy = false } }
+        let fontName = requireHost.fontBasename(for: requireHost.openProjects[projectIndex].document.fonts[fontIndex])
+        if manageBusyState {
+            requireHost.beginBusyWork(
+                status: inPlace ? "Writing \(fontName) to original…" : "Exporting \(fontName)…",
+                progress: 0.15
+            )
+        } else {
+            requireHost.updateBusyWork(
+                status: inPlace ? "Writing \(fontName) to original…" : "Writing \(fontName)…"
+            )
+        }
+        defer { if manageBusyState { requireHost.endBusyWork() } }
 
         do {
+            await Task.yield()
             let result = try await requireHost.commitService.commit(request)
             guard result.ok else {
                 let message = result.errors.first?.message ?? "Export failed."
                 requireHost.postStatusMessage(message)
                 return
+            }
+
+            if manageBusyState {
+                requireHost.updateBusyWork(status: "Finishing \(fontName)…", progress: 0.9)
+                await Task.yield()
             }
 
             var project = requireHost.openProjects[projectIndex].document
@@ -721,6 +802,13 @@ extension SaveReviewStore {
             }
             clearSaveReviewState(forProjectID: session.projectID, fontID: session.fontID)
             dismissSheet()
+            if closeReviewOnSuccess {
+                closeSaveReviewWindow(forProjectID: session.projectID)
+            }
+
+            if manageBusyState {
+                requireHost.updateBusyWork(status: "Exported \(fontName)", progress: 1)
+            }
 
             if inPlace {
                 let backupName = URL(fileURLWithPath: originalSourcePath).lastPathComponent + ".vfstudio-backup"

@@ -249,7 +249,8 @@ extension EditorViewModel {
         _ kind: RegistrationAxisFactory.TemplateKind,
         displayName: String? = nil,
         value: Double? = nil,
-        code: String? = nil
+        code: String? = nil,
+        italicOverride: Bool? = nil
     ) -> Bool {
         guard var project, let selectedFontID,
               let axes = selectedFont?.axes,
@@ -278,7 +279,8 @@ extension EditorViewModel {
         let changed = RegistrationAxisFactory.insertNamingAxis(
             axis,
             into: &project,
-            selectedFontID: selectedFontID
+            selectedFontID: selectedFontID,
+            italicOverride: kind == .slope ? italicOverride : nil
         )
         guard changed else { return false }
         self.project = project

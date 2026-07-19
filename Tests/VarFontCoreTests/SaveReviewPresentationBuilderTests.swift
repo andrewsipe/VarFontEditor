@@ -16,7 +16,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
             font: font,
             plan: plan,
             report: report,
-            diff: nil
+            diff: nil,
+            naming: makeNaming()
         )
         let fvar = presentation.tabs.first { $0.id == .fvar }
         XCTAssertNotNil(fvar)
@@ -36,7 +37,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
             font: font,
             plan: makePlan(),
             report: CommitDiffReport(statRows: [], instanceRows: [], nameIDRows: []),
-            diff: nil
+            diff: nil,
+            naming: makeNaming()
         )
         let axisRow = presentation.tabs.first { $0.id == .fvar }?
             .sections.first { $0.title.hasPrefix("Axes") }?.rows.first
@@ -77,7 +79,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
                 statValuesPlanned: [
                     .init(tag: "wght", value: 700, name: "Bold", elidable: false, statFormat: 1, nameID: 281),
                 ]
-            )
+            ),
+            naming: makeNaming()
         )
         let nameTab = presentation.tabs.first { $0.id == .name }
         let reflowRow = nameTab?.sections.flatMap(\.rows).first { $0.id == "name:281" }
@@ -101,7 +104,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
             font: font,
             plan: plan,
             report: report,
-            diff: nil
+            diff: nil,
+            naming: makeNaming()
         )
         let nameTab = presentation.tabs.first { $0.id == .name }
         let removed = nameTab?.sections.first { $0.title == "Removed slots" }
@@ -134,7 +138,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
                 nameRecordsSequenced: [
                     .init(id: 279, string: "Weight", role: "axis_display_name"),
                 ]
-            )
+            ),
+            naming: makeNaming()
         )
         let axisRow = presentation.tabs.first { $0.id == .name }?
             .sections.first { $0.title == "Axis records" }?.rows.first
@@ -178,7 +183,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
                 otReflowMapping: [
                     .init(fromID: 763, toID: 256, string: "Alternate g", feature: "ss05"),
                 ]
-            )
+            ),
+            naming: makeNaming()
         )
         let nameTab = presentation.tabs.first { $0.id == .name }
         let sectionTitles = nameTab?.sections.map(\.title) ?? []
@@ -213,7 +219,8 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
             font: font,
             plan: makePlan(),
             report: report,
-            diff: nil
+            diff: nil,
+            naming: makeNaming()
         )
         let fvar = presentation.tabs.first { $0.id == .fvar }
         let instanceSection = fvar?.sections.first { $0.title == "Instances" }
@@ -278,6 +285,10 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
             overrides: InstanceOverrides(),
             statDesignAxisTags: ["wght"]
         )
+    }
+
+    private func makeNaming() -> NamingPolicy {
+        NamingPolicy(order: ["@pshyphen", "wght"])
     }
 
     private func makePlan() -> InstancePlan {
