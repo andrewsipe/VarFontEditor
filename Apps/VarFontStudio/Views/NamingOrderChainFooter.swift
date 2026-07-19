@@ -14,7 +14,6 @@ struct NamingOrderChainFooter: View {
     @State private var footerBodyHeight: CGFloat = 0
 
     private let coordinateSpace = "namingChain"
-    private let footerBodyHeightFallback: CGFloat = 168
 
     private var visibleTags: [String] {
         editor.visibleNamingChainTags(hideStatOnly: hideStatOnly)
@@ -62,25 +61,31 @@ struct NamingOrderChainFooter: View {
                     switch editor.footerPanelMode {
                     case .namingOrder:
                         namingOrderBody
-                            .background {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: FooterBodyHeightKey.self,
-                                        value: geometry.size.height
-                                    )
-                                }
-                            }
                     case .preview:
                         FontPreviewPanel()
-                            .frame(
-                                maxWidth: .infinity,
-                                minHeight: resolvedFooterBodyHeight,
-                                maxHeight: resolvedFooterBodyHeight
-                            )
+                            .frame(height: resolvedFooterBodyHeight)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, StudioSpacing.controlGap)
                 .padding(.bottom, StudioSpacing.toolbarVertical + 2)
+                .background {
+                    // Always measure natural Naming-order height (even while Preview is showing)
+                    // so both modes share one footer slot. Preview additionally floors this at
+                    // its own preferred height — see resolvedFooterBodyHeight.
+                    namingOrderBody
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .hidden()
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: FooterBodyHeightKey.self,
+                                    value: geometry.size.height
+                                )
+                            }
+                        }
+                }
                 .onPreferenceChange(FooterBodyHeightKey.self) { height in
                     guard height > 1 else { return }
                     if abs(footerBodyHeight - height) > 0.5 {
@@ -95,8 +100,13 @@ struct NamingOrderChainFooter: View {
         .padding(.bottom, StudioSpacing.toolbarVertical)
     }
 
+    /// Shared footer height — the taller of the naming-order body's natural height
+    /// and the Preview panel's own comfortable height, so neither mode ever gets
+    /// squeezed shorter than it needs, and switching tabs never changes the
+    /// panel's height. Falls back to Preview's preferred height before the
+    /// naming-order body has reported its measured height at least once.
     private var resolvedFooterBodyHeight: CGFloat {
-        footerBodyHeight > 1 ? footerBodyHeight : footerBodyHeightFallback
+        max(footerBodyHeight, FontPreviewPanel.preferredHeight)
     }
 
     private var namingOrderBody: some View {

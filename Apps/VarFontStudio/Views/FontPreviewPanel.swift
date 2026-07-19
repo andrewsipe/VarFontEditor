@@ -19,9 +19,9 @@ private enum FontPreviewAlignment: String, CaseIterable, Identifiable {
 
     var frameAlignment: Alignment {
         switch self {
-        case .leading: .topLeading
-        case .center: .top
-        case .trailing: .topTrailing
+        case .leading: .leading
+        case .center: .center
+        case .trailing: .trailing
         }
     }
 
@@ -54,17 +54,40 @@ struct FontPreviewPanel: View {
         nonmutating set { alignmentRaw = newValue.rawValue }
     }
 
+    private static let canvasColor = Color(red: 0.11, green: 0.11, blue: 0.118)
+
+    /// Comfortable natural height for this panel (toolbar + a reasonably sized
+    /// glyph canvas + status bar) when nothing else constrains it. Used as a
+    /// floor so the shared naming-order/preview footer height never squeezes
+    /// the canvas down to nothing (e.g. when the naming chain is empty).
+    static let preferredHeight: CGFloat =
+        StudioFieldMetrics.bodyMediumRowHeight   // toolbar row
+        + StudioSpacing.toolbarVertical * 2       // toolbar vertical padding
+        + 96                                      // comfortable glyph canvas
+        + 28                                      // status bar row
+
     var body: some View {
         VStack(spacing: 0) {
             toolbar
                 .fixedSize(horizontal: false, vertical: true)
-            canvas
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            statusBar
-                .fixedSize(horizontal: false, vertical: true)
+
+            ZStack {
+                Self.canvasColor
+
+                // Canvas and status bar are laid out as siblings (not overlaid)
+                // so the glyph centers within the space actually left over
+                // once the status bar's own height is subtracted, instead of
+                // centering against the full canvas+status-bar height.
+                VStack(spacing: 0) {
+                    canvasForeground
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment.frameAlignment)
+
+                    statusBar
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
         }
-        // Fill the shared footer body height so leftover space goes into the canvas,
-        // not as empty padding under the status bar.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -123,10 +146,8 @@ struct FontPreviewPanel: View {
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 
-    private var canvas: some View {
-        ZStack {
-            Color(red: 0.11, green: 0.11, blue: 0.118)
-
+    private var canvasForeground: some View {
+        Group {
             if let nsFont = previewFont {
                 Text(sampleText.isEmpty ? " " : sampleText)
                     .font(Font(nsFont))
@@ -134,21 +155,15 @@ struct FontPreviewPanel: View {
                     .multilineTextAlignment(alignment.textAlignment)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment.frameAlignment)
-                    .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
-                    .padding(.vertical, 10)
                     .opacity(editor.isPreviewHoverPeeking ? 0.92 : 1)
             } else {
                 Text(unavailableMessage)
                     .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
-                    .padding(.vertical, 10)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+        .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
+        .padding(.vertical, 10)
     }
 
     private var statusBar: some View {
@@ -198,7 +213,7 @@ struct FontPreviewPanel: View {
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
         .padding(.vertical, 6)
-        .background(Color.primary.opacity(0.03))
+        .background(Self.canvasColor.opacity(0.92))
     }
 
     private var statusPillForeground: some ShapeStyle {
