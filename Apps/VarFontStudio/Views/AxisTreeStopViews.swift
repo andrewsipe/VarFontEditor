@@ -14,30 +14,20 @@ struct AxisStopTableHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: AxisBlockLayout.stopIndentWidth)
-
             if showDefaultMark {
                 Color.clear
-                    .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .leading)
+                    .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .center)
                     .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
             }
 
-            Text("Fmt")
+            Text("Format")
                 .font(StudioTypography.columnLabel)
                 .foregroundStyle(.tertiary)
-                .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .leading)
+                .lineLimit(1)
+                .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .center)
 
             valueHeader
                 .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
-
-            if showCode {
-                Text("Code")
-                    .font(StudioTypography.columnLabel)
-                    .foregroundStyle(.tertiary)
-                    .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
-                    .padding(.leading, AxisBlockLayout.codeGap)
-                    .help("Optional 1–2 character classification code (letters or digits)")
-            }
 
             Text("Name")
                 .font(StudioTypography.columnLabel)
@@ -46,15 +36,26 @@ struct AxisStopTableHeader: View {
                 .padding(.leading, AxisBlockLayout.nameGap)
 
             if showElidable {
-                Text("Elid")
+                Text("Elided")
                     .font(StudioTypography.columnLabel)
                     .foregroundStyle(.tertiary)
+                    .lineLimit(1)
                     .frame(width: AxisBlockLayout.elidableWidth, alignment: .center)
+                    .padding(.leading, AxisBlockLayout.elidableGap)
                     .help("Omit this stop from the composed style name when it is the default choice")
             }
 
+            if showCode {
+                Text("Code")
+                    .font(StudioTypography.columnLabel)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
+                    .padding(.leading, AxisBlockLayout.codeGap)
+                    .help("Optional 1–2 character classification code (letters or digits). Independent of Elided — it always composes into the instance code.")
+            }
+
             // Mirrors AxisTreeStopRow's removeSlot exactly — same width, same
-            // leading gap — so Name/Elid stay aligned with the rows beneath
+            // leading gap — so every column stays aligned with the rows beneath
             // this header instead of drifting by however wide that slot is.
             if showRemoveSlot {
                 Color.clear
@@ -162,8 +163,9 @@ struct AxisTreeStopRow: View {
         .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
         .padding(.vertical, StudioSpacing.instanceRowVertical)
         .background {
+            // Flush with the row's own bounds (post-padding) — matches the width of the
+            // Add Stop / Fill stops… buttons beneath, which share this same outer inset.
             StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
-                .padding(.leading, -AxisBlockLayout.rowHorizontalPadding)
         }
         .overlay(alignment: .leading) {
             if isRegistrationStop {
@@ -210,22 +212,13 @@ struct AxisTreeStopRow: View {
 
     private var primaryRow: some View {
         HStack(alignment: .center, spacing: 0) {
-            Color.clear
-                .frame(width: AxisBlockLayout.stopIndentWidth)
-
             defaultMarkCell
 
             StudioStatFormatBadge(format: stop.statFormat, action: onChangeFormat)
-                .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .leading)
+                .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .center)
 
             valueCell
                 .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
-
-            if showCode {
-                codeColumn
-                    .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
-                    .padding(.leading, AxisBlockLayout.codeGap)
-            }
 
             nameColumn
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -234,6 +227,13 @@ struct AxisTreeStopRow: View {
             if showElidable {
                 StudioElidableRadio(isOn: isElidable, action: onToggleElidable)
                     .frame(width: AxisBlockLayout.elidableWidth)
+                    .padding(.leading, AxisBlockLayout.elidableGap)
+            }
+
+            if showCode {
+                codeColumn
+                    .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
+                    .padding(.leading, AxisBlockLayout.codeGap)
             }
 
             // Real reserved column, not an overlay — sized to the button alone,
@@ -258,7 +258,7 @@ struct AxisTreeStopRow: View {
                     Color.clear
                 }
             }
-            .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .leading)
+            .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .center)
             .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
         }
     }
@@ -334,7 +334,7 @@ struct AxisTreeStopRow: View {
             sublineLabel("max")
             sublineField(.max, value: stop.rangeMax, placeholder: "Max")
         }
-        .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark, showCode: showCode))
+        .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark))
         .padding(.bottom, 3)
     }
 

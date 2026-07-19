@@ -148,8 +148,8 @@ struct NamingOrderChainFooter: View {
                 .foregroundStyle(.tertiary)
         }
         .help(
-            "Include a Code chip in the naming order. When on, Axis Tree shows a Code column "
-                + "and composed names include the concatenated stop codes."
+            "Include a Code chip in the naming order. When on, Axis Tree and stop sheets show a Code "
+                + "column, and composed names include the concatenated stop codes."
         )
     }
 

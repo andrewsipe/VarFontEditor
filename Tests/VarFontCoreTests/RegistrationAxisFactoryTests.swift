@@ -34,12 +34,29 @@ final class RegistrationAxisFactoryTests: XCTestCase {
     }
 
     func testCustomAxisRejectsEmptyTag() {
-        XCTAssertEqual(RegistrationAxisFactory.sanitizeAxisTag("grad!"), "GRAD")
-        XCTAssertEqual(RegistrationAxisFactory.sanitizeAxisTag("tilt"), "TILT")
+        XCTAssertEqual(RegistrationAxisFactory.sanitizeAxisTag("grad!"), "grad")
+        XCTAssertEqual(RegistrationAxisFactory.sanitizeAxisTag("TILT"), "TILT")
         let axis = RegistrationAxisFactory.makeCustomAxis(tag: "GRAD", displayName: "Grade")
         XCTAssertEqual(axis.tag, "GRAD")
         XCTAssertEqual(axis.displayName, "Grade")
         XCTAssertTrue(axis.isDesignRecordOnly)
+    }
+
+    func testNamedStopAxisThreadsCode() {
+        let axis = RegistrationAxisFactory.makeNamedStopAxis(
+            tag: "wdth",
+            displayName: "Condensed",
+            stopName: "Condensed",
+            value: 75,
+            elidable: false,
+            code: "1"
+        )
+        XCTAssertEqual(axis.tag, "wdth")
+        XCTAssertTrue(axis.isDesignRecordOnly)
+        XCTAssertEqual(axis.values.count, 1)
+        XCTAssertEqual(axis.values.first?.name, "Condensed")
+        XCTAssertEqual(axis.values.first?.value, 75)
+        XCTAssertEqual(axis.values.first?.code, "1")
     }
 
     func testPromoteClarifiersCreatesItalAndClearsClarifiers() throws {
@@ -92,5 +109,63 @@ final class RegistrationAxisFactoryTests: XCTestCase {
         XCTAssertTrue(project.fonts[1].fileRole?.clarifiers.isEmpty ?? false)
         XCTAssertTrue(project.naming.order.contains("ital"))
         XCTAssertFalse(project.naming.order.contains("@slope"))
+    }
+
+    func testWidthNamingAxisDoesNotPropagateStopToSiblingFiles() throws {
+        var condensedRole = FileRole.master()
+        condensedRole.clarifiers = [
+            FileClarifier(category: .width, label: "Condensed", code: "1"),
+        ]
+        let condensed = FontDocument(
+            id: "condensed",
+            sourcePath: "/tmp/Condensed.ttf",
+            fileRole: condensedRole,
+            axes: [
+                AxisDefinition(tag: "wght", role: .instance, values: [
+                    AxisValue(id: "g", value: 400, name: "Regular", elidable: true),
+                ]),
+            ]
+        )
+        let expanded = FontDocument(
+            id: "expanded",
+            sourcePath: "/tmp/Expanded.ttf",
+            fileRole: .variant(masterFontID: "condensed", clarifiers: []),
+            axes: condensed.axes
+        )
+
+        var project = ProjectDocument(
+            schemaVersion: 1,
+            familyLabel: "Test",
+            naming: NamingPolicy(order: ["@pshyphen", "@code", "wght"]),
+            template: ProjectTemplate(),
+            fonts: [condensed, expanded]
+        )
+
+        let axis = RegistrationAxisFactory.makeNamedStopAxis(
+            tag: "wdth",
+            displayName: "Condensed",
+            stopName: "Condensed",
+            value: 75,
+            elidable: false,
+            code: "1"
+        )
+        XCTAssertTrue(
+            RegistrationAxisFactory.insertNamingAxis(
+                axis,
+                into: &project,
+                selectedFontID: "condensed"
+            )
+        )
+
+        let condensedWdth = try XCTUnwrap(project.fonts[0].axes.first { $0.tag == "wdth" })
+        XCTAssertEqual(condensedWdth.values.count, 1)
+        XCTAssertEqual(condensedWdth.values.first?.name, "Condensed")
+        XCTAssertEqual(condensedWdth.values.first?.code, "1")
+        XCTAssertEqual(project.fonts[0].fileStatRegistration["wdth"], 75)
+
+        XCTAssertFalse(project.fonts[1].axes.contains { $0.tag == "wdth" })
+        XCTAssertNil(project.fonts[1].fileStatRegistration["wdth"])
+        XCTAssertTrue(project.template.axes.contains { $0.tag == "wdth" })
+        XCTAssertTrue(project.naming.order.contains("wdth"))
     }
 }

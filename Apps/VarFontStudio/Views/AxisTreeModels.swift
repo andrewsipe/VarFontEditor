@@ -149,30 +149,42 @@ enum AxisBlockLayout {
     static let tagNameSpacing: CGFloat = 8
     static let rowHorizontalPadding: CGFloat = 6
 
-    /// Nests stop rows under the axis header without reserving remove-button space.
+    /// Nests the whole stop table (header + rows) under the axis header. Applied once, at the
+    /// `axisDetail` container — rows/header no longer re-apply their own copy of this indent.
     static let stopIndentWidth: CGFloat = 18
-    /// fvar-default marker column (square) before Fmt.
+    /// fvar-default marker column (square) before Format. Center-aligned, like Format/Elided/Code.
     static let defaultMarkWidth: CGFloat = 22
-    /// Breathing room between the fvar-default marker and the Fmt badge.
-    static let defaultMarkTrailingGap: CGFloat = 4
+    /// Breathing room between the fvar-default marker and the Format badge.
+    static let defaultMarkTrailingGap: CGFloat = 6
+    /// Wide enough for the "Format" header label (spelled out, not abbreviated) — the label, not
+    /// the badge, is what actually drives this column's width. Center-aligned.
     static let fmtColumnWidth: CGFloat = 36
     static let valueColumnWidth: CGFloat = 52
-    static let codeColumnWidth: CGFloat = 36
+    /// Wide enough for the "Code" header label — the widest content in this column even
+    /// against a 2-character code value.
+    static let codeColumnWidth: CGFloat = 28
+    /// Gap before Code — grouped visually with Elided (both are compact, center-aligned metadata).
     static let codeGap: CGFloat = 6
-    static let nameGap: CGFloat = 6
-    static let elidableWidth: CGFloat = 26
+    /// Gap before Name — wider than the metadata gaps since it marks the shift into the
+    /// left-aligned, flexible-width column that carries the bulk of the row's content.
+    static let nameGap: CGFloat = 10
+    /// Wide enough for the "Elided" header label. Code sits to the right of this column —
+    /// elided status doesn't affect the code, which only participates in instance-code composition.
+    static let elidableWidth: CGFloat = 36
+    static let elidableGap: CGFloat = 8
 
-    static func nameLeading(showDefaultMark: Bool, showCode: Bool = false) -> CGFloat {
-        stopIndentWidth
-            + (showDefaultMark ? defaultMarkWidth + defaultMarkTrailingGap : 0)
+    /// Name is the third column now (Format, Value, Name), unaffected by whether Elided/Code
+    /// trail it — those live after Name and don't shift its leading offset. Does not include
+    /// `stopIndentWidth` — that indent lives once on the table container, not per-row.
+    static func nameLeading(showDefaultMark: Bool) -> CGFloat {
+        (showDefaultMark ? defaultMarkWidth + defaultMarkTrailingGap : 0)
             + fmtColumnWidth
             + valueColumnWidth
-            + (showCode ? codeGap + codeColumnWidth : 0)
             + nameGap
     }
 
-    static func rangeSublineLeading(showDefaultMark: Bool, showCode: Bool = false) -> CGFloat {
-        nameLeading(showDefaultMark: showDefaultMark, showCode: showCode)
+    static func rangeSublineLeading(showDefaultMark: Bool) -> CGFloat {
+        nameLeading(showDefaultMark: showDefaultMark)
     }
 
     static let stopCountBadgeWidth: CGFloat = 32

@@ -319,20 +319,12 @@ struct AxisTreePanel: View {
                 Button {
                     addRegistrationRequest = AddRegistrationAxisRequest()
                 } label: {
-                    Label("Add Naming Axis", systemImage: "plus")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.registrationForeground)
-                        .labelStyle(.titleAndIcon)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 5)
-                                .strokeBorder(
-                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                                )
-                                .foregroundStyle(StudioColors.registrationStroke)
-                        }
+                    axisActionButtonLabel(
+                        title: "Add Naming Axis",
+                        systemImage: "plus",
+                        foreground: StudioColors.registrationForeground,
+                        stroke: StudioColors.registrationStroke
+                    )
                 }
                 .buttonStyle(.plain)
                 .padding(.top, StudioSpacing.sectionGap)
@@ -558,18 +550,24 @@ struct AxisTreePanel: View {
 
     // MARK: - Axis detail
 
-    private func axisActionButtonLabel(title: String, systemImage: String) -> some View {
+    /// Same total height as a stop row (`listRowMinHeight` + `instanceRowVertical` top/bottom)
+    /// so these dashed action buttons read as part of the same rhythm as the highlighted rows above.
+    private func axisActionButtonLabel(
+        title: String,
+        systemImage: String,
+        foreground: Color = .secondary,
+        stroke: Color = Color.secondary.opacity(0.5)
+    ) -> some View {
         Label(title, systemImage: systemImage)
             .font(StudioTypography.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(foreground)
             .labelStyle(.titleAndIcon)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight)
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
             .overlay {
                 RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                    .foregroundStyle(.tertiary)
+                    .strokeBorder(stroke, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
             }
     }
 

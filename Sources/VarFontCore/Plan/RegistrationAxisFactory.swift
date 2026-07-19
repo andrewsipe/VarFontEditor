@@ -38,6 +38,61 @@ public enum RegistrationAxisFactory {
         return !axes.contains { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame }
     }
 
+    /// True when any font in the family already uses this tag.
+    public static func tagExistsInFamily(tag: String, fonts: [FontDocument]) -> Bool {
+        let normalized = sanitizeAxisTag(tag)
+        guard !normalized.isEmpty else { return false }
+        return fonts.contains { font in
+            font.axes.contains { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame }
+        }
+    }
+
+    public enum AddBlockReason: Equatable, Sendable {
+        case available
+        /// Tag already present as a design-record / naming axis.
+        case namingAxisExists(tag: String)
+        /// Tag already present as an instance (fvar) axis.
+        case instanceAxisExists(tag: String, rangeDescription: String?)
+    }
+
+    public static func addAvailability(
+        for kind: TemplateKind,
+        axes: [AxisDefinition]
+    ) -> AddBlockReason {
+        let tag = kind.defaultTag
+        guard let existing = axes.first(where: { $0.tag.caseInsensitiveCompare(tag) == .orderedSame }) else {
+            return .available
+        }
+        if existing.isDesignRecordOnly {
+            return .namingAxisExists(tag: existing.tag)
+        }
+        if existing.role == .instance {
+            let range: String?
+            if let min = existing.min, let max = existing.max {
+                range = "\(AxisCoordinateFormat.format(min))–\(AxisCoordinateFormat.format(max))"
+            } else {
+                range = nil
+            }
+            return .instanceAxisExists(tag: existing.tag, rangeDescription: range)
+        }
+        // pinned / other — still a collision
+        return .namingAxisExists(tag: existing.tag)
+    }
+
+    public static func blockReasonCopy(_ reason: AddBlockReason) -> String? {
+        switch reason {
+        case .available:
+            return nil
+        case .namingAxisExists(let tag):
+            return "\(tag) already exists as a naming axis in this tree — adding it again would duplicate the tag."
+        case .instanceAxisExists(let tag, let range):
+            if let range {
+                return "\(tag) already exists as an instance axis (fvar \(tag) \(range)) — a naming axis with the same tag would collide."
+            }
+            return "\(tag) already exists as an instance axis — a naming axis with the same tag would collide."
+        }
+    }
+
     /// Prefer existing `slnt` for slope when present; otherwise `ital` if addable.
     public static func templateTag(for kind: TemplateKind, axes: [AxisDefinition]) -> String? {
         switch kind {
@@ -134,7 +189,13 @@ public enum RegistrationAxisFactory {
         )
     }
 
-    public static func makeCustomAxis(tag: String, displayName: String) -> AxisDefinition {
+    public static func makeCustomAxis(
+        tag: String,
+        displayName: String,
+        value: Double = 0,
+        elidable: Bool = true,
+        code: String? = nil
+    ) -> AxisDefinition {
         let normalized = sanitizeAxisTag(tag)
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let stopName = name.isEmpty ? normalized : name
@@ -146,18 +207,111 @@ public enum RegistrationAxisFactory {
             values: [
                 AxisValue(
                     id: "\(normalized)-0",
-                    value: 0,
+                    value: value,
                     name: stopName,
-                    elidable: true,
-                    code: nil
+                    elidable: elidable,
+                    code: InstanceCodeBuilder.sanitize(code)
                 ),
             ]
         )
     }
 
-    /// Uppercase letters/digits only; at most 4 characters (OpenType axis tag).
+    public static func makeNamedStopAxis(
+        tag: String,
+        displayName: String,
+        stopName: String,
+        value: Double,
+        elidable: Bool = false,
+        code: String? = nil
+    ) -> AxisDefinition {
+        let normalized = sanitizeAxisTag(tag)
+        let axisName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedStop = stopName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stopLabel = resolvedStop.isEmpty
+            ? (axisName.isEmpty ? normalized : axisName)
+            : resolvedStop
+        return AxisDefinition(
+            tag: normalized,
+            displayName: axisName.isEmpty ? nil : axisName,
+            role: .designRecordOnly,
+            roleInferred: .designRecordOnly,
+            values: [
+                AxisValue(
+                    id: "\(normalized)-\(UUID().uuidString.prefix(8))",
+                    value: value,
+                    name: stopLabel,
+                    elidable: elidable,
+                    code: InstanceCodeBuilder.sanitize(code)
+                ),
+            ]
+        )
+    }
+
+    /// Insert a naming axis into the project.
+    /// - `ital`: every file gets its Playfair-style single stop (Roman or Italic).
+    /// - Other tags: only `selectedFontID` receives the populated stop; siblings are left alone
+    ///   until someone adds a stop on those files. Template always records the axis.
+    @discardableResult
+    public static func insertNamingAxis(
+        _ axis: AxisDefinition,
+        into project: inout ProjectDocument,
+        selectedFontID: String
+    ) -> Bool {
+        if axis.tag == "ital" {
+            var changed = false
+            for index in project.fonts.indices {
+                guard !project.fonts[index].axes.contains(where: { $0.tag == "ital" }) else { continue }
+                let italic = RegistrationAxisSupport.isItalicFile(font: project.fonts[index])
+                let axisForFile = makeItalAxis(isItalicFile: italic)
+                project.fonts[index].axes.append(axisForFile)
+                project.fonts[index].fileStatRegistration["ital"] = axisForFile.values.first?.value ?? 0
+                project.fonts[index].dirty = true
+                changed = true
+            }
+            if !project.template.axes.contains(where: { $0.tag == "ital" }) {
+                project.template.axes.append(makeItalAxis(isItalicFile: false))
+                changed = true
+            }
+            if !project.naming.order.contains("ital") {
+                project.naming.order.append("ital")
+                project.naming.order = NamingPolicy.ensurePostscriptHyphen(in: project.naming.order)
+                changed = true
+            }
+            project.naming.order = project.naming.order.filter { !NamingToken.isClarifier($0) }
+            if changed { project.modified = Date() }
+            return changed
+        }
+
+        guard let index = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return false
+        }
+        guard !project.fonts[index].axes.contains(where: {
+            $0.tag.caseInsensitiveCompare(axis.tag) == .orderedSame
+        }) else {
+            return false
+        }
+
+        project.fonts[index].axes.append(axis)
+        project.fonts[index].fileStatRegistration[axis.tag] = axis.values.first?.value ?? 0
+        project.fonts[index].dirty = true
+
+        if !project.template.axes.contains(where: {
+            $0.tag.caseInsensitiveCompare(axis.tag) == .orderedSame
+        }) {
+            project.template.axes.append(axis)
+        }
+        if !project.naming.order.contains(axis.tag) {
+            project.naming.order.append(axis.tag)
+            project.naming.order = NamingPolicy.ensurePostscriptHyphen(in: project.naming.order)
+        }
+        project.naming.order = project.naming.order.filter { !NamingToken.isClarifier($0) }
+        project.modified = Date()
+        return true
+    }
+
+    /// Letters/digits only; at most 4 characters. Preserves case (upper ≈ registered-style, lower ≈ private-use).
     public static func sanitizeAxisTag(_ raw: String) -> String {
-        String(raw.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(4))
+        String(raw.filter { $0.isLetter || $0.isNumber }.prefix(4))
     }
 
     /// Promote leftover `file_role.clarifiers` into registration axes + `file_stat_registration`.

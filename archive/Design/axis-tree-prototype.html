@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VarFont Studio — Axis Tree Layout Prototype</title>
+<style>
+  /* ============================================================================
+     Every custom property below maps 1:1 to a Swift constant so a value tuned
+     here can be typed straight back into the app. Source of truth:
+       - AxisBlockLayout            → VarFontEditor/Apps/VarFontStudio/Views/AxisTreeModels.swift
+       - StudioSpacing / StudioRadius / StudioTypography / StudioColors
+                                     → VarFontEditor/Apps/VarFontStudio/Views/StudioDesign.swift
+     Colors are close approximations of the SwiftUI dark-appearance system
+     colors (Color.secondary/.tertiary, accentColor, etc.) — good enough for
+     spacing/layout tuning, not meant to be pixel-exact color proofing.
+     ============================================================================ */
+  :root{
+    /* ---- AxisBlockLayout ---- */
+    --tag-column-width: 34px;             /* AxisBlockLayout.tagColumnWidth */
+    --stop-indent-width: 18px;            /* AxisBlockLayout.stopIndentWidth (applied once, on the table container) */
+    --default-mark-width: 22px;           /* AxisBlockLayout.defaultMarkWidth */
+    --default-mark-trailing-gap: 6px;     /* AxisBlockLayout.defaultMarkTrailingGap */
+    --fmt-column-width: 36px;             /* AxisBlockLayout.fmtColumnWidth */
+    --value-column-width: 52px;           /* AxisBlockLayout.valueColumnWidth */
+    --name-gap: 10px;                     /* AxisBlockLayout.nameGap */
+    --elidable-width: 36px;               /* AxisBlockLayout.elidableWidth */
+    --elidable-gap: 8px;                  /* AxisBlockLayout.elidableGap */
+    --code-column-width: 28px;            /* AxisBlockLayout.codeColumnWidth */
+    --code-gap: 6px;                      /* AxisBlockLayout.codeGap */
+    --remove-button-size: 13px;           /* AxisBlockLayout.removeButtonSize (StudioIncludeCheckbox.size) */
+    --remove-slot-width: 17px;            /* AxisBlockLayout.removeSlotWidth (removeButtonSize + 4) */
+    --remove-slot-leading-gap: 6px;       /* AxisBlockLayout.removeSlotLeadingGap */
+    --row-horizontal-padding: 6px;        /* AxisBlockLayout.rowHorizontalPadding */
+    --stop-count-badge-width: 32px;       /* AxisBlockLayout.stopCountBadgeWidth */
+
+    /* ---- StudioSpacing ---- */
+    --panel-horizontal: 8px;              /* StudioSpacing.panelHorizontal */
+    --scroll-content-horizontal: 10px;    /* StudioSpacing.scrollContentHorizontal (panelHorizontal + 2) */
+    --scroll-gutter: 8px;                 /* StudioSpacing.scrollGutter */
+    --row-gap: 6px;                       /* StudioSpacing.rowGap */
+    --control-gap: 8px;                   /* StudioSpacing.controlGap */
+    --section-gap: 10px;                  /* StudioSpacing.sectionGap */
+    --instance-row-vertical: 3px;         /* StudioSpacing.instanceRowVertical */
+    --panel-content-top: 6px;             /* StudioSpacing.panelContentTop (toolbarVertical) */
+    --panel-vertical: 6px;                /* StudioSpacing.panelVertical */
+    --table-header-to-first-row-gap: 1px; /* AxisDetailSpacing.tableHeaderToFirstRowGap */
+    --last-stop-to-add-button-gap: 8px;   /* AxisDetailSpacing.lastStopToAddButtonGap (controlGap) */
+
+    /* ---- StudioFieldMetrics ---- */
+    --list-row-min-height: 22px;          /* StudioFieldMetrics.listRowMinHeight */
+
+    /* ---- StudioRadius ---- */
+    --radius-row: 6px;                    /* StudioRadius.row */
+    --radius-chip: 4px;                   /* StudioRadius.chip */
+    --radius-control: 5px;                /* StudioRadius.control */
+    --radius-small: 3px;                  /* StudioRadius.small */
+
+    /* ---- StudioTypography (font-family always -apple-system) ---- */
+    --font-section-label: 600 10px/1.3 var(--sans);   /* sectionLabel */
+    --font-column-label: 500 10px/1.3 var(--sans);    /* columnLabel */
+    --font-body: 400 13px/1.3 var(--sans);            /* body */
+    --font-body-medium: 500 12px/1.3 var(--sans);     /* bodyMedium */
+    --font-caption: 400 11px/1.3 var(--sans);         /* caption */
+    --font-meta: 400 10px/1.3 var(--sans);            /* meta */
+    --font-tag: 500 9px/1.3 var(--mono);              /* tag */
+    --font-mono-value: 400 11px/1.3 var(--mono);      /* monoValue */
+    --font-mono-meta: 400 10px/1.3 var(--mono);       /* monoMeta */
+    --font-badge: 700 9px/1.3 var(--mono);            /* StudioStatFormatBadge label */
+
+    --sans: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+
+    /* ---- StudioColors (approximate dark-appearance system colors) ---- */
+    --c-bg: #18181a;
+    --c-panel-header-bg: #232325;
+    --c-border: #333335;
+    --c-text: #f2f2f4;                    /* .primary */
+    --c-text-secondary: rgba(255,255,255,.55);   /* .secondary */
+    --c-text-tertiary: rgba(255,255,255,.35);    /* .tertiary */
+    --c-accent: #0a84ff;                  /* accentColor / statFormat3 / computedHighlight */
+    --c-selection-fill: rgba(10,132,255,.10);    /* StudioColors.selectionFill */
+    --c-selection-stroke: rgba(10,132,255,.20);  /* StudioColors.selectionStroke */
+    --c-hover-fill: rgba(255,255,255,.05);       /* StudioColors.hoverFill */
+    --c-axis-value: rgba(255,159,10,.85);        /* StudioColors.axisValue */
+    --c-format1: #32d74b;                 /* StudioColors.statFormat1 (green) */
+    --c-format2: #64d2ff;                 /* StudioColors.statFormat2 (cyan) */
+    --c-format3: var(--c-accent);         /* StudioColors.statFormat3 */
+    --c-registration: #8c73f2;            /* StudioColors.registrationForeground */
+    --c-registration-bg: rgba(140,115,242,.14);
+    --c-registration-stroke: rgba(140,115,242,.35);
+    --c-code: #c7852e;                    /* StudioColors.codeForeground */
+    --c-code-bg: rgba(199,133,46,.14);
+    --c-warning: #ff9f0a;                 /* StudioColors.warningForeground */
+    --c-tag-bg: rgba(255,255,255,.08);    /* StudioColors.tagBackground */
+    --c-quaternary: rgba(255,255,255,.14); /* .quaternary material (count badge / caption bg) */
+  }
+
+  *{ box-sizing: border-box; }
+  body{
+    margin: 0; background: #0d0d0e; color: var(--c-text);
+    font-family: var(--sans); padding: 20px 20px 56px;
+  }
+  .page{ max-width: 1100px; margin: 0 auto; }
+
+  /* ---- Intro / legend (collapsible, matches other prototypes in archive/Design) ---- */
+  .intro{ margin-bottom: 14px; }
+  .intro-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .intro h1{ font-size:15px; margin:0; font-weight:600; }
+  .intro-toggle{
+    font-family: var(--sans); font-size:11px; color: var(--c-text-secondary);
+    background: transparent; border: none; cursor: pointer; padding: 4px 0;
+  }
+  .intro-toggle:hover{ color: var(--c-text); }
+  .intro-body{ display:none; margin-top:10px; color: var(--c-text-secondary); font-size:11.5px; line-height:1.6; max-width: 900px; }
+  .intro.open .intro-body{ display:block; }
+  .intro-body code{
+    font-family: var(--mono); font-size:10.5px; background:#242426; padding:1px 5px; border-radius:4px;
+  }
+  .legend{
+    margin-top:12px; display:grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr));
+    gap: 6px 16px; font-size:11px;
+  }
+  .legend div{ display:flex; justify-content:space-between; gap:8px; padding:3px 0; border-bottom:1px solid #232325; }
+  .legend .k{ color: var(--c-text-secondary); font-family: var(--mono); font-size:10.5px; }
+  .legend .v{ color: var(--c-text); font-family: var(--mono); font-size:10.5px; }
+
+  /* ---- Live width readout ---- */
+  .width-readout{
+    display:flex; align-items:center; gap:14px; margin-bottom:10px;
+    font-size:11px; color: var(--c-text-secondary);
+  }
+  .width-readout b{ color: var(--c-accent); font-family: var(--mono); }
+  .width-readout .hint{ color: var(--c-text-tertiary); }
+
+  /* ---- Mock window ---- */
+  .mockwin{
+    background: var(--c-bg); border: 1px solid #000; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 30px 60px -20px rgba(0,0,0,.65);
+    resize: horizontal; min-width: 280px; max-width: 900px; width: 430px;
+    display: flex; flex-direction: column;
+  }
+  .titlebar{
+    height: 30px; background: linear-gradient(#2b2b2d,#242426); border-bottom: 1px solid #000;
+    display:flex; align-items:center; padding: 0 10px; gap:8px; flex-shrink:0; position:relative;
+  }
+  .dots{ display:flex; gap:6px; }
+  .dot{ width:10px; height:10px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{
+    position:absolute; left:0; right:0; text-align:center; font-size:11.5px;
+    color: var(--c-text-secondary); pointer-events:none;
+  }
+  .resize-hint{
+    position:absolute; bottom:2px; right:4px; font-size:9px; color: var(--c-text-tertiary);
+    pointer-events:none;
+  }
+
+  /* ---- Panel header (StudioPanelHeader) ---- */
+  .panel-hdr{
+    height: 32px; flex-shrink:0; background: var(--c-panel-header-bg);
+    border-bottom: 1px solid var(--c-border);
+    display:flex; align-items:center; justify-content:space-between; gap: var(--control-gap);
+    padding: 0 calc(var(--panel-horizontal) + 2px);
+  }
+  .panel-hdr .title{
+    font: var(--font-section-label); text-transform: uppercase; letter-spacing:.04em;
+    color: var(--c-text-tertiary);
+  }
+  .panel-hdr .trailing{ display:flex; align-items:center; gap: var(--control-gap); }
+  .panel-hdr .axes-count{ font: var(--font-meta); display:flex; gap:3px; }
+  .panel-hdr .axes-count b{ color: var(--c-accent); font-weight:400; }
+  .panel-hdr .axes-count span{ color: var(--c-text-secondary); }
+  .icon-btn{
+    width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+    border:none; background:transparent; color: var(--c-text-secondary); cursor:pointer; border-radius:4px;
+  }
+  .icon-btn:hover{ background: rgba(255,255,255,.06); color: var(--c-text); }
+  .icon-btn svg{ width:13px; height:13px; }
+
+  /* ---- Scroll body ---- */
+  .panel-scroll{ flex:1; min-height:0; overflow:auto; }
+  .panel-body{
+    padding: var(--panel-content-top) calc(var(--scroll-content-horizontal) + var(--scroll-gutter)) var(--panel-vertical) var(--scroll-content-horizontal);
+  }
+
+  /* ---- Grid summary (Instance grid / Generated) ---- */
+  .grid-summary{ display:flex; flex-direction:column; gap: var(--row-gap); margin-bottom: var(--section-gap); }
+  .summary-row{ display:flex; align-items:baseline; justify-content:space-between; }
+  .summary-row .lbl{ font: var(--font-caption); color: var(--c-text-secondary); }
+  .summary-row .val{ font: var(--font-body-medium); color: var(--c-accent); font-variant-numeric: tabular-nums; }
+
+  /* ================= Axis block ================= */
+  .axis-block + .axis-block{ margin-top: 0; }
+  .axis-divider{ height:1px; background: var(--c-border); margin: var(--row-gap) 0; }
+
+  .axis-header{
+    display:flex; align-items:center; gap:8px; padding: 5px 6px; border-radius: var(--radius-chip);
+    cursor: pointer; user-select:none;
+  }
+  .axis-header:hover{ background: rgba(255,255,255,.03); }
+
+  .tag-pill{
+    font: var(--font-tag); padding: 2px 5px; border-radius: var(--radius-small);
+    background: var(--c-tag-bg); color: var(--c-text-secondary);
+    width: var(--tag-column-width); box-sizing:border-box; text-align:left; flex-shrink:0;
+  }
+  .tag-pill.registration{ background: var(--c-registration-bg); color: var(--c-registration); }
+
+  .axis-titles{ display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
+  .axis-title-row{ display:flex; align-items:center; gap:4px; }
+  .axis-title-row .name{ font: var(--font-body); color: var(--c-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chevron{ font-size:10px; color: var(--c-text-tertiary); transform: rotate(0deg); transition: transform .12s ease; flex-shrink:0; }
+  .axis-block.collapsed .chevron{ transform: rotate(-90deg); }
+  .axis-subtitle{ font: var(--font-meta); color: var(--c-text-secondary); font-variant-numeric: tabular-nums; }
+  .axis-subtitle .reg-value{ color: var(--c-registration); font-weight:500; }
+  .axis-subtitle .chev-mini{ font-size:8px; color: var(--c-text-tertiary); margin-left:2px; }
+
+  .axis-trailing{ display:flex; align-items:center; gap: var(--row-gap); flex-shrink:0; }
+  .count-badge{
+    font: 500 10px var(--mono); min-width: var(--stop-count-badge-width); text-align:center; box-sizing:border-box;
+    padding: 2px 6px; border-radius: 999px; background: var(--c-quaternary); color: var(--c-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .count-badge.muted{ color: var(--c-text-tertiary); }
+
+  .switch{
+    width: 26px; height: 15px; border-radius: 999px; background: rgba(255,255,255,.18);
+    position: relative; cursor: pointer; flex-shrink:0; transition: background .12s ease;
+  }
+  .switch.on{ background: var(--c-accent); }
+  .switch .knob{
+    position:absolute; top:1.5px; left:1.5px; width:12px; height:12px; border-radius:50%;
+    background:#fff; transition: left .12s ease;
+  }
+  .switch.on .knob{ left: 12.5px; }
+
+  /* ---- Table (header row + stop rows) ---- */
+  .axis-table{
+    padding-left: var(--stop-indent-width);   /* single indent, applied once — see AxisBlockLayout comment */
+    margin-top: 4px;
+  }
+  .axis-block.collapsed .axis-table{ display:none; }
+
+  .row{
+    display:flex; align-items:center;
+    padding: 0 var(--row-horizontal-padding);
+    min-height: var(--list-row-min-height);
+    box-sizing:border-box;
+  }
+
+  .col-header{ padding-bottom: var(--table-header-to-first-row-gap); }
+  .col-header .row{ min-height:auto; padding-top:2px; padding-bottom:2px; }
+  .col-header .cell{ font: var(--font-column-label); color: var(--c-text-tertiary); }
+  .col-header .value-sort{ display:flex; align-items:center; gap:2px; cursor:pointer; }
+  .col-header .value-sort svg{ width:8px; height:8px; opacity:.7; }
+
+  .cell-default-mark{ width: var(--default-mark-width); margin-right: var(--default-mark-trailing-gap); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .cell-default-mark .d-icon{ color: var(--c-accent); font-size:11px; font-weight:600; }
+
+  .cell-format{ width: var(--fmt-column-width); flex-shrink:0; display:flex; justify-content:center; }
+  .format-badge{
+    font: var(--font-badge); padding: 2px 5px; border-radius: 3px; border: 0.5px solid transparent;
+  }
+  .format-badge.f1{ color: var(--c-format1); background: rgba(50,215,75,.08); border-color: rgba(50,215,75,.35); }
+  .format-badge.f2{ color: var(--c-format2); background: rgba(100,210,255,.14); border-color: rgba(100,210,255,.35); }
+  .format-badge.f3{ color: var(--c-format3); background: rgba(10,132,255,.08); border-color: rgba(10,132,255,.35); }
+
+  .cell-value{ width: var(--value-column-width); flex-shrink:0; text-align:right; }
+  .cell-value .num{ font: var(--font-mono-value); color: var(--c-axis-value); font-variant-numeric: tabular-nums; }
+  .col-header .cell-value{ display:flex; justify-content:flex-end; }
+
+  .cell-name{ flex:1; min-width:0; padding-left: var(--name-gap); display:flex; align-items:center; gap:4px; }
+  .cell-name .stop-name{ font: var(--font-body-medium); color: var(--c-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cell-name .link-affordance{ display:flex; align-items:center; gap:4px; font: var(--font-caption); font-size:10.5px; color: var(--c-text-secondary); flex-shrink:0; }
+  .cell-name .link-affordance svg{ width:9px; height:9px; opacity:.6; }
+  .cell-name .link-affordance .chev{ font-size:8px; opacity:.5; }
+
+  .cell-elidable{ width: var(--elidable-width); margin-left: var(--elidable-gap); flex-shrink:0; display:flex; justify-content:center; }
+  .elidable-radio{
+    width:14px; height:14px; border-radius:50%; border: 1px solid rgba(255,255,255,.45);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .elidable-radio .dot{ width:8px; height:8px; border-radius:50%; background: var(--c-accent); opacity:0; transition: opacity .08s ease; }
+  .elidable-radio.on .dot{ opacity:1; }
+
+  .cell-code{ width: var(--code-column-width); margin-left: var(--code-gap); flex-shrink:0; text-align:center; }
+  .cell-code .code-val{ font: var(--font-mono-meta); color: var(--c-code); }
+  .cell-code .code-empty{ font: var(--font-mono-meta); color: var(--c-text-tertiary); opacity:.45; }
+
+  .cell-remove{ width: var(--remove-slot-width); margin-left: var(--remove-slot-leading-gap); flex-shrink:0; display:flex; justify-content:center; }
+  .remove-btn{ display:none; width:13px; height:13px; color: var(--c-text-secondary); cursor:pointer; }
+  .row:hover .remove-btn{ display:block; }
+
+  /* ---- Stop row chrome (highlight / selection) ---- */
+  .stop-row{ position: relative; border-radius: var(--radius-row); }
+  .stop-row .row{ position:relative; z-index:1; }
+  .stop-row.selected{ background: var(--c-selection-fill); }
+  .stop-row:hover:not(.selected){ background: var(--c-hover-fill); }
+  .stop-row.registration-stop::before{
+    content:''; position:absolute; left:2px; top:2px; bottom:2px; width:3px;
+    background: rgba(140,115,242,.85); border-radius:2px; z-index:2;
+  }
+  .stop-row-wrap{ padding: var(--instance-row-vertical) 0; }
+
+  /* ---- Action buttons (Add Stop / Fill stops… / Add Naming Axis) ---- */
+  .action-row{ display:flex; gap: var(--control-gap); margin-top: var(--last-stop-to-add-button-gap); }
+  .action-btn{
+    flex:1; min-height: var(--list-row-min-height); box-sizing:border-box;
+    padding: var(--instance-row-vertical) 8px;
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    border-radius: 5px; border: 1px dashed rgba(255,255,255,.35);
+    font: var(--font-caption); color: var(--c-text-secondary);
+    cursor: pointer; background: transparent;
+  }
+  .action-btn:hover{ background: rgba(255,255,255,.03); }
+  .action-btn svg{ width:10px; height:10px; }
+  .action-btn.registration{ border-color: var(--c-registration-stroke); color: var(--c-registration); }
+
+  .add-naming-axis{ margin-top: var(--section-gap); }
+
+  /* ---- Combination styles placeholder (kept minimal, not the focus) ---- */
+  .footer-hint{ margin-top: var(--section-gap); font-size:10.5px; color: var(--c-text-tertiary); text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="intro" id="intro">
+    <div class="intro-head">
+      <h1>Axis tree layout prototype</h1>
+      <button type="button" class="intro-toggle" id="introToggle">About this prototype · CSS ↔ Swift map</button>
+    </div>
+    <div class="intro-body">
+      <p>
+        This is a static HTML/CSS stand-in for <code>AxisTreePanel</code> / <code>AxisTreeAxisHeader</code> /
+        <code>AxisStopTableHeader</code> / <code>AxisTreeStopRow</code>, built from the exact spacing constants
+        in <code>AxisBlockLayout</code> and the shared tokens in <code>StudioDesign.swift</code>. Every CSS custom
+        property in <code>:root</code> is commented with the Swift constant it mirrors — tune a value here, then
+        copy the number back into <code>AxisTreeModels.swift</code> / <code>StudioDesign.swift</code>.
+      </p>
+      <p>
+        The window in the mock titlebar is resizable (drag its bottom-right corner) — use it the same way you'd
+        measure the real app: the "divider-to-divider" width you'd read in the running app is the
+        <b>content width</b> figure in the readout above the window, not the outer window width (which also
+        includes the left/right scroll insets).
+      </p>
+      <p>
+        Rows are interactive: click a stop row to select it (tests the highlight vs. the dashed buttons below it),
+        click an <b>Elided</b> radio to move the elidable stop within that axis, click a header row to
+        expand/collapse, click a switch to toggle it. Colors are close approximations of the system dark-appearance
+        colors used in SwiftUI (<code>Color.secondary</code>, <code>accentColor</code>, etc.) — they're here for
+        context, not pixel-exact proofing. The layout/spacing is the part worth trusting.
+      </p>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+
+  <div class="width-readout">
+    <span>Outer window: <b id="outerWidth">–</b>px</span>
+    <span>Table content width (divider-to-divider): <b id="contentWidth">–</b>px</span>
+    <span class="hint">— drag the window's bottom-right corner to resize</span>
+  </div>
+
+  <div class="mockwin" id="mockwin">
+    <div class="titlebar">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="wtitle">VarFont Studio</div>
+    </div>
+
+    <div class="panel-hdr">
+      <span class="title">Axis tree</span>
+      <div class="trailing">
+        <span class="axes-count"><b>3</b><span>axes</span></span>
+        <button class="icon-btn" title="Collapse axis tree">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h4v10H2V3zm5 0h7v10H7V3z" opacity=".85"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-scroll">
+      <div class="panel-body" id="panelBody">
+
+        <div class="grid-summary">
+          <div class="summary-row"><span class="lbl">Instance grid</span><span class="val">5 × 6 = 30</span></div>
+          <div class="summary-row"><span class="lbl">Generated</span><span class="val">30</span></div>
+        </div>
+
+        <!-- ===================== Width (wdth) ===================== -->
+        <div class="axis-block" data-axis="wdth">
+          <div class="axis-header" data-toggle="wdth">
+            <span class="tag-pill">wdth</span>
+            <div class="axis-titles">
+              <div class="axis-title-row">
+                <span class="name">Width</span>
+                <span class="chevron">▾</span>
+              </div>
+              <span class="axis-subtitle">fvar 80 – 100 – 120</span>
+            </div>
+            <div class="axis-trailing">
+              <span class="count-badge">5</span>
+              <div class="switch on" data-switch></div>
+            </div>
+          </div>
+
+          <div class="axis-table">
+            <div class="col-header">
+              <div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell cell-format">Format</div>
+                <div class="cell cell-value"><span class="value-sort">Value <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l4 5H4l4-5zm0 10l-4-5h8l-4 5z" opacity=".5"/></svg></span></div>
+                <div class="cell cell-name">Name</div>
+                <div class="cell cell-elidable">Elided</div>
+                <div class="cell cell-code">Code</div>
+                <div class="cell-remove"></div>
+              </div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">80</span></div>
+                <div class="cell-name"><span class="stop-name">Condensed</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">1</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">90</span></div>
+                <div class="cell-name"><span class="stop-name">Expanded</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">2</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"><span class="d-icon">◆</span></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">100</span></div>
+                <div class="cell-name"><span class="stop-name">Normal</span></div>
+                <div class="cell-elidable"><div class="elidable-radio on" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">3</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">110</span></div>
+                <div class="cell-name"><span class="stop-name">XCondensed</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">4</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">120</span></div>
+                <div class="cell-name"><span class="stop-name">XExpanded</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">5</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="action-row">
+              <button type="button" class="action-btn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 110 2H9v4a1 1 0 11-2 0V9H3a1 1 0 110-2h4V3a1 1 0 011-1z"/></svg>Add Stop</button>
+              <button type="button" class="action-btn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z" opacity=".85"/></svg>Fill stops…</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="axis-divider"></div>
+
+        <!-- ===================== Weight (wght) ===================== -->
+        <div class="axis-block" data-axis="wght">
+          <div class="axis-header" data-toggle="wght">
+            <span class="tag-pill">wght</span>
+            <div class="axis-titles">
+              <div class="axis-title-row">
+                <span class="name">Weight</span>
+                <span class="chevron">▾</span>
+              </div>
+              <span class="axis-subtitle">fvar 300 – 400 – 800</span>
+            </div>
+            <div class="axis-trailing">
+              <span class="count-badge">6</span>
+              <div class="switch on" data-switch></div>
+            </div>
+          </div>
+
+          <div class="axis-table">
+            <div class="col-header">
+              <div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell cell-format">Format</div>
+                <div class="cell cell-value"><span class="value-sort">Value <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l4 5H4l4-5zm0 10l-4-5h8l-4 5z" opacity=".5"/></svg></span></div>
+                <div class="cell cell-name">Name</div>
+                <div class="cell cell-elidable">Elided</div>
+                <div class="cell cell-code">Code</div>
+                <div class="cell-remove"></div>
+              </div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">300</span></div>
+                <div class="cell-name"><span class="stop-name">Light</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">1</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row selected" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"><span class="d-icon">◆</span></div>
+                <div class="cell-format"><span class="format-badge f3">F3</span></div>
+                <div class="cell-value"><span class="num">400</span></div>
+                <div class="cell-name">
+                  <span class="stop-name">Regular</span>
+                  <span class="link-affordance">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l3-3M6 5H4.5A2.5 2.5 0 002 7.5v0A2.5 2.5 0 004.5 10H6M10 11h1.5A2.5 2.5 0 0014 8.5v0A2.5 2.5 0 0011.5 6H10" stroke="currentColor" stroke-width="1.1" fill="none"/></svg>
+                    Bold <span class="chev">▾</span>
+                  </span>
+                </div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">2</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">500</span></div>
+                <div class="cell-name"><span class="stop-name">Medium</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">3</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">600</span></div>
+                <div class="cell-name"><span class="stop-name">Bold</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">4</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">700</span></div>
+                <div class="cell-name"><span class="stop-name">Extrabold</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">5</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="stop-row" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f1">F1</span></div>
+                <div class="cell-value"><span class="num">800</span></div>
+                <div class="cell-name"><span class="stop-name">Black</span></div>
+                <div class="cell-elidable"><div class="elidable-radio" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">6</span></div>
+                <div class="cell-remove"><svg class="remove-btn" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.7 5.7a.75.75 0 011.06 0L8 6.94l1.24-1.24a.75.75 0 111.06 1.06L9.06 8l1.24 1.24a.75.75 0 11-1.06 1.06L8 9.06l-1.24 1.24a.75.75 0 11-1.06-1.06L6.94 8 5.7 6.76a.75.75 0 010-1.06z"/></svg></div>
+              </div></div>
+            </div>
+
+            <div class="action-row">
+              <button type="button" class="action-btn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 110 2H9v4a1 1 0 11-2 0V9H3a1 1 0 110-2h4V3a1 1 0 011-1z"/></svg>Add Stop</button>
+              <button type="button" class="action-btn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 9h5v5H2V9zm7 0h5v5H9V9z" opacity=".85"/></svg>Fill stops…</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="axis-divider"></div>
+
+        <!-- ===================== Italic (ital) — registration / naming axis ===================== -->
+        <div class="axis-block" data-axis="ital">
+          <div class="axis-header" data-toggle="ital">
+            <span class="tag-pill registration">ital</span>
+            <div class="axis-titles">
+              <div class="axis-title-row">
+                <span class="name">Italic</span>
+                <span class="chevron">▾</span>
+              </div>
+              <span class="axis-subtitle">No fvar scale · <span class="reg-value">Roman</span></span>
+            </div>
+            <div class="axis-trailing">
+              <span class="count-badge">1</span>
+            </div>
+          </div>
+
+          <div class="axis-table">
+            <div class="col-header">
+              <div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell cell-format">Format</div>
+                <div class="cell cell-value"><span class="value-sort">Value <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l4 5H4l4-5zm0 10l-4-5h8l-4 5z" opacity=".5"/></svg></span></div>
+                <div class="cell cell-name">Name</div>
+                <div class="cell cell-elidable">Elided</div>
+                <div class="cell cell-code">Code</div>
+                <div class="cell-remove"></div>
+              </div>
+            </div>
+
+            <div class="stop-row registration-stop selected" data-select>
+              <div class="stop-row-wrap"><div class="row">
+                <div class="cell-default-mark"></div>
+                <div class="cell-format"><span class="format-badge f3">F3</span></div>
+                <div class="cell-value"><span class="num">0</span></div>
+                <div class="cell-name">
+                  <span class="stop-name">Roman</span>
+                  <span class="link-affordance">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l3-3M6 5H4.5A2.5 2.5 0 002 7.5v0A2.5 2.5 0 004.5 10H6M10 11h1.5A2.5 2.5 0 0014 8.5v0A2.5 2.5 0 0011.5 6H10" stroke="currentColor" stroke-width="1.1" fill="none"/></svg>
+                    1
+                  </span>
+                </div>
+                <div class="cell-elidable"><div class="elidable-radio on" data-elidable><span class="dot"></span></div></div>
+                <div class="cell-code"><span class="code-val">0</span></div>
+                <div class="cell-remove"></div>
+              </div></div>
+            </div>
+
+            <div class="action-row">
+              <button type="button" class="action-btn registration"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 110 2H9v4a1 1 0 11-2 0V9H3a1 1 0 110-2h4V3a1 1 0 011-1z"/></svg>Add Stop</button>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="action-btn registration add-naming-axis">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a1 1 0 011 1v4h4a1 1 0 110 2H9v4a1 1 0 11-2 0V9H3a1 1 0 110-2h4V3a1 1 0 011-1z"/></svg>
+          Add Naming Axis
+        </button>
+
+        <div class="footer-hint">Combination styles section (compound STAT values) omitted — not relevant to this column-layout pass.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('introToggle').addEventListener('click', () => {
+  document.getElementById('intro').classList.toggle('open');
+});
+
+// Expand/collapse axis blocks.
+document.querySelectorAll('[data-toggle]').forEach(header => {
+  header.addEventListener('click', () => {
+    header.closest('.axis-block').classList.toggle('collapsed');
+  });
+});
+
+// Row selection (single selection across the whole tree, matching editor.selectedAxisStopID).
+document.querySelectorAll('[data-select]').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.stop-row.selected').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+  });
+});
+
+// Elidable radios — mutually exclusive within their own axis block.
+document.querySelectorAll('[data-elidable]').forEach(radio => {
+  radio.addEventListener('click', e => {
+    e.stopPropagation();
+    const axis = radio.closest('.axis-block');
+    axis.querySelectorAll('[data-elidable]').forEach(r => r.classList.remove('on'));
+    radio.classList.add('on');
+  });
+});
+
+// Toggle switches (Instance axis) — visual only.
+document.querySelectorAll('[data-switch]').forEach(sw => {
+  sw.addEventListener('click', e => {
+    e.stopPropagation();
+    sw.classList.toggle('on');
+  });
+});
+
+// Build the legend table from :root custom properties tagged with a Swift-name comment.
+(function buildLegend(){
+  const legend = document.getElementById('legend');
+  const cssText = document.querySelector('style').textContent;
+  const varBlockMatch = cssText.match(/:root\{([\s\S]*?)\n  \}/);
+  if (!varBlockMatch) return;
+  const lines = varBlockMatch[1].split('\n');
+  lines.forEach(line => {
+    const m = line.match(/--([\w-]+):\s*([^;]+);\s*\/\*\s*(.+?)\s*\*\//);
+    if (!m) return;
+    const [, name, value, swiftName] = m;
+    const row = document.createElement('div');
+    row.innerHTML = `<span class="k">--${name}</span><span class="v">${value.trim()} → ${swiftName}</span>`;
+    legend.appendChild(row);
+  });
+})();
+
+// Live width readout.
+const mockwin = document.getElementById('mockwin');
+const panelBody = document.getElementById('panelBody');
+function updateWidthReadout(){
+  document.getElementById('outerWidth').textContent = Math.round(mockwin.getBoundingClientRect().width);
+  // "Content width" ≈ the axis-table row width, which is what a Divider spans in the real app.
+  const row = document.querySelector('.axis-header');
+  document.getElementById('contentWidth').textContent = row ? Math.round(row.getBoundingClientRect().width) : '–';
+}
+new ResizeObserver(updateWidthReadout).observe(mockwin);
+updateWidthReadout();
+</script>
+</body>
+</html>

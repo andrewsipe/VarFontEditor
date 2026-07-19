@@ -213,65 +213,109 @@ extension EditorViewModel {
     /// Whether a registration template tag can be added (no duplicate axis on the selected font).
     func canAddRegistrationTemplate(_ kind: RegistrationAxisFactory.TemplateKind) -> Bool {
         guard let axes = selectedFont?.axes else { return false }
-        return RegistrationAxisFactory.templateTag(for: kind, axes: axes) != nil
+        return RegistrationAxisFactory.addAvailability(for: kind, axes: axes) == .available
+    }
+
+    func namingAxisBlockReason(for kind: RegistrationAxisFactory.TemplateKind) -> String? {
+        guard let axes = selectedFont?.axes else { return nil }
+        return RegistrationAxisFactory.blockReasonCopy(
+            RegistrationAxisFactory.addAvailability(for: kind, axes: axes)
+        )
+    }
+
+    /// Where a newly appended naming-order tag would land, e.g. "after Weight".
+    func namingOrderInsertHint(forNewTag tag: String) -> String {
+        guard let project else { return "at the end of naming order" }
+        let order = NamingPolicy.mergedOrder(
+            projectOrder: project.naming.order,
+            axisTags: (selectedFont?.axes.map(\.tag) ?? []) + [tag]
+        )
+        guard let index = order.firstIndex(of: tag), index > 0 else {
+            return "at the start of naming order"
+        }
+        let previous = order[..<index].reversed().first { token in
+            !NamingToken.isSpecialToken(token)
+        }
+        if let previous {
+            let label = selectedFont?.axes.first(where: { $0.tag == previous })?.displayName
+                ?? previous
+            return "after \(label)"
+        }
+        return "at the end of naming order"
     }
 
     @discardableResult
-    func addRegistrationTemplate(_ kind: RegistrationAxisFactory.TemplateKind) -> Bool {
-        guard var project, let axes = selectedFont?.axes,
-              RegistrationAxisFactory.templateTag(for: kind, axes: axes) != nil else {
+    func addRegistrationTemplate(
+        _ kind: RegistrationAxisFactory.TemplateKind,
+        displayName: String? = nil,
+        value: Double? = nil,
+        code: String? = nil
+    ) -> Bool {
+        guard var project, let selectedFontID,
+              let axes = selectedFont?.axes,
+              RegistrationAxisFactory.addAvailability(for: kind, axes: axes) == .available else {
             return false
         }
-        let axis = RegistrationAxisFactory.makeTemplateAxis(kind: kind)
-        return insertRegistrationAxis(axis, into: &project, registerOnSelectedFile: true)
+        let axis: AxisDefinition
+        switch kind {
+        case .slope:
+            axis = RegistrationAxisFactory.makeTemplateAxis(kind: .slope)
+        case .width, .optical:
+            let tag = kind.defaultTag
+            let name = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedName = (name?.isEmpty == false) ? name! : kind.displayName
+            let resolvedValue = value ?? (kind == .width ? 100 : 12)
+            axis = RegistrationAxisFactory.makeNamedStopAxis(
+                tag: tag,
+                displayName: resolvedName,
+                stopName: resolvedName,
+                value: resolvedValue,
+                elidable: false,
+                code: code
+            )
+        }
+        pushUndoSnapshot()
+        let changed = RegistrationAxisFactory.insertNamingAxis(
+            axis,
+            into: &project,
+            selectedFontID: selectedFontID
+        )
+        guard changed else { return false }
+        self.project = project
+        canSave = true
+        regeneratePlan()
+        return true
     }
 
     /// Add a custom registration axis (tag + display name). Returns false on collision / invalid tag.
     @discardableResult
-    func addRegistrationAxis(tag: String, displayName: String) -> Bool {
-        guard var project, let axes = selectedFont?.axes else { return false }
+    func addRegistrationAxis(
+        tag: String,
+        displayName: String,
+        value: Double = 0,
+        elidable: Bool = true,
+        code: String? = nil
+    ) -> Bool {
+        guard var project, let selectedFontID else { return false }
         let normalized = RegistrationAxisFactory.sanitizeAxisTag(tag)
-        guard RegistrationAxisFactory.canAddRegistrationAxis(tag: normalized, axes: axes) else {
+        guard !normalized.isEmpty,
+              !RegistrationAxisFactory.tagExistsInFamily(tag: normalized, fonts: project.fonts) else {
             return false
         }
-        let axis = RegistrationAxisFactory.makeCustomAxis(tag: normalized, displayName: displayName)
-        return insertRegistrationAxis(axis, into: &project, registerOnSelectedFile: true)
-    }
-
-    @discardableResult
-    private func insertRegistrationAxis(
-        _ axis: AxisDefinition,
-        into project: inout ProjectDocument,
-        registerOnSelectedFile: Bool
-    ) -> Bool {
+        let axis = RegistrationAxisFactory.makeCustomAxis(
+            tag: normalized,
+            displayName: displayName,
+            value: value,
+            elidable: elidable,
+            code: code
+        )
         pushUndoSnapshot()
-        for index in project.fonts.indices {
-            guard !project.fonts[index].axes.contains(where: { $0.tag == axis.tag }) else { continue }
-            let axisForFile: AxisDefinition
-            if axis.tag == "ital" {
-                let italic = RegistrationAxisSupport.isItalicFile(font: project.fonts[index])
-                axisForFile = RegistrationAxisFactory.makeItalAxis(isItalicFile: italic)
-            } else {
-                axisForFile = axis
-            }
-            project.fonts[index].axes.append(axisForFile)
-            let value = axisForFile.values.first?.value ?? 0
-            project.fonts[index].fileStatRegistration[axisForFile.tag] = value
-            project.fonts[index].dirty = true
-        }
-        if !project.template.axes.contains(where: { $0.tag == axis.tag }) {
-            let templateAxis = axis.tag == "ital"
-                ? RegistrationAxisFactory.makeItalAxis(isItalicFile: false)
-                : axis
-            project.template.axes.append(templateAxis)
-        }
-        if !project.naming.order.contains(axis.tag) {
-            project.naming.order.append(axis.tag)
-            project.naming.order = NamingPolicy.ensurePostscriptHyphen(in: project.naming.order)
-        }
-        // Drop superseded clarifier tokens from naming order.
-        project.naming.order = project.naming.order.filter { !NamingToken.isClarifier($0) }
-        project.modified = Date()
+        let changed = RegistrationAxisFactory.insertNamingAxis(
+            axis,
+            into: &project,
+            selectedFontID: selectedFontID
+        )
+        guard changed else { return false }
         self.project = project
         canSave = true
         regeneratePlan()
@@ -816,7 +860,8 @@ extension EditorViewModel {
         statFormat: Int = 1,
         rangeMin: Double? = nil,
         rangeMax: Double? = nil,
-        linkedStopID: String? = nil
+        linkedStopID: String? = nil,
+        code: String? = nil
     ) {
         var addedStopID: String?
         mutateSelectedFont { font in
@@ -835,7 +880,8 @@ extension EditorViewModel {
                 statFormat: statFormat,
                 rangeMin: rangeMin,
                 rangeMax: rangeMax,
-                linkedValue: linkedValue
+                linkedValue: linkedValue,
+                code: InstanceCodeBuilder.sanitize(code)
             )
             font.axes[axisIndex].values.append(stop)
             font.axes[axisIndex].values.sort { $0.value < $1.value }

@@ -15,12 +15,19 @@ struct AddAxisStopSheet: View {
     @State private var minText = ""
     @State private var maxText = ""
     @State private var nameText = ""
+    @State private var codeText = ""
     @State private var linkTargetID: String?
     @State private var tabKeyMonitor: TabKeyMonitor?
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case pin, min, max, name
+        case pin, min, max, name, code
+    }
+
+    private var trimmedCode: String? {
+        guard editor.isCodeNamingEnabled else { return nil }
+        let t = codeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
     }
 
     var body: some View {
@@ -46,9 +53,24 @@ struct AddAxisStopSheet: View {
                     placeholder: "Name",
                     text: $nameText,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    onSubmit: addStopIfValid
+                    onSubmit: editor.isCodeNamingEnabled
+                        ? { advanceFocusedField(from: .name) }
+                        : addStopIfValid,
+                    submitBehavior: editor.isCodeNamingEnabled ? .advance : .commit
                 )
                 .focused($focusedField, equals: .name)
+                if editor.isCodeNamingEnabled {
+                    StudioTextField(
+                        placeholder: "Code",
+                        text: $codeText,
+                        font: StudioTypography.monoMeta,
+                        rowHeight: StudioFieldMetrics.bodyRowHeight,
+                        filledForeground: StudioColors.codeForeground,
+                        onSubmit: addStopIfValid
+                    )
+                    .focused($focusedField, equals: .code)
+                    .help("Optional 1–2 character classification code (letters or digits)")
+                }
             }
 
             if let validationMessage {
@@ -163,15 +185,20 @@ struct AddAxisStopSheet: View {
         if index + 1 < order.count {
             focusedField = order[index + 1]
         } else {
-            focusedField = .name
+            focusedField = editor.isCodeNamingEnabled ? .code : .name
         }
     }
 
     private var fieldOrder: [Field] {
+        var order: [Field]
         switch statFormat {
-        case 2: [.min, .pin, .max, .name]
-        default: [.pin, .name]
+        case 2: order = [.min, .pin, .max, .name]
+        default: order = [.pin, .name]
         }
+        if editor.isCodeNamingEnabled {
+            order.append(.code)
+        }
+        return order
     }
 
     private var linkCandidates: [AxisValue] {
@@ -229,19 +256,35 @@ struct AddAxisStopSheet: View {
         guard canAdd else { return }
         let name = trimmedName
         let tag = axis.tag
+        let code = trimmedCode
         onComplete()
         dismiss()
         Task { @MainActor in
             switch statFormat {
             case 2:
                 guard let pin = parsedPin, let min = parsedMin, let max = parsedMax else { return }
-                editor.insertAxisStop(axisTag: tag, value: pin, name: name, statFormat: 2, rangeMin: min, rangeMax: max)
+                editor.insertAxisStop(
+                    axisTag: tag,
+                    value: pin,
+                    name: name,
+                    statFormat: 2,
+                    rangeMin: min,
+                    rangeMax: max,
+                    code: code
+                )
             case 3:
                 guard let pin = parsedPin else { return }
-                editor.insertAxisStop(axisTag: tag, value: pin, name: name, statFormat: 3, linkedStopID: linkTargetID)
+                editor.insertAxisStop(
+                    axisTag: tag,
+                    value: pin,
+                    name: name,
+                    statFormat: 3,
+                    linkedStopID: linkTargetID,
+                    code: code
+                )
             default:
                 guard let pin = parsedPin else { return }
-                editor.insertAxisStop(axisTag: tag, value: pin, name: name)
+                editor.insertAxisStop(axisTag: tag, value: pin, name: name, code: code)
             }
         }
     }
@@ -457,74 +500,189 @@ struct AddFileAxisSheet: View {
             case .custom: return nil
             }
         }
+
+        var policyTitle: String {
+            switch self {
+            case .slope: return "Slope policy"
+            case .width: return "Width policy"
+            case .optical: return "Optical policy"
+            case .custom: return "Custom tag policy"
+            }
+        }
     }
 
     @State private var kind: Kind = .slope
-    @State private var tagText = ""
+    @State private var tagText = "GRAD"
     @State private var nameText = ""
+    @State private var valueText = "0"
+    @State private var codeText = ""
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case tag, name
+        case tag, name, value, code
+    }
+
+    private var trimmedCode: String? {
+        guard editor.isCodeNamingEnabled else { return nil }
+        let t = codeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
     }
 
     private var sanitizedTag: String {
         RegistrationAxisFactory.sanitizeAxisTag(tagText)
     }
 
-    private var templateAvailable: Bool {
-        guard let template = kind.template else { return true }
-        return editor.canAddRegistrationTemplate(template)
+    private var parsedValue: Double? {
+        Double(valueText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    private var customCollision: Bool {
-        guard kind == .custom, let axes = editor.selectedFont?.axes, !sanitizedTag.isEmpty else {
+    private var isItalicFile: Bool {
+        guard let font = editor.selectedFont else { return false }
+        return RegistrationAxisSupport.isItalicFile(font: font)
+    }
+
+    private var kindEnabled: Bool {
+        switch kind {
+        case .slope, .width, .optical:
+            return kind.template.map { editor.canAddRegistrationTemplate($0) } ?? false
+        case .custom:
+            return true
+        }
+    }
+
+    private var disabledReason: String? {
+        guard let template = kind.template else { return nil }
+        return editor.namingAxisBlockReason(for: template)
+    }
+
+    private var familyTagCollision: Bool {
+        guard kind == .custom, !sanitizedTag.isEmpty, let fonts = editor.project?.fonts else {
             return false
         }
-        return !RegistrationAxisFactory.canAddRegistrationAxis(tag: sanitizedTag, axes: axes)
+        return RegistrationAxisFactory.tagExistsInFamily(tag: sanitizedTag, fonts: fonts)
+    }
+
+    private var tagLengthInvalid: Bool {
+        kind == .custom && !tagText.isEmpty && sanitizedTag.count != 4
+    }
+
+    private var previewStopName: String {
+        switch kind {
+        case .slope:
+            return isItalicFile ? "Italic" : "Roman"
+        case .width, .optical, .custom:
+            let trimmed = nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+            switch kind {
+            case .width: return "Width"
+            case .optical: return "Optical Size"
+            case .custom: return sanitizedTag.isEmpty ? "Name" : sanitizedTag
+            default: return "Name"
+            }
+        }
+    }
+
+    private var previewTag: String {
+        switch kind {
+        case .slope: return "ital"
+        case .width: return "wdth"
+        case .optical: return "opsz"
+        case .custom: return sanitizedTag.isEmpty ? "····" : sanitizedTag
+        }
+    }
+
+    private var previewValue: String {
+        switch kind {
+        case .slope:
+            return isItalicFile ? "1" : "0"
+        case .width, .optical, .custom:
+            return valueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "—"
+                : valueText
+        }
+    }
+
+    private var previewCode: String {
+        switch kind {
+        case .slope: return isItalicFile ? "1" : "0"
+        case .width, .optical, .custom:
+            return trimmedCode ?? "—"
+        }
+    }
+
+    private var previewElidable: Bool {
+        switch kind {
+        case .slope: return !isItalicFile
+        case .width, .optical, .custom: return false
+        }
+    }
+
+    private var previewLinkedLabel: String? {
+        guard kind == .slope else { return nil }
+        return isItalicFile ? "0" : "1"
+    }
+
+    private var previewFmt: String {
+        kind == .slope ? "F3" : "F1"
     }
 
     private var canAdd: Bool {
+        guard kindEnabled else { return false }
         switch kind {
-        case .slope, .width, .optical:
-            return templateAvailable
-        case .custom:
-            return !sanitizedTag.isEmpty
-                && !customCollision
+        case .slope:
+            return true
+        case .width, .optical:
+            return parsedValue != nil
                 && !nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .custom:
+            return sanitizedTag.count == 4
+                && !familyTagCollision
+                && !nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && parsedValue != nil
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
-            Text("Add Naming Axis")
+            Text("Add naming axis")
                 .font(StudioTypography.emphasis)
 
-            infoBlock
+            Text("Naming axes label styles across files without joining the instance grid — no fvar scale, one stop per file.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            Picker("Kind", selection: $kind) {
-                ForEach(Kind.allCases) { option in
-                    Text(option.title).tag(option)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Kind")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                kindTabs
+                if let disabledReason, !kindEnabled {
+                    Label(disabledReason, systemImage: "lock.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .pickerStyle(.segmented)
-            .onChange(of: kind) { _, newKind in
-                if newKind != .custom {
-                    focusedField = nil
-                } else {
-                    focusedField = .tag
-                }
+
+            if kindEnabled {
+                fieldsRow
+            } else {
+                Text("Select an available kind to configure a tag and name.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.tertiary)
             }
 
-            kindDetail
+            policyBox
 
-            if kind != .custom, !templateAvailable {
-                Text("An axis with this tag already exists in the Axis Tree.")
+            previewSection
+
+            if familyTagCollision {
+                Text("Tag “\(sanitizedTag)” is already used by another axis in this family.")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.red)
-            }
-            if customCollision {
-                Text("An axis with tag “\(sanitizedTag)” already exists.")
+            } else if tagLengthInvalid {
+                Text("Tag must be exactly 4 characters (letters or digits).")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.red)
             }
@@ -543,64 +701,124 @@ struct AddFileAxisSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 440)
+        .frame(width: 540)
         .onAppear {
-            if !editor.canAddRegistrationTemplate(.slope) {
-                if editor.canAddRegistrationTemplate(.width) {
-                    kind = .width
-                } else if editor.canAddRegistrationTemplate(.optical) {
-                    kind = .optical
-                } else {
-                    kind = .custom
-                    focusedField = .tag
+            selectFirstAvailableKind()
+            seedFields(for: kind)
+        }
+    }
+
+    private var kindTabs: some View {
+        HStack(spacing: 6) {
+            ForEach(Kind.allCases) { option in
+                let enabled = optionEnabled(option)
+                let selected = kind == option
+                Button {
+                    kind = option
+                    seedFields(for: option)
+                } label: {
+                    Text(option.title)
+                        .font(StudioTypography.caption)
+                        .fontWeight(selected ? .medium : .regular)
+                        .foregroundStyle(tabForeground(enabled: enabled, selected: selected))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(tabBackground(enabled: enabled, selected: selected), in: RoundedRectangle(cornerRadius: 6))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(
+                                    tabStroke(enabled: enabled, selected: selected),
+                                    lineWidth: selected ? 1 : 0.5
+                                )
+                        }
                 }
+                .buttonStyle(.plain)
+                .help(enabled ? option.title : (option.template.flatMap { editor.namingAxisBlockReason(for: $0) } ?? ""))
             }
         }
     }
 
-    private var infoBlock: some View {
-        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            Text("Naming axes contribute style names across files in a family — Roman vs Italic, or a custom GRADE — without joining the instance grid. They have no fvar scale: each file carries the stop that describes that file.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Italic (ital) follows Playfair’s STAT pattern: the Roman file has one Format 3 stop at 0 (Roman, linked to 1); the Italic file has one Format 3 stop at 1 (Italic, linked to 0). The linked value is a convention pointer — not a second named stop on the same file. Width, optical, and custom naming axes use ordinary named stops instead of a 0/1 switch.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.row))
-        .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.row)
-                .strokeBorder(StudioColors.registrationStroke, lineWidth: 0.5)
+    private func optionEnabled(_ option: Kind) -> Bool {
+        switch option {
+        case .slope, .width, .optical:
+            return option.template.map { editor.canAddRegistrationTemplate($0) } ?? false
+        case .custom:
+            return true
         }
     }
 
+    private func tabForeground(enabled: Bool, selected: Bool) -> Color {
+        if !enabled {
+            return selected ? .secondary.opacity(0.7) : .secondary.opacity(0.45)
+        }
+        if selected { return StudioColors.registrationForeground }
+        return .primary.opacity(0.85)
+    }
+
+    private func tabBackground(enabled: Bool, selected: Bool) -> Color {
+        if !enabled {
+            return selected ? Color.primary.opacity(0.08) : Color.primary.opacity(0.04)
+        }
+        if selected { return StudioColors.registrationBackground }
+        return Color.primary.opacity(0.06)
+    }
+
+    private func tabStroke(enabled: Bool, selected: Bool) -> Color {
+        if !enabled {
+            return selected ? Color.primary.opacity(0.18) : Color.primary.opacity(0.08)
+        }
+        if selected { return StudioColors.registrationStroke }
+        return Color.primary.opacity(0.12)
+    }
+
     @ViewBuilder
-    private var kindDetail: some View {
+    private var fieldsRow: some View {
         switch kind {
         case .slope:
-            Text("Adds `ital` with one Format 3 stop per file — Roman 0→1 on upright files, Italic 1→0 on italic files.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-        case .width:
-            Text("Adds `wdth` as a naming axis only when Width isn’t already an instance axis.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-        case .optical:
-            Text("Adds `opsz` as a naming axis only when Optical Size isn’t already an instance axis.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-        case .custom:
-            VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                Text("Any unique 4-character tag (e.g. GRAD) plus a display name.")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
+            EmptyView()
+        case .width, .optical:
+            HStack(spacing: 10) {
                 StudioTextField(
-                    placeholder: "Tag (e.g. GRAD)",
+                    placeholder: "Tag",
+                    text: .constant(previewTag),
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: StudioColors.registrationForeground.opacity(0.55)
+                )
+                .disabled(true)
+                StudioTextField(
+                    placeholder: "Display name",
+                    text: $nameText,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: StudioColors.registrationForeground
+                )
+                .focused($focusedField, equals: .name)
+                StudioTextField(
+                    placeholder: "Value",
+                    text: $valueText,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: StudioColors.axisValue
+                )
+                .frame(width: 72)
+                .focused($focusedField, equals: .value)
+                if editor.isCodeNamingEnabled {
+                    StudioTextField(
+                        placeholder: "Code",
+                        text: $codeText,
+                        font: StudioTypography.monoMeta,
+                        rowHeight: StudioFieldMetrics.bodyRowHeight,
+                        filledForeground: StudioColors.codeForeground
+                    )
+                    .frame(width: 56)
+                    .focused($focusedField, equals: .code)
+                    .help("Optional 1–2 character classification code (letters or digits)")
+                }
+            }
+        case .custom:
+            HStack(spacing: 10) {
+                StudioTextField(
+                    placeholder: "Tag",
                     text: $tagText,
                     font: StudioTypography.monoMeta,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
@@ -608,14 +826,225 @@ struct AddFileAxisSheet: View {
                 )
                 .focused($focusedField, equals: .tag)
                 StudioTextField(
-                    placeholder: "Display name (e.g. Grade)",
+                    placeholder: "Display name",
                     text: $nameText,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.registrationForeground,
-                    onSubmit: addIfValid
+                    filledForeground: StudioColors.registrationForeground
                 )
                 .focused($focusedField, equals: .name)
+                StudioTextField(
+                    placeholder: "Value",
+                    text: $valueText,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: StudioColors.axisValue
+                )
+                .frame(width: 72)
+                .focused($focusedField, equals: .value)
+                if editor.isCodeNamingEnabled {
+                    StudioTextField(
+                        placeholder: "Code",
+                        text: $codeText,
+                        font: StudioTypography.monoMeta,
+                        rowHeight: StudioFieldMetrics.bodyRowHeight,
+                        filledForeground: StudioColors.codeForeground
+                    )
+                    .frame(width: 56)
+                    .focused($focusedField, equals: .code)
+                    .help("Optional 1–2 character classification code (letters or digits)")
+                }
             }
+        }
+    }
+
+    private var policyBox: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(kind.policyTitle)
+                .font(StudioTypography.caption.weight(.medium))
+                .foregroundStyle(kindEnabled ? StudioColors.registrationForeground : .secondary)
+            Text(policyCopy)
+                .font(StudioTypography.caption)
+                .foregroundStyle(kindEnabled ? StudioColors.registrationForeground.opacity(0.9) : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if kindEnabled {
+                Text("Elidable: \(previewElidable ? "yes — name drops when composing" : "no — name stays in the style string"). Naming order: inserts \(editor.namingOrderInsertHint(forNewTag: previewTag)).")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(StudioColors.registrationForeground.opacity(0.75))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            (kindEnabled ? StudioColors.registrationBackground : Color.primary.opacity(0.04)),
+            in: RoundedRectangle(cornerRadius: StudioRadius.row)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: StudioRadius.row)
+                .strokeBorder(
+                    kindEnabled ? StudioColors.registrationStroke : Color.primary.opacity(0.1),
+                    lineWidth: 0.5
+                )
+        }
+    }
+
+    private var policyCopy: String {
+        switch kind {
+        case .slope:
+            if !kindEnabled {
+                return disabledReason
+                    ?? "One Format 3 stop per file. This tag is already spoken for."
+            }
+            if isItalicFile {
+                return "This file looks italic — you’ll get one Format 3 stop at 1 (Italic), linked to 0. The link is a convention pointer, not a second named stop on this file."
+            }
+            return "This file looks upright — you’ll get one Format 3 stop at 0 (Roman, elided), linked to 1. The link is a convention pointer, not a second named stop on this file."
+        case .width:
+            if !kindEnabled {
+                return disabledReason
+                    ?? "Adds wdth as a naming axis only when Width isn’t already an instance axis."
+            }
+            return "Adds wdth as a naming axis with an ordinary named stop for this file only — siblings don’t inherit this value. Use Add Stop on other files when you’re ready. Not a 0/1 linked pair."
+        case .optical:
+            if !kindEnabled {
+                return disabledReason
+                    ?? "Adds opsz as a naming axis only when Optical Size isn’t already an instance axis."
+            }
+            return "Adds opsz as a naming axis with an ordinary named stop for this file only — siblings don’t inherit this value. Tag is locked to opsz; set the display name and value that describe this file."
+        case .custom:
+            return "Must be exactly 4 characters. Uppercase reads as a registered-style tag; lowercase signals private-use. Checked against every file in this family. The stop is written only on this file — siblings stay untouched until you add a stop there."
+        }
+    }
+
+    private var previewSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Axis tree preview")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.tertiary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                if !kindEnabled {
+                    Text(disabledReason ?? "Already exists in the Axis Tree.")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    HStack(spacing: 8) {
+                        Text("N")
+                            .font(StudioTypography.tag)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .foregroundStyle(StudioColors.registrationForeground)
+                            .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        Text(previewStopName)
+                            .font(StudioTypography.bodyMedium)
+                        Text("No fvar scale · this file")
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.tertiary)
+                        Spacer(minLength: 0)
+                        StudioTagPill(text: previewTag, compact: true, role: .registration)
+                    }
+
+                    HStack(spacing: 0) {
+                        previewColumnHeader("Fmt", width: 36)
+                        previewColumnHeader("Value", width: 52)
+                        if editor.isCodeNamingEnabled {
+                            previewColumnHeader("Code", width: 40)
+                        }
+                        previewColumnHeader("Name", width: nil)
+                        previewColumnHeader("Elid", width: 40)
+                    }
+
+                    HStack(spacing: 0) {
+                        Text(previewFmt)
+                            .font(StudioTypography.tag.weight(.medium))
+                            .foregroundStyle(previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1)
+                            .frame(width: 36, alignment: .leading)
+                        Text(previewValue)
+                            .font(StudioTypography.monoMeta)
+                            .foregroundStyle(StudioColors.axisValue)
+                            .frame(width: 52, alignment: .leading)
+                        if editor.isCodeNamingEnabled {
+                            Text(previewCode)
+                                .font(StudioTypography.monoMeta)
+                                .foregroundStyle(StudioColors.codeForeground)
+                                .frame(width: 40, alignment: .leading)
+                        }
+                        HStack(spacing: 4) {
+                            Text(previewStopName)
+                                .font(StudioTypography.caption)
+                            if let linked = previewLinkedLabel {
+                                Image(systemName: "link")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.tertiary)
+                                Text(linked)
+                                    .font(StudioTypography.meta)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: previewElidable ? "largecircle.fill.circle" : "circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(
+                                previewElidable
+                                    ? StudioColors.registrationForeground
+                                    : Color.secondary.opacity(0.45)
+                            )
+                            .frame(width: 40, alignment: .center)
+                    }
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.row)
+                    .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+            }
+        }
+    }
+
+    private func previewColumnHeader(_ title: String, width: CGFloat?) -> some View {
+        Text(title)
+            .font(StudioTypography.meta)
+            .foregroundStyle(.tertiary)
+            .frame(width: width, alignment: .leading)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+    }
+
+    private func selectFirstAvailableKind() {
+        if editor.canAddRegistrationTemplate(.slope) {
+            kind = .slope
+        } else if editor.canAddRegistrationTemplate(.width) {
+            kind = .width
+        } else if editor.canAddRegistrationTemplate(.optical) {
+            kind = .optical
+        } else {
+            kind = .custom
+        }
+    }
+
+    private func seedFields(for option: Kind) {
+        switch option {
+        case .slope:
+            break
+        case .width:
+            nameText = "Normal"
+            valueText = "100"
+            focusedField = .name
+        case .optical:
+            nameText = "Display"
+            valueText = "18"
+            focusedField = .name
+        case .custom:
+            if tagText.isEmpty { tagText = "GRAD" }
+            if nameText.isEmpty || nameText == "Normal" || nameText == "Display" {
+                nameText = "Grade"
+            }
+            if valueText.isEmpty || valueText == "100" || valueText == "18" {
+                valueText = "0"
+            }
+            focusedField = .tag
         }
     }
 
@@ -626,15 +1055,30 @@ struct AddFileAxisSheet: View {
         case .slope:
             ok = editor.addRegistrationTemplate(.slope)
         case .width:
-            ok = editor.addRegistrationTemplate(.width)
+            ok = editor.addRegistrationTemplate(
+                .width,
+                displayName: nameText,
+                value: parsedValue,
+                code: trimmedCode
+            )
         case .optical:
-            ok = editor.addRegistrationTemplate(.optical)
+            ok = editor.addRegistrationTemplate(
+                .optical,
+                displayName: nameText,
+                value: parsedValue,
+                code: trimmedCode
+            )
         case .custom:
-            ok = editor.addRegistrationAxis(tag: sanitizedTag, displayName: nameText)
+            ok = editor.addRegistrationAxis(
+                tag: sanitizedTag,
+                displayName: nameText,
+                value: parsedValue ?? 0,
+                elidable: false,
+                code: trimmedCode
+            )
         }
         guard ok else { return }
         onComplete()
         dismiss()
     }
 }
-
