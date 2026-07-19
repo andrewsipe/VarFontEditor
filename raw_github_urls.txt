@@ -35,6 +35,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/SaveReviewStore.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/SaveReviewWindowLifecycle.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/SourceFontAccess.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/SourceFontPreviewCache.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/StudioAppPreferences.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/VarFontProjectType.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/VarFontStudioApp.swift
@@ -78,6 +79,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/CommitDiffReviewView.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/CommitDiffSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/FileClarifiersBar.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/FontPreviewPanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/InspectorColumn.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/InspectorPanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/InstanceInclusionCommands.swift
@@ -242,6 +244,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/t
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_diff_export.py
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_instance_code_naming.py
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_nameid_allocator.py
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_naming_order.py
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_ot_label_reflow.py
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_post_write_validation.py
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/tests/test_postscript_hyphen.py
