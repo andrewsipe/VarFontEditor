@@ -30,8 +30,8 @@ Python and the font tools it needs are bundled inside the app, so there's nothin
 Open a font (or a saved `.varf` project) by dragging it onto the window, or through **File → Open**. From there:
 
 - Set up your axis stops and let the app build out the instance grid
-- Adjust naming until it reads the way you want
-- Hit **Review** (⌘⇧R) to see a clear before/after of what's about to change
+- Adjust naming until it reads the way you want — including the Axis Tree **pencil** to rename an axis’s display label (STAT + fvar) without changing the 4-character tag
+- Hit **Review** (⌘⇧R) for a before/after of STAT, fvar, and name-table slots (with a dedicated nameID column). Windows English names (0–25) list every populated record, including unchanged ones
 - **Export** (⌘E) to write out patched font files
 - **Save** (⌘S) to keep your project as a `.varf` file so you can pick it back up later
 
@@ -55,4 +55,4 @@ If you want to know more about the JSON project format, [SCHEMA.md](SCHEMA.md) h
 
 ## Where things stand
 
-This is an alpha. The core workflow — modeling instances, **naming axes** (file identity + optional classification codes), Review, and writing STAT/fvar/name changes back into the font — works and is what I've been focused on getting right. Signed/notarized distribution isn't set up yet, which is why you're using the "Allow First Launch" workaround above for now.
+This is an alpha (**0.1.5**). The core workflow — modeling instances, **naming axes** (file identity + optional classification codes), inline axis display-name edits, Review, and writing STAT/fvar/name changes back into the font — works and is what I've been focused on getting right. Signed/notarized distribution isn't set up yet, which is why you're using the "Allow First Launch" workaround above for now.

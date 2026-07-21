@@ -1,6 +1,6 @@
 # VarFont Studio — project handoff
 
-**Last updated:** 2026-07-11 (alpha polish — `.varf` projects, OT reflow, save review)  
+**Last updated:** 2026-07-21 (0.1.5-alpha — Review nameID column, axis display-name pencil, Windows SAME rows)  
 **Purpose:** Single entry point for new chats, collaborators, or future you. Read this before changing the app or engine. **Includes rejected and parked ideas** so we do not re-litigate them.
 
 ---
@@ -25,9 +25,10 @@ Three panels:
 
 | Panel | Role |
 |-------|------|
-| **Axis tree** | Edit axes, roles, STAT stops (formats 1–3), elision, registration |
+| **Axis tree** | Edit axes, roles, STAT stops (formats 1–3), elision, registration; pencil renames display name (STAT + fvar labels; tag unchanged) |
 | **Instance list** | Derived grid; include/exclude; search and grouping |
 | **Inspector** | Naming chain, coordinates, OpenType preview for selection |
+| **Review** | Pre-export STAT / fvar / Names diff; dedicated nameID column; Windows 0–25 shows all populated English records |
 
 Reference prototypes (interaction only, not visual design):
 

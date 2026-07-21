@@ -48,7 +48,7 @@ struct StudioShortcutsHelpView: View {
             Text("WORKFLOW")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
-            Text("Save writes the .varf project file (legacy .varfont still opens). Export writes patched font binaries — use Export All… to keep original filenames in a folder. OpenType label reflow is optional: set the app default under Preferences, or override per project in Review.")
+            Text("Save writes the .varf project file (legacy .varfont still opens). Export writes patched font binaries — use Export All… to keep original filenames in a folder. Review (⌘⇧R) shows STAT, fvar, and name slots with a nameID column; OpenType label reflow is optional under Preferences, or override per project in Review.")
                 .font(StudioTypography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

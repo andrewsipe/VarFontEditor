@@ -98,11 +98,10 @@ jobs:
 
             ## What’s new in this alpha
 
-            - **Naming axes:** Slope / Width / Optical / custom file identity lives on design-record axes (with optional stop **Code** when Code naming is on). Add Naming Axis no longer copies a stop onto every sibling file.
-            - **Export Review:** project naming order drives Review; naming-axis registration stops show in STAT; leftover clarifier auto-append removed from vfcommit.
-            - **Export All:** choosing the source folder creates a `{project} Patched` subfolder instead of silently failing; Review closes on success with a progress bar + status while writing.
-            - **Export UI:** clearer **Export All…** / **Export This File…** actions; exported file chips use a checkmark export badge and destination folder label.
-            - **STAT write path:** newly added naming-axis tags are ensured into DesignAxisRecord on export (not only reordered).
+            - **Rename axes in place:** pencil beside the Axis Tree header edits the **display name** written to STAT and fvar. The 4-character tag (and interpolation) stay put.
+            - **Review layout:** STAT / fvar / Names rows use a dedicated **nameID** column; stop and instance labels are shorter (no per-row “Windows name string” / “Stop semantic label” captions). Unchanged Windows English name IDs (0–25) now appear as **SAME**, not only the patched ones.
+            - **Names panel:** editable Windows name fields wrap on focus without jumping to a huge text editor; row dividers removed.
+            - **UI chrome:** shared 4pt spacing tokens and stop-table / Review layout enums keep panel headers and columns aligned.
             - **Allow First Launch helper** in each release zip — clears Gatekeeper quarantine without a Developer ID / notarization.
             - **Save vs Export:** **Save** (⌘S) writes the `.varf` project; **Export…** (⌘E) writes patched fonts.
         env:
