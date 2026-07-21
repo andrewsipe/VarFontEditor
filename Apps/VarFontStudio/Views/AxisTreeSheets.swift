@@ -815,7 +815,7 @@ struct AddFileAxisSheet: View {
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
                     filledForeground: StudioColors.axisValue
                 )
-                .frame(width: 72)
+                .frame(width: RegistrationAxisFormLayout.valueFieldWidth)
                 .focused($focusedField, equals: .value)
                 if editor.isCodeNamingEnabled {
                     StudioTextField(
@@ -825,7 +825,7 @@ struct AddFileAxisSheet: View {
                         rowHeight: StudioFieldMetrics.bodyRowHeight,
                         filledForeground: StudioColors.codeForeground
                     )
-                    .frame(width: 56)
+                    .frame(width: RegistrationAxisFormLayout.codeFieldWidth)
                     .focused($focusedField, equals: .code)
                     .help("Optional 1–2 character classification code (letters or digits)")
                 }
@@ -854,7 +854,7 @@ struct AddFileAxisSheet: View {
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
                     filledForeground: StudioColors.axisValue
                 )
-                .frame(width: 72)
+                .frame(width: RegistrationAxisFormLayout.valueFieldWidth)
                 .focused($focusedField, equals: .value)
                 if editor.isCodeNamingEnabled {
                     StudioTextField(
@@ -864,7 +864,7 @@ struct AddFileAxisSheet: View {
                         rowHeight: StudioFieldMetrics.bodyRowHeight,
                         filledForeground: StudioColors.codeForeground
                     )
-                    .frame(width: 56)
+                    .frame(width: RegistrationAxisFormLayout.codeFieldWidth)
                     .focused($focusedField, equals: .code)
                     .help("Optional 1–2 character classification code (letters or digits)")
                 }
@@ -1010,12 +1010,12 @@ struct AddFileAxisSheet: View {
                     }
 
                     HStack(spacing: StudioSpacing.controlGap) {
-                        previewColumnHeader("Format", width: 48, alignment: .center)
-                        previewColumnHeader("Value", width: 44, alignment: .trailing)
+                        previewColumnHeader("Format", width: FillStopPreviewLayout.formatColumnWidth, alignment: .center)
+                        previewColumnHeader("Value", width: FillStopPreviewLayout.valueColumnWidth, alignment: .trailing)
                         previewColumnHeader("Name", width: nil, alignment: .leading)
-                        previewColumnHeader("Elided", width: 44, alignment: .center)
+                        previewColumnHeader("Elided", width: FillStopPreviewLayout.elidableColumnWidth, alignment: .center)
                         if editor.isCodeNamingEnabled {
-                            previewColumnHeader("Code", width: 36, alignment: .center)
+                            previewColumnHeader("Code", width: FillStopPreviewLayout.codeColumnWidth, alignment: .center)
                         }
                     }
 
@@ -1023,11 +1023,11 @@ struct AddFileAxisSheet: View {
                         Text(previewFmt)
                             .font(StudioTypography.tag.weight(.medium))
                             .foregroundStyle(previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1)
-                            .frame(width: 48, alignment: .center)
+                            .frame(width: FillStopPreviewLayout.formatColumnWidth, alignment: .center)
                         Text(previewValue)
                             .font(StudioTypography.monoMeta)
                             .foregroundStyle(StudioColors.axisValue)
-                            .frame(width: 44, alignment: .trailing)
+                            .frame(width: FillStopPreviewLayout.valueColumnWidth, alignment: .trailing)
                         HStack(spacing: StudioSpacing.tightGap) {
                             Text(previewStopName)
                                 .font(StudioTypography.caption)
@@ -1037,12 +1037,12 @@ struct AddFileAxisSheet: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         StudioRadioMark(isOn: previewElidable)
-                            .frame(width: 44, alignment: .center)
+                            .frame(width: FillStopPreviewLayout.elidableColumnWidth, alignment: .center)
                         if editor.isCodeNamingEnabled {
                             Text(previewCode)
                                 .font(StudioTypography.monoMeta)
                                 .foregroundStyle(StudioColors.codeForeground)
-                                .frame(width: 36, alignment: .center)
+                                .frame(width: FillStopPreviewLayout.codeColumnWidth, alignment: .center)
                         }
                     }
                 }

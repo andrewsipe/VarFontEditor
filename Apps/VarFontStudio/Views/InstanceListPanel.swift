@@ -2,6 +2,11 @@ import AppKit
 import SwiftUI
 import VarFontCore
 
+/// Instances panel local track metrics (on-lattice).
+enum InstanceListLayout {
+    static let searchFieldWidth: CGFloat = 180
+}
+
 struct InstanceListPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
     @EnvironmentObject private var layout: EditorLayoutPreferences
@@ -193,7 +198,7 @@ struct InstanceListPanel: View {
                 Spacer(minLength: 0)
 
                 searchField
-                    .frame(width: 180)
+                    .frame(width: InstanceListLayout.searchFieldWidth)
             }
             .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.top, StudioSpacing.toolbarVertical)

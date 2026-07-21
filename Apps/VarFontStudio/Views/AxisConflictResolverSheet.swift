@@ -1,13 +1,6 @@
 import SwiftUI
 import VarFontCore
 
-private enum ConflictStopTableLayout {
-    static let rowHorizontalPadding: CGFloat = 8
-    static let valueWidth: CGFloat = 56
-    static let nameGap: CGFloat = 12
-    static let elidableWidth: CGFloat = 52
-}
-
 struct AxisConflictResolverSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(\.dismiss) private var dismiss
@@ -374,16 +367,16 @@ struct AxisConflictResolverSheet: View {
     private var stopTableHeader: some View {
         HStack(spacing: 0) {
             Text("Value")
-                .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+                .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
             Text("Name")
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, ConflictStopTableLayout.nameGap)
-            Text("Elidable")
-                .frame(width: ConflictStopTableLayout.elidableWidth, alignment: .center)
+                .padding(.leading, StopTableLayout.nameGap)
+            Text("Elided")
+                .frame(width: StopTableLayout.elidableWidth, alignment: .center)
         }
         .font(StudioTypography.columnLabel)
         .foregroundStyle(.tertiary)
-        .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+        .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
         .padding(.bottom, 2)
     }
 
@@ -392,7 +385,7 @@ struct AxisConflictResolverSheet: View {
             Text(AxisStopSuggestions.formatValue(stop.value))
                 .font(StudioTypography.monoValue)
                 .foregroundStyle(StudioColors.axisValue)
-                .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+                .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
             StudioInlineTextField(
                 placeholder: ConflictResolver.suggestedRename(for: stop, bundle: bundle, axis: axis),
@@ -400,14 +393,14 @@ struct AxisConflictResolverSheet: View {
                 font: StudioTypography.body,
                 rowHeight: StudioFieldMetrics.captionRowHeight
             )
-            .padding(.leading, ConflictStopTableLayout.nameGap)
+            .padding(.leading, StopTableLayout.nameGap)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             ConflictElidableIndicator(isOn: stop.elidable)
-                .frame(width: ConflictStopTableLayout.elidableWidth)
+                .frame(width: StopTableLayout.elidableWidth)
         }
         .padding(.vertical, 3)
-        .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+        .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
     }
 
     private func bulkNameBinding(for stopID: String) -> Binding<String> {
@@ -434,19 +427,19 @@ struct AxisConflictResolverSheet: View {
                 rowHeight: StudioFieldMetrics.captionRowHeight,
                 alignment: .trailing
             )
-            .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+            .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
             Text(stop.name)
                 .font(StudioTypography.body)
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, ConflictStopTableLayout.nameGap)
+                .padding(.leading, StopTableLayout.nameGap)
 
             ConflictElidableIndicator(isOn: stop.elidable)
-                .frame(width: ConflictStopTableLayout.elidableWidth)
+                .frame(width: StopTableLayout.elidableWidth)
         }
         .padding(.vertical, 3)
-        .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+        .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
     }
 
     private func multiSelectStopRow(_ stop: AxisValue) -> some View {
@@ -467,19 +460,19 @@ struct AxisConflictResolverSheet: View {
                 Text(AxisStopSuggestions.formatValue(stop.value))
                     .font(StudioTypography.monoValue)
                     .foregroundStyle(StudioColors.axisValue)
-                    .frame(width: ConflictStopTableLayout.valueWidth - 20, alignment: .trailing)
+                    .frame(width: StopTableLayout.valueColumnWidth - 20, alignment: .trailing)
 
                 Text(stop.name)
                     .font(StudioTypography.body)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, ConflictStopTableLayout.nameGap)
+                    .padding(.leading, StopTableLayout.nameGap)
 
                 ConflictElidableIndicator(isOn: stop.elidable)
-                    .frame(width: ConflictStopTableLayout.elidableWidth)
+                    .frame(width: StopTableLayout.elidableWidth)
             }
             .padding(.vertical, StudioSpacing.instanceRowVertical)
-            .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+            .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
             .background {
                 StudioRowBackground(
                     isSelected: isSelected,
@@ -505,19 +498,19 @@ struct AxisConflictResolverSheet: View {
                 Text(AxisStopSuggestions.formatValue(stop.value))
                     .font(StudioTypography.monoValue)
                     .foregroundStyle(StudioColors.axisValue)
-                    .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+                    .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
                 Text(stop.name)
                     .font(StudioTypography.body)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, ConflictStopTableLayout.nameGap)
+                    .padding(.leading, StopTableLayout.nameGap)
 
                 ConflictElidableIndicator(isOn: stop.elidable)
-                    .frame(width: ConflictStopTableLayout.elidableWidth)
+                    .frame(width: StopTableLayout.elidableWidth)
             }
             .padding(.vertical, StudioSpacing.instanceRowVertical)
-            .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+            .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
             .background {
                 StudioRowBackground(
                     isSelected: isSelected,
@@ -764,20 +757,20 @@ struct AxisConflictResolverSheet: View {
     private func outcomeRow(_ outcome: ConflictStopOutcome) -> some View {
         HStack(spacing: 0) {
             outcomeValueCell(outcome)
-                .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+                .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
             outcomeNameCell(outcome)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, ConflictStopTableLayout.nameGap)
+                .padding(.leading, StopTableLayout.nameGap)
 
             ConflictElidableIndicator(
                 isOn: outcome.isRemoved ? outcome.elidableBefore : (outcome.elidableAfter ?? false),
                 changed: elidableChanged(outcome)
             )
-            .frame(width: ConflictStopTableLayout.elidableWidth)
+            .frame(width: StopTableLayout.elidableWidth)
         }
         .padding(.vertical, StudioSpacing.instanceRowVertical)
-        .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+        .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
         .opacity(outcome.isRemoved ? 0.55 : 1)
         .overlay(alignment: .leading) {
             if outcome.isTarget {

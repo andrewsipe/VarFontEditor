@@ -151,14 +151,16 @@ enum StudioRadius {
 /// - If no semantic alias fits: use a `StudioSpace.xN` step (not a magic number).
 /// - Allowed micro exceptions (do not invent new ones): 1pt / 3pt optical nudges
 ///   already named on `StudioSpacing` (`instanceRowGap`, `groupHeaderBelow`, …).
-/// - Column / panel layout enums (`AxisBlockLayout`, `SaveReviewLayout`, …) are
-///   local track contracts — not part of the spacing lattice.
+/// - Column / panel layout enums (`StopTableLayout`, `AxisBlockLayout`, `SaveReviewLayout`,
+///   `FillStopPreviewLayout`, `NameTableLayout`, `InspectorAxisCoordLayout`, …) are
+///   local track contracts — not part of the spacing lattice. Stop-style tables (Axis Tree,
+///   conflict resolver, combination styles) share `StopTableLayout`.
 ///
 /// ## Density tiers (named on purpose — never "normalize" them into one)
 /// - editor: `StudioSpacing.editorChromeInset` — tight toolbar / file-bar chrome.
 /// - preview: `StudioSpacing.previewInset` — font preview + naming footer chrome.
 /// - sheet: `StudioSpacing.sheetOuterPadding` (20) — modal editors / pickers.
-/// - review: `SaveReviewLayout` (22) — deliberately roomier Save Review window.
+/// - review: `SaveReviewLayout` (24) — deliberately roomier Save Review window (on-lattice).
 ///
 /// ## Cross-panel chrome bands (vertical alignment)
 /// Three shared horizontal bands across Axis Tree / Instances / Inspector so
@@ -730,20 +732,28 @@ struct StudioDiffRow: View {
 
 // MARK: - Save Review (streamlined diff)
 
-/// Spacing tokens aligned with `save-review-prototype.html`.
+/// Spacing tokens for the Save Review window — roomier density tier, on the 4pt lattice.
+/// (`gutterWidth` stays a 3pt micro for the change rail.)
 enum SaveReviewLayout {
-    static let horizontalPadding: CGFloat = 22
-    static let summaryCardGap: CGFloat = 8
-    static let chromeSectionGap: CGFloat = 12
-    static let filterBadgeGap: CGFloat = 6
+    static let horizontalPadding: CGFloat = StudioSpace.x6 // 24
+    static let summaryCardGap: CGFloat = StudioSpace.x2 // 8
+    static let chromeSectionGap: CGFloat = StudioSpace.x3 // 12
+    static let filterBadgeGap: CGFloat = StudioSpace.x1_5 // 6
+    /// nameID slot column (right-aligned digits) — sits between field label and value.
+    static let nameIDColumnWidth: CGFloat = 36
+    /// Gap between field-label column and nameID.
+    static let nameIDColumnLeadingGap: CGFloat = StudioSpace.x2 // 8
+    /// Gap between nameID and value column.
+    static let nameIDColumnTrailingGap: CGFloat = StudioSpace.x2 // 8
+    /// Field label column — human row identifier (+ optional detail line).
     static let fieldColumnWidth: CGFloat = 200
-    static let rowVerticalPadding: CGFloat = 9
+    static let rowVerticalPadding: CGFloat = StudioSpace.x2 // 8
     /// Search row + tab headline band (shared so those toolbars stay the same height).
-    static let toolRowMinHeight: CGFloat = 34
-    static let toolRowVerticalPadding: CGFloat = 6
+    static let toolRowMinHeight: CGFloat = StudioSpace.x9 // 36
+    static let toolRowVerticalPadding: CGFloat = StudioSpace.x1_5 // 6
     static let gutterWidth: CGFloat = 3
-    static let gutterLeadingPadding: CGFloat = 22
-    static let gutterTrailingPadding: CGFloat = 12
+    static let gutterLeadingPadding: CGFloat = StudioSpace.x6 // 24
+    static let gutterTrailingPadding: CGFloat = StudioSpace.x3 // 12
 
     /// Prototype `--bg` / row canvas — opaque so sticky headers don't show scroll-through.
     static let canvasBackground = Color(red: 0.11, green: 0.11, blue: 0.118)
@@ -877,20 +887,36 @@ struct StudioSaveReviewCategoryTag: View {
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 3))
-            .padding(.top, 1)
     }
 }
 
-struct StudioSaveReviewRoleBadge: View {
-    let text: String
+// MARK: - Save Review row typography
+//
+// File-bound content (coordinates, quoted strings, tag=value, nameID slots in values)
+// → monospaced. Human labels, section context, and read-only notes → system sans.
+enum SaveReviewTypography {
+    static let fieldLabel = Font.system(size: 12, weight: .medium)
+    static let fieldLabelMono = Font.system(size: 12, weight: .medium, design: .monospaced)
+    static let fieldDetail = Font.system(size: 10)
+    static let nameID = Font.system(size: 11, weight: .medium, design: .monospaced)
+    static let value = Font.system(size: 10.5, design: .monospaced)
+    static let valueSecondary = Font.system(size: 10, design: .monospaced)
+    static let note = Font.system(size: 10)
 
-    var body: some View {
-        Text(text)
-            .font(.system(size: 9, weight: .regular, design: .default))
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: 3))
+    /// Row identifier when it is a file-native key (e.g. `wgth = 400`).
+    static func fieldTitleFont(_ title: String) -> Font {
+        if title.range(of: #"^[a-zA-Z]{4} = "#, options: .regularExpression) != nil {
+            return fieldLabelMono
+        }
+        return fieldLabel
+    }
+
+    /// Subtitle lines that carry coordinates / tags use mono; descriptive labels use sans.
+    static func fieldDetailFont(_ subtitle: String) -> Font {
+        if subtitle.contains("=") || subtitle.hasPrefix("tag=") {
+            return valueSecondary
+        }
+        return fieldDetail
     }
 }
 
@@ -905,57 +931,68 @@ struct StudioStreamlinedDiffRow: View {
                 .padding(.leading, SaveReviewLayout.gutterLeadingPadding)
                 .padding(.trailing, SaveReviewLayout.gutterTrailingPadding)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.fieldTitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(2)
-                if !row.fieldSubtitle.isEmpty {
-                    Text(row.fieldSubtitle)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.tertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.fieldTitle)
+                        .font(SaveReviewTypography.fieldTitleFont(row.fieldTitle))
                         .lineLimit(2)
+                    if !row.fieldSubtitle.isEmpty {
+                        Text(row.fieldSubtitle)
+                            .font(SaveReviewTypography.fieldDetailFont(row.fieldSubtitle))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                    }
                 }
-            }
-            .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .leading)
-            .padding(.top, 1)
+                .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .leading)
+                .layoutPriority(1)
 
-            VStack(alignment: .leading, spacing: 3) {
-                if let afterValue = row.afterValue, !afterValue.isEmpty {
-                    HStack(alignment: .top, spacing: 8) {
-                        StudioSaveReviewCategoryTag(category: row.category)
-                        Text(afterValue)
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(valueColor)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let roleLabel = row.roleLabel, !roleLabel.isEmpty {
-                            StudioSaveReviewRoleBadge(text: roleLabel)
+                Group {
+                    if let nameID = row.nameID {
+                        Text("\(nameID)")
+                            .font(SaveReviewTypography.nameID)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    } else {
+                        Text("—")
+                            .font(SaveReviewTypography.fieldDetail)
+                            .foregroundStyle(.quaternary)
+                    }
+                }
+                .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
+                .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
+                .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
+                .layoutPriority(2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    if let afterValue = row.afterValue, !afterValue.isEmpty {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            StudioSaveReviewCategoryTag(category: row.category)
+                            Text(afterValue)
+                                .font(SaveReviewTypography.value)
+                                .foregroundStyle(valueColor)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    } else if row.category == .removed {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            StudioSaveReviewCategoryTag(category: row.category)
+                            Text("—")
+                                .font(SaveReviewTypography.value)
+                                .foregroundStyle(.tertiary)
                         }
                     }
-                } else if row.category == .removed {
-                    HStack(alignment: .top, spacing: 8) {
-                        StudioSaveReviewCategoryTag(category: row.category)
-                        Text("—")
-                            .font(.system(size: 10.5, design: .monospaced))
+
+                    if let secondaryLine {
+                        Text(secondaryLine)
+                            .font(row.noteLine != nil && row.wasLine == nil ? SaveReviewTypography.note : SaveReviewTypography.valueSecondary)
                             .foregroundStyle(.tertiary)
+                            .italic(row.noteLine != nil && row.wasLine == nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-
-                if let wasLine = row.wasLine, !wasLine.isEmpty {
-                    Text(wasLine)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                }
-
-                if let noteLine = row.noteLine, !noteLine.isEmpty {
-                    Text(noteLine)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                        .italic()
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, SaveReviewLayout.rowVerticalPadding)
         .padding(.trailing, SaveReviewLayout.horizontalPadding)
@@ -966,6 +1003,14 @@ struct StudioStreamlinedDiffRow: View {
                 .frame(height: 0.5)
                 .padding(.leading, SaveReviewLayout.horizontalPadding)
         }
+    }
+
+    /// Collapses `wasLine` + `noteLine` onto a single row so the value column
+    /// never grows past badge/value + one secondary line (2 lines total).
+    private var secondaryLine: String? {
+        let parts = [row.wasLine, row.noteLine].compactMap { $0 }.filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " · ")
     }
 
     private var gutterColor: Color {
@@ -2074,16 +2119,20 @@ struct InspectorInstanceNamingChain: View {
     }
 }
 
+/// Inspector axis-coordinate list columns (on-lattice).
+/// `elisionWidth` fits the spelled-out “Elidable” header — wider than stop-table “Elided”.
+enum InspectorAxisCoordLayout {
+    static let badgeWidth: CGFloat = 34
+    static let chainWidth: CGFloat = StudioSpace.x3 // 12
+    static let valueWidth: CGFloat = 44
+    static let elisionWidth: CGFloat = 52
+}
+
 struct InspectorAxisCoordinatesView: View {
     let rows: [InspectorAxisCoordRow]
     var selectedStopID: String?
     var onRowTap: ((InspectorAxisCoordRow) -> Void)?
     var onElisionToggle: ((InspectorAxisCoordRow) -> Void)?
-
-    private let badgeWidth: CGFloat = 34
-    private let chainWidth: CGFloat = 12
-    private let valueWidth: CGFloat = 44
-    private let elisionWidth: CGFloat = 52
 
     private var showsElisionColumn: Bool {
         rows.contains(where: \.showsElisionToggle)
@@ -2127,18 +2176,18 @@ struct InspectorAxisCoordinatesView: View {
                         linkActiveToNext: linkActiveToNext,
                         isSelected: isSelected
                     )
-                    .frame(width: chainWidth)
+                    .frame(width: InspectorAxisCoordLayout.chainWidth)
 
                     Text(StudioFormatting.axisValue(row.value))
                         .font(StudioTypography.monoValue)
                         .foregroundStyle(StudioColors.axisValue)
                         .opacity(row.participatesInNaming ? 1 : 0.55)
                         .monospacedDigit()
-                        .frame(width: valueWidth, alignment: .trailing)
+                        .frame(width: InspectorAxisCoordLayout.valueWidth, alignment: .trailing)
 
                     StudioTagPill(text: row.tag, compact: true)
                         .opacity(row.participatesInNaming ? 1 : 0.5)
-                        .frame(width: badgeWidth, alignment: .center)
+                        .frame(width: InspectorAxisCoordLayout.badgeWidth, alignment: .center)
 
                     Text(row.stopName)
                         .font(StudioTypography.body)
@@ -2165,7 +2214,7 @@ struct InspectorAxisCoordinatesView: View {
                         }
                     }
                 }
-                .frame(width: elisionWidth, alignment: .center)
+                .frame(width: InspectorAxisCoordLayout.elisionWidth, alignment: .center)
             }
         }
         .help(row.participatesInNaming

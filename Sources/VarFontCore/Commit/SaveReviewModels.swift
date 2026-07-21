@@ -104,6 +104,8 @@ public struct SaveReviewSectionPresentation: Equatable, Sendable, Identifiable {
 
 public struct SaveReviewRowPresentation: Equatable, Sendable, Identifiable {
     public var id: String
+    /// Name table slot when the row maps to one (shown in the leading column).
+    public var nameID: Int?
     public var fieldTitle: String
     public var fieldSubtitle: String
     public var afterValue: String?
@@ -115,6 +117,7 @@ public struct SaveReviewRowPresentation: Equatable, Sendable, Identifiable {
 
     public init(
         id: String,
+        nameID: Int? = nil,
         fieldTitle: String,
         fieldSubtitle: String,
         afterValue: String?,
@@ -125,6 +128,7 @@ public struct SaveReviewRowPresentation: Equatable, Sendable, Identifiable {
         searchText: String
     ) {
         self.id = id
+        self.nameID = nameID
         self.fieldTitle = fieldTitle
         self.fieldSubtitle = fieldSubtitle
         self.afterValue = afterValue

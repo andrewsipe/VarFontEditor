@@ -6,11 +6,6 @@ public enum SaveReviewRowFormatter {
 
   public static func statAfterValue(_ row: CommitDiffStatRow) -> String? {
     guard let name = row.afterName else { return nil }
-    if SaveReviewDisplayCategoryMapper.statRowIsReflow(row),
-       let nameID = row.afterNameID
-    {
-      return "nameID=\(nameID) \(quoted(name))"
-    }
     if row.afterStatFormat == 3, let linked = row.afterLinkedValue {
       return "\(quoted(name)) → \(AxisCoordinateFormat.format(linked))"
     }
@@ -44,19 +39,22 @@ public enum SaveReviewRowFormatter {
 
   public static func statFieldSubtitle(
     row: CommitDiffStatRow,
-    beforeFormat: Int?
+    beforeFormat: Int?,
+    namingAxis: Bool = false
   ) -> String {
-    var parts = ["Instance coordinates"]
-    if let nameID = row.afterNameID {
-      parts.append("nameID \(nameID)")
-    }
-    if let format = row.afterStatFormat ?? beforeFormat {
-      if format == 2 {
-        parts.append("F2 range")
-      } else {
-        parts.append("F\(format)")
-      }
-    }
+    stopValueFieldSubtitle(format: row.afterStatFormat ?? beforeFormat, namingAxis: namingAxis)
+  }
+
+  public static func statFormatLabel(format: Int) -> String {
+    if format == 2 { return "Format 2 range" }
+    return "Format \(format)"
+  }
+
+  public static func stopValueFieldSubtitle(format: Int?, namingAxis: Bool = false) -> String {
+    var parts: [String] = []
+    if namingAxis { parts.append("Naming axis") }
+    parts.append("Stop value")
+    if let format { parts.append(statFormatLabel(format: format)) }
     return parts.joined(separator: " · ")
   }
 
@@ -152,9 +150,9 @@ public enum SaveReviewRowFormatter {
 
   // MARK: - name IDs
 
-  public static func nameAfterValue(id: Int, string: String?) -> String? {
+  public static func nameAfterValue(string: String?) -> String? {
     guard let string, !string.isEmpty else { return nil }
-    return "\(id) \(quoted(string))"
+    return quoted(string)
   }
 
   public static func nameWasLine(_ row: CommitDiffNameIDRow) -> String? {
@@ -223,15 +221,19 @@ public enum SaveReviewRowFormatter {
 
   public static func nameFieldSubtitle(
     row: CommitDiffNameIDRow,
-    tagValue: (tag: String, value: Double)?
+    tagValue: (tag: String, value: Double)?,
+    statFormat: Int? = nil
   ) -> String {
     if row.reflowedFromNameID != nil, let source = row.reflowedFromNameID {
-      return "nameID \(source) → \(row.id)"
+      return "Slot moved from nameID \(source)"
     }
-    if row.afterRole == "stat_axis_value", tagValue != nil {
-      return "nameID \(row.id)"
+    if row.afterRole == "stat_axis_value" {
+      return stopValueFieldSubtitle(format: statFormat)
     }
-    return "nameID \(row.id)"
+    if row.afterRole == "axis_display_name" {
+      return "Axis display name slot"
+    }
+    return ""
   }
 
   public static func nameMachineRole(role: String?) -> String? {
@@ -251,6 +253,7 @@ public enum SaveReviewRowFormatter {
   }
 
   public static func searchText(
+    nameID: Int? = nil,
     fieldTitle: String,
     fieldSubtitle: String,
     afterValue: String?,
@@ -258,9 +261,9 @@ public enum SaveReviewRowFormatter {
     noteLine: String?,
     roleLabel: String?
   ) -> String {
-    [fieldTitle, fieldSubtitle, afterValue, wasLine, noteLine, roleLabel]
-      .compactMap { $0 }
-      .joined(separator: " ")
-      .lowercased()
+    var parts: [String] = []
+    if let nameID { parts.append("\(nameID)") }
+    parts.append(contentsOf: [fieldTitle, fieldSubtitle, afterValue, wasLine, noteLine, roleLabel].compactMap { $0 })
+    return parts.joined(separator: " ").lowercased()
   }
 }

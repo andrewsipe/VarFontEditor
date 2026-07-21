@@ -1,12 +1,6 @@
 import SwiftUI
 import VarFontCore
 
-private enum CombinationLayout {
-    static let stopIndentWidth: CGFloat = 12
-    static let rowHorizontalPadding: CGFloat = 8
-    static let elidableWidth: CGFloat = 52
-}
-
 struct CombinationStylesSection: View {
     @EnvironmentObject private var editor: EditorViewModel
 
@@ -60,7 +54,7 @@ struct CombinationStylesSection: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .center, spacing: 0) {
                 Color.clear
-                    .frame(width: CombinationLayout.stopIndentWidth)
+                    .frame(width: StopTableLayout.stopIndentWidth)
 
                 compoundNameField(compound)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,14 +62,14 @@ struct CombinationStylesSection: View {
                 StudioElidableSwitch(isOn: compound.elidable) {
                     editor.updateCompoundStatElidable(id: compound.id, elidable: !compound.elidable)
                 }
-                .frame(width: CombinationLayout.elidableWidth)
+                .frame(width: StopTableLayout.elidableWidth)
             }
             .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
 
             compoundSubline(compound)
-                .padding(.leading, CombinationLayout.stopIndentWidth + 4)
+                .padding(.leading, StopTableLayout.stopIndentWidth + StudioSpace.x1)
         }
-        .padding(.horizontal, CombinationLayout.rowHorizontalPadding)
+        .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
         .padding(.vertical, StudioSpacing.instanceRowVertical)
     }
 

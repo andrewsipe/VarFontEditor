@@ -357,7 +357,7 @@ struct AxisTreeStopRow: View {
                 onSubmit: commitAndEndEdit,
                 onCancel: cancelInlineEdit
             )
-            .frame(width: 44)
+            .frame(width: AxisBlockLayout.inlineValueEditWidth)
             .focused($focusedField, equals: field)
         } else if let value {
             if valueEditable {

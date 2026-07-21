@@ -17,8 +17,18 @@ struct AxisTreeAxisHeader: View {
     let onToggleExpansion: () -> Void
     var onResolveConflict: (() -> Void)?
     var onReviewPlanIssue: (() -> Void)?
+    /// When set, shows a pencil to rename the STAT/fvar axis display name (not the 4-char tag).
+    var onUpdateDisplayName: ((String) -> Void)? = nil
+
+    @State private var isEditingDisplayName = false
+    @State private var editedDisplayName = ""
+    @FocusState private var displayNameFieldFocused: Bool
 
     private var lane: AxisLane { axis.lane }
+
+    private var currentDisplayName: String {
+        axis.displayName ?? axis.tag
+    }
 
     private var hasAxisAttention: Bool {
         hasConflict || !axisWarnings.isEmpty
@@ -90,20 +100,62 @@ struct AxisTreeAxisHeader: View {
             }
 
             VStack(alignment: .leading, spacing: 1) {
-                Button(action: onToggleExpansion) {
-                    HStack(spacing: StudioSpacing.tightGap) {
-                        Text(axis.displayName ?? axis.tag)
-                            .font(StudioTypography.body)
-                            .lineLimit(1)
-                        StudioDisclosureChevron(isExpanded: isExpanded)
-                        Spacer(minLength: 0)
+                HStack(spacing: StudioSpacing.tightGap) {
+                    if isEditingDisplayName {
+                        StudioTextField(
+                            placeholder: "Axis name",
+                            text: $editedDisplayName,
+                            font: StudioTypography.body,
+                            rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                            onSubmit: commitDisplayName,
+                            onCancel: cancelDisplayName
+                        )
+                        .focused($displayNameFieldFocused)
+                        .frame(maxWidth: 220, alignment: .leading)
+                    } else {
+                        Button(action: onToggleExpansion) {
+                            Text(currentDisplayName)
+                                .font(StudioTypography.body)
+                                .lineLimit(1)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(lane == .registration
+                            ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
+                            : "Expand axis stops")
                     }
-                    .contentShape(Rectangle())
+
+                    if onUpdateDisplayName != nil, !isEditingDisplayName {
+                        StudioToolbarIconButton(
+                            systemName: "pencil.circle",
+                            help: "Rename axis (STAT and fvar label). The 4-character tag and interpolation are unchanged."
+                        ) {
+                            editedDisplayName = currentDisplayName
+                            isEditingDisplayName = true
+                        }
+                    }
+
+                    Button(action: onToggleExpansion) {
+                        StudioDisclosureChevron(isExpanded: isExpanded)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(isExpanded ? "Collapse axis stops" : "Expand axis stops")
+
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-                .help(lane == .registration
-                    ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
-                    : "Expand axis stops")
+                .onChange(of: isEditingDisplayName) { _, editing in
+                    if editing {
+                        DispatchQueue.main.async {
+                            displayNameFieldFocused = true
+                        }
+                    }
+                }
+                .onChange(of: axis.displayName) { _, _ in
+                    if !isEditingDisplayName {
+                        editedDisplayName = currentDisplayName
+                    }
+                }
 
                 // File-axis stop menu must stay outside the expand button.
                 if lane == .registration {
@@ -245,6 +297,18 @@ struct AxisTreeAxisHeader: View {
             return "fvar \(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
         }
         return "fvar \(minText) – \(maxText)"
+    }
+
+    private func commitDisplayName() {
+        onUpdateDisplayName?(editedDisplayName)
+        isEditingDisplayName = false
+        displayNameFieldFocused = false
+    }
+
+    private func cancelDisplayName() {
+        isEditingDisplayName = false
+        displayNameFieldFocused = false
+        editedDisplayName = currentDisplayName
     }
 }
 

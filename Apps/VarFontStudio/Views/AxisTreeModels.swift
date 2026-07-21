@@ -143,35 +143,66 @@ struct AxisTreeAxisDragSession {
 
 // MARK: - Axis block layout
 
-/// Shared horizontal metrics for the two-row adaptive stop table (layout K).
+/// Shared horizontal metrics for stop-style tables (Axis Tree, conflict resolver,
+/// combination styles). Editor Axis Tree is the source of truth — sheets inherit
+/// these tracks so Value / Name / Elided columns align across surfaces.
+enum StopTableLayout {
+    static let rowHorizontalPadding: CGFloat = StudioSpace.x1_5 // 6
+    static let stopIndentWidth: CGFloat = 18
+    static let valueColumnWidth: CGFloat = 52
+    static let nameGap: CGFloat = StudioSpace.x2_5 // 10
+    /// Wide enough for the "Elided" header label + radio/switch control.
+    static let elidableWidth: CGFloat = 36
+    static let elidableGap: CGFloat = StudioSpace.x2 // 8
+}
+
+/// Compact stop-table preview inside the “Add naming axis” sheet — intentionally
+/// tighter than `StopTableLayout` (mini preview, not the editor ruler).
+enum FillStopPreviewLayout {
+    static let formatColumnWidth: CGFloat = StudioSpace.unit * 12 // 48
+    static let valueColumnWidth: CGFloat = 44
+    static let elidableColumnWidth: CGFloat = 44
+    static let codeColumnWidth: CGFloat = StudioSpace.x9 // 36
+}
+
+/// Registration-axis form fields in Axis Tree sheets (tag / value / code widths).
+enum RegistrationAxisFormLayout {
+    static let valueFieldWidth: CGFloat = StudioSpace.unit * 18 // 72
+    static let codeFieldWidth: CGFloat = StudioSpace.unit * 14 // 56
+}
+
+/// Axis Tree stop table — shared `StopTableLayout` tracks plus axis-header / format /
+/// code / remove columns that only exist in the editor tree.
 enum AxisBlockLayout {
     static let tagColumnWidth: CGFloat = 34
-    static let tagNameSpacing: CGFloat = 8
-    static let rowHorizontalPadding: CGFloat = 6
+    static let tagNameSpacing: CGFloat = StudioSpacing.controlGap
+    static let rowHorizontalPadding: CGFloat = StopTableLayout.rowHorizontalPadding
 
     /// Nests the whole stop table (header + rows) under the axis header. Applied once, at the
     /// `axisDetail` container — rows/header no longer re-apply their own copy of this indent.
-    static let stopIndentWidth: CGFloat = 18
+    static let stopIndentWidth: CGFloat = StopTableLayout.stopIndentWidth
     /// fvar-default marker column (square) before Format. Center-aligned, like Format/Elided/Code.
     static let defaultMarkWidth: CGFloat = 22
     /// Breathing room between the fvar-default marker and the Format badge.
-    static let defaultMarkTrailingGap: CGFloat = 6
+    static let defaultMarkTrailingGap: CGFloat = StudioSpacing.rowGap
     /// Wide enough for the "Format" header label (spelled out, not abbreviated) — the label, not
     /// the badge, is what actually drives this column's width. Center-aligned.
-    static let fmtColumnWidth: CGFloat = 36
-    static let valueColumnWidth: CGFloat = 52
+    static let fmtColumnWidth: CGFloat = StudioSpace.x9 // 36
+    static let valueColumnWidth: CGFloat = StopTableLayout.valueColumnWidth
     /// Wide enough for the "Code" header label — the widest content in this column even
     /// against a 2-character code value.
     static let codeColumnWidth: CGFloat = 28
+    /// Compact width for inline min / pin / max value editing (tighter than `valueColumnWidth`).
+    static let inlineValueEditWidth: CGFloat = 44
     /// Gap before Code — grouped visually with Elided (both are compact, center-aligned metadata).
-    static let codeGap: CGFloat = 6
+    static let codeGap: CGFloat = StudioSpacing.rowGap
     /// Gap before Name — wider than the metadata gaps since it marks the shift into the
     /// left-aligned, flexible-width column that carries the bulk of the row's content.
-    static let nameGap: CGFloat = 10
+    static let nameGap: CGFloat = StopTableLayout.nameGap
     /// Wide enough for the "Elided" header label. Code sits to the right of this column —
     /// elided status doesn't affect the code, which only participates in instance-code composition.
-    static let elidableWidth: CGFloat = 36
-    static let elidableGap: CGFloat = 8
+    static let elidableWidth: CGFloat = StopTableLayout.elidableWidth
+    static let elidableGap: CGFloat = StopTableLayout.elidableGap
 
     /// Name is the third column now (Format, Value, Name), unaffected by whether Elided/Code
     /// trail it — those live after Name and don't shift its leading offset. Does not include
@@ -187,14 +218,14 @@ enum AxisBlockLayout {
         nameLeading(showDefaultMark: showDefaultMark)
     }
 
-    static let stopCountBadgeWidth: CGFloat = 32
+    static let stopCountBadgeWidth: CGFloat = StudioSpace.x8 // 32
     static let removeButtonSize: CGFloat = StudioIncludeCheckbox.size
     /// Real reserved trailing column for the hover-remove button — small on
     /// purpose (button-sized, not a full column like Fmt/Value/Elid), but a
     /// genuine layout slot so the row's own background contains it without
     /// needing a separately hand-tuned offset to agree with it.
-    static let removeSlotWidth: CGFloat = removeButtonSize + 4
-    static let removeSlotLeadingGap: CGFloat = 6
+    static let removeSlotWidth: CGFloat = removeButtonSize + StudioSpace.x1
+    static let removeSlotLeadingGap: CGFloat = StudioSpacing.rowGap
 }
 
 struct AxisHeaderFramePreferenceKey: PreferenceKey {

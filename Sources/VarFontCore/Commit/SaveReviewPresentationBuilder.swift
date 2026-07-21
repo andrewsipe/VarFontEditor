@@ -24,6 +24,7 @@ public enum SaveReviewPresentationBuilder {
       font: font,
       plan: plan,
       report: report,
+      diff: diff,
       namingOrder: namingOrder
     )
     let nameTab = buildNameTab(
@@ -50,7 +51,13 @@ public enum SaveReviewPresentationBuilder {
     if !designTags.isEmpty {
       let axisRows = designTags.enumerated().map { index, tag in
         let displayName = font.axes.first(where: { $0.tag == tag })?.displayName
-        return makeSyntheticAxisRow(tag: tag, displayName: displayName, index: index, font: font)
+        return makeSyntheticAxisRow(
+          tag: tag,
+          displayName: displayName,
+          index: index,
+          font: font,
+          diff: diff
+        )
       }
       sections.append(SaveReviewSectionPresentation(title: "Axis records", rows: axisRows))
     }
@@ -75,16 +82,18 @@ public enum SaveReviewPresentationBuilder {
         let afterValue = SaveReviewRowFormatter.statAfterValue(row)
         let wasLine = SaveReviewRowFormatter.statWasLine(row: row, beforeFormat: beforeFormat)
         let fieldTitle = SaveReviewRowFormatter.statFieldTitle(tag: row.tag, value: row.value)
-        var fieldSubtitle = SaveReviewRowFormatter.statFieldSubtitle(row: row, beforeFormat: beforeFormat)
-        if isNamingAxis {
-          fieldSubtitle = "Naming axis · \(fieldSubtitle)"
-        }
+        let fieldSubtitle = SaveReviewRowFormatter.statFieldSubtitle(
+          row: row,
+          beforeFormat: beforeFormat,
+          namingAxis: isNamingAxis
+        )
         let roleLabel = isNamingAxis
           ? "naming_axis"
           : SaveReviewRowFormatter.statMachineRole(format: row.afterStatFormat)
         let noteLine = isNamingAxis ? namingAxisRegistrationNote(font: font, tag: tag) : nil
         return SaveReviewRowPresentation(
           id: "stat:\(key)",
+          nameID: row.afterNameID,
           fieldTitle: fieldTitle,
           fieldSubtitle: fieldSubtitle,
           afterValue: afterValue,
@@ -93,6 +102,7 @@ public enum SaveReviewPresentationBuilder {
           roleLabel: roleLabel,
           category: category,
           searchText: SaveReviewRowFormatter.searchText(
+            nameID: row.afterNameID,
             fieldTitle: fieldTitle,
             fieldSubtitle: fieldSubtitle,
             afterValue: afterValue,
@@ -134,11 +144,13 @@ public enum SaveReviewPresentationBuilder {
       category = .renamed
     }
     let fieldTitle = "Elidable fallback name"
-    let fieldSubtitle = "elidedFallbackNameID"
+    let fieldSubtitle = "Elidable fallback"
+    let nameID = diff?.elidedFallbackID ?? analysis.nameAudit.elidedFallbackID
     let afterValue = afterName.map { SaveReviewRowFormatter.quoted($0) }
     let wasLine = category == .renamed ? beforeName.map { "was \(SaveReviewRowFormatter.quoted($0))" } : nil
     return SaveReviewRowPresentation(
       id: "stat:elided",
+      nameID: nameID,
       fieldTitle: fieldTitle,
       fieldSubtitle: fieldSubtitle,
       afterValue: afterValue,
@@ -147,6 +159,7 @@ public enum SaveReviewPresentationBuilder {
       roleLabel: nil,
       category: category,
       searchText: SaveReviewRowFormatter.searchText(
+        nameID: nameID,
         fieldTitle: fieldTitle,
         fieldSubtitle: fieldSubtitle,
         afterValue: afterValue,
@@ -164,6 +177,7 @@ public enum SaveReviewPresentationBuilder {
     font: FontDocument,
     plan: InstancePlan,
     report: CommitDiffReport,
+    diff: CommitDiff?,
     namingOrder: [String]
   ) -> SaveReviewTabPresentation {
     var sections: [SaveReviewSectionPresentation] = []
@@ -234,7 +248,7 @@ public enum SaveReviewPresentationBuilder {
     }
 
     let instanceRows = report.instanceRows.enumerated().flatMap { index, row in
-      makeFvarInstanceRows(index: index, row: row, namingOrder: namingOrder)
+      makeFvarInstanceRows(index: index, row: row, namingOrder: namingOrder, diff: diff)
     }
     sections.append(SaveReviewSectionPresentation(title: "Instances", rows: instanceRows))
 
@@ -286,7 +300,7 @@ public enum SaveReviewPresentationBuilder {
     let windowsRows = windowsNamePatchRows(analysis: analysis, font: font, diff: diff)
     if !windowsRows.isEmpty {
       sections.append(
-        SaveReviewSectionPresentation(title: "Windows name IDs (0–25)", rows: windowsRows)
+        SaveReviewSectionPresentation(title: "Windows name IDs (0–25) · 3/1/0x409", rows: windowsRows)
       )
     }
 
@@ -414,12 +428,17 @@ public enum SaveReviewPresentationBuilder {
   private static func makeFvarInstanceRows(
     index: Int,
     row: CommitDiffInstanceRow,
-    namingOrder: [String]
+    namingOrder: [String],
+    diff: CommitDiff?
   ) -> [SaveReviewRowPresentation] {
     let coordsSubtitle = SaveReviewRowFormatter.instanceSubtitle(
       coords: row.coords,
       namingOrder: namingOrder
     )
+    let composedName = row.afterName ?? row.beforeName
+    let planned = composedName.flatMap { name in
+      diff?.instancesPlanned.first { $0.composedName == name }
+    }
     var rows: [SaveReviewRowPresentation] = []
 
     let subfamilyCategory = SaveReviewDisplayCategoryMapper.category(for: row)
@@ -429,6 +448,7 @@ public enum SaveReviewPresentationBuilder {
     rows.append(
       SaveReviewRowPresentation(
         id: "fvar:instance:\(row.key):subfamily",
+        nameID: planned?.subfamilyNameID,
         fieldTitle: subfamilyTitle,
         fieldSubtitle: coordsSubtitle,
         afterValue: subfamilyAfter,
@@ -437,6 +457,7 @@ public enum SaveReviewPresentationBuilder {
         roleLabel: "subfamilyNameID",
         category: subfamilyCategory,
         searchText: SaveReviewRowFormatter.searchText(
+          nameID: planned?.subfamilyNameID,
           fieldTitle: subfamilyTitle,
           fieldSubtitle: coordsSubtitle,
           afterValue: subfamilyAfter,
@@ -455,16 +476,18 @@ public enum SaveReviewPresentationBuilder {
       rows.append(
         SaveReviewRowPresentation(
           id: "fvar:instance:\(row.key):postscript",
+          nameID: planned?.postscriptNameID,
           fieldTitle: psTitle,
-          fieldSubtitle: "postscriptNameID",
+          fieldSubtitle: coordsSubtitle,
           afterValue: psAfter,
           wasLine: psWas,
           noteLine: nil,
           roleLabel: "postscriptNameID",
           category: psCategory,
           searchText: SaveReviewRowFormatter.searchText(
+            nameID: planned?.postscriptNameID,
             fieldTitle: psTitle,
-            fieldSubtitle: "postscriptNameID",
+            fieldSubtitle: coordsSubtitle,
             afterValue: psAfter,
             wasLine: psWas,
             noteLine: nil,
@@ -482,32 +505,27 @@ public enum SaveReviewPresentationBuilder {
     font: FontDocument,
     diff: CommitDiff?
   ) -> [SaveReviewRowPresentation] {
-    var patches = diff?.windowsNamePatches ?? []
     let analysisByID = Dictionary(uniqueKeysWithValues: analysis.windowsNameTable.map { ($0.nameID, $0.string) })
-    if let prefix = font.options.familyPSPrefix?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !prefix.isEmpty
-    {
-      let before = analysisByID[25]
-      if before != prefix {
-        patches.append(WindowsNameRecord(nameID: 25, string: prefix))
-      }
-    }
-    patches.sort { $0.nameID < $1.nameID }
+    let populated = WindowsNameTableEditing.populatedRows(
+      windowsNameTable: analysis.windowsNameTable,
+      overrides: font.windowsNameOverrides,
+      familyPSPrefix: font.options.familyPSPrefix
+    )
 
-    return patches.map { patch in
-      let before = analysisByID[patch.nameID]
-      let label = OpenTypeNameTable.standardNameLabel(for: patch.nameID) ?? "nameID \(patch.nameID)"
+    return populated.map { row in
+      let before = analysisByID[row.nameID]
+      let after = row.value
       let category: SaveReviewDisplayCategory
-      if patch.string.isEmpty {
-        category = .removed
+      if after.isEmpty {
+        category = before == nil ? .same : .removed
       } else if before == nil {
         category = .added
-      } else if before != patch.string {
+      } else if before != after {
         category = .renamed
       } else {
         category = .same
       }
-      let afterValue: String? = patch.string.isEmpty ? nil : SaveReviewRowFormatter.quoted(patch.string)
+      let afterValue: String? = after.isEmpty ? nil : SaveReviewRowFormatter.quoted(after)
       let wasLine: String? = {
         if category == .removed, let before {
           return "was \(SaveReviewRowFormatter.quoted(before))"
@@ -517,23 +535,25 @@ public enum SaveReviewPresentationBuilder {
         }
         return nil
       }()
-      let fieldTitle = "ID \(patch.nameID) · \(label)"
-      let fieldSubtitle = "Windows 3/1/0x409"
+      let fieldTitle = row.label
+      let fieldSubtitle = ""
       return SaveReviewRowPresentation(
-        id: "name:windows:\(patch.nameID)",
+        id: "name:windows:\(row.nameID)",
+        nameID: row.nameID,
         fieldTitle: fieldTitle,
         fieldSubtitle: fieldSubtitle,
         afterValue: afterValue,
         wasLine: wasLine,
-        noteLine: patch.nameID == 25 ? "≡ File naming PS prefix" : nil,
+        noteLine: row.nameID == 25 ? "≡ File naming PS prefix" : nil,
         roleLabel: "windows_name",
         category: category,
         searchText: SaveReviewRowFormatter.searchText(
+          nameID: row.nameID,
           fieldTitle: fieldTitle,
           fieldSubtitle: fieldSubtitle,
           afterValue: afterValue,
           wasLine: wasLine,
-          noteLine: patch.nameID == 25 ? "PS prefix" : nil,
+          noteLine: row.nameID == 25 ? "PS prefix" : nil,
           roleLabel: "windows_name"
         )
       )
@@ -560,14 +580,20 @@ public enum SaveReviewPresentationBuilder {
       axisTag: axisTag,
       otFeatureTag: resolvedOTFeature
     )
-    let fieldSubtitle = SaveReviewRowFormatter.nameFieldSubtitle(row: row, tagValue: resolvedTagValue)
+    let statFormat = diff?.statValuesPlanned.first { $0.nameID == row.id }?.statFormat
+    let fieldSubtitle = SaveReviewRowFormatter.nameFieldSubtitle(
+      row: row,
+      tagValue: resolvedTagValue,
+      statFormat: statFormat
+    )
     let string = row.afterString ?? row.beforeString
-    let afterValue = SaveReviewRowFormatter.nameAfterValue(id: row.id, string: string)
+    let afterValue = SaveReviewRowFormatter.nameAfterValue(string: string)
     let wasLine = SaveReviewRowFormatter.nameWasLine(row)
     let roleLabel = SaveReviewRowFormatter.nameMachineRole(role: row.afterRole)
     let noteLine = row.afterRole == "protected_ot_label" ? SaveReviewRowFormatter.fvarProtectedNote : nil
     return SaveReviewRowPresentation(
       id: "name:\(row.id)",
+      nameID: row.id,
       fieldTitle: fieldTitle,
       fieldSubtitle: fieldSubtitle,
       afterValue: afterValue,
@@ -576,6 +602,7 @@ public enum SaveReviewPresentationBuilder {
       roleLabel: roleLabel,
       category: category,
       searchText: SaveReviewRowFormatter.searchText(
+        nameID: row.id,
         fieldTitle: fieldTitle,
         fieldSubtitle: fieldSubtitle,
         afterValue: afterValue,
@@ -590,7 +617,8 @@ public enum SaveReviewPresentationBuilder {
     tag: String,
     displayName: String?,
     index: Int,
-    font: FontDocument
+    font: FontDocument,
+    diff: CommitDiff?
   ) -> SaveReviewRowPresentation {
     let axis = font.axes.first(where: { $0.tag == tag })
     let isNamingAxis = axis?.isDesignRecordOnly == true
@@ -601,8 +629,10 @@ public enum SaveReviewPresentationBuilder {
     let afterValue = SaveReviewRowFormatter.designAxisAfterValue(tag: tag)
     let noteLine = isNamingAxis ? namingAxisRegistrationNote(font: font, tag: tag) : nil
     let roleLabel = isNamingAxis ? "naming_axis" : nil
+    let nameID = axisDisplayNameID(tag: tag, displayName: displayName, diff: diff)
     return SaveReviewRowPresentation(
       id: "stat:axis:\(tag)",
+      nameID: nameID,
       fieldTitle: fieldTitle,
       fieldSubtitle: fieldSubtitle,
       afterValue: afterValue,
@@ -611,6 +641,7 @@ public enum SaveReviewPresentationBuilder {
       roleLabel: roleLabel,
       category: .same,
       searchText: SaveReviewRowFormatter.searchText(
+        nameID: nameID,
         fieldTitle: fieldTitle,
         fieldSubtitle: fieldSubtitle,
         afterValue: afterValue,
@@ -619,6 +650,18 @@ public enum SaveReviewPresentationBuilder {
         roleLabel: roleLabel
       )
     )
+  }
+
+  private static func axisDisplayNameID(
+    tag: String,
+    displayName: String?,
+    diff: CommitDiff?
+  ) -> Int? {
+    diff?.nameRecordsSequenced.first { record in
+      guard record.role == "axis_display_name" else { return false }
+      if let displayName, record.string == displayName { return true }
+      return record.string == tag
+    }?.id
   }
 
   private static func namingAxisRegistrationNote(font: FontDocument, tag: String) -> String? {

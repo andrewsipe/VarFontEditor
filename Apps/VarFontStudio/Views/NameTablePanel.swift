@@ -75,7 +75,6 @@ struct NameTablePanel: View {
                 LazyVStack(spacing: 0) {
                     ForEach(filteredRows) { row in
                         nameRow(row)
-                        Divider().opacity(0.35)
                     }
                 }
                 .padding(.leading, StudioSpacing.panelHorizontal)
@@ -127,7 +126,7 @@ struct NameTablePanel: View {
                         Text("\(nameID)")
                             .font(StudioTypography.monoMeta)
                             .foregroundStyle(StudioColors.computedHighlight)
-                            .frame(width: 28, alignment: .trailing)
+                            .frame(width: NameTableLayout.nameIDColumnWidth, alignment: .trailing)
                         Text(OpenTypeNameTable.standardNameLabel(for: nameID) ?? "nameID \(nameID)")
                             .font(StudioTypography.caption)
                             .foregroundStyle(.primary)
@@ -140,7 +139,7 @@ struct NameTablePanel: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(width: 260)
+        .frame(width: NameTableLayout.addPopoverWidth)
         .padding(.bottom, StudioSpace.x2)
     }
 
@@ -219,29 +218,12 @@ struct NameTablePanel: View {
         let isExpanded = expandedNameID == row.nameID
 
         if isExpanded {
-            let height = expandedEditorHeight(for: binding.wrappedValue)
-            TextEditor(text: binding)
-                .font(StudioTypography.monoValue)
-                .scrollContentBackground(.hidden)
-                .frame(height: height, alignment: .topLeading)
-                .padding(StudioSpacing.listInset)
-                .background {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
-                        .fill(Color.primary.opacity(0.05))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
-                        .strokeBorder(Color.primary.opacity(0.22), lineWidth: 0.5)
-                }
-                .focused($focusedNameID, equals: row.nameID)
-                .onAppear {
-                    focusedNameID = row.nameID
-                }
-                .onExitCommand {
-                    collapseEditor()
-                }
+            wrappingValueEditor(
+                binding: binding,
+                nameID: row.nameID,
+                placeholder: row.isLinkedToPSPrefix ? "Family PS prefix" : "Name string"
+            )
         } else {
-            // Collapsed single-line preview — tap expands (avoids TextField↔TextEditor focus loss).
             Button {
                 expandedNameID = row.nameID
             } label: {
@@ -278,16 +260,52 @@ struct NameTablePanel: View {
         }
     }
 
-    private func expandedEditorHeight(for value: String) -> CGFloat {
-        let lineHeight: CGFloat = 17
-        let verticalPadding: CGFloat = 16
-        let newlineExtras = value.reduce(into: 0) { count, ch in
-            if ch == "\n" { count += 1 }
+    /// Soft-wrapping editor: one row when content fits, grows by wrapped lines when it doesn’t.
+    /// Return commits & collapses (no hard newlines); Escape cancels.
+    private func wrappingValueEditor(
+        binding: Binding<String>,
+        nameID: Int,
+        placeholder: String
+    ) -> some View {
+        TextField(
+            "",
+            text: binding,
+            prompt: Text(placeholder)
+                .font(StudioTypography.monoValue)
+                .foregroundStyle(.tertiary),
+            axis: .vertical
+        )
+        .textFieldStyle(.plain)
+        .font(StudioTypography.monoValue)
+        .lineSpacing(NameTableLayout.wrappedLineSpacing)
+        .lineLimit(1...NameTableLayout.maxWrappedLines)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, NameTableLayout.editorHorizontalPadding)
+        .padding(.vertical, NameTableLayout.editorVerticalPadding)
+        .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.monoValueRowHeight, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: StudioRadius.control)
+                .fill(Color(nsColor: .textBackgroundColor))
         }
-        // Rough wrap estimate for ~480px column at 11pt mono.
-        let wrappedLines = max(1, Int(ceil(Double(max(value.count, 1)) / 52.0)))
-        let lines = max(newlineExtras + 1, wrappedLines, 3)
-        return min(CGFloat(lines) * lineHeight + verticalPadding, 280)
+        .overlay {
+            RoundedRectangle(cornerRadius: StudioRadius.control)
+                .strokeBorder(Color.primary.opacity(0.22), lineWidth: 0.5)
+        }
+        .modifier(StudioFocusRingSuppression())
+        .focused($focusedNameID, equals: nameID)
+        .onAppear {
+            focusedNameID = nameID
+        }
+        .onSubmit {
+            collapseEditor()
+        }
+        .onKeyPress(.return) {
+            collapseEditor()
+            return .handled
+        }
+        .onExitCommand {
+            collapseEditor()
+        }
     }
 
     private func collapseEditor() {
@@ -352,6 +370,19 @@ struct NameTablePanel: View {
 struct NameTableHeaderMeta: Equatable {
     var populated: Int
     var missing: Int
+}
+
+/// Name table panel / add-popover column metrics (on-lattice).
+enum NameTableLayout {
+    static let nameIDColumnWidth: CGFloat = 28
+    static let addPopoverWidth: CGFloat = 260
+    /// Soft-wrap ceiling for focused name-string editors.
+    static let maxWrappedLines: Int = 12
+    /// Extra leading between wrapped lines in the focused editor.
+    static let wrappedLineSpacing: CGFloat = 4
+    static let editorHorizontalPadding: CGFloat = StudioFieldMetrics.horizontalPadding // 6
+    /// Inner inset so wrapped text isn’t flush against the field chrome.
+    static let editorVerticalPadding: CGFloat = StudioSpace.x1_5 // 6
 }
 
 enum NameTableHeaderMetaKey: PreferenceKey {

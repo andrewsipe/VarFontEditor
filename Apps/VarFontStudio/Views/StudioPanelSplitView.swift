@@ -300,7 +300,8 @@ enum StudioPanelMetrics {
     static let axisTreeMax: CGFloat = 420
     static let axisTreeRailWidth: CGFloat = 44
     /// Unrotated width of `StudioSectionLabel("Axis tree")` — reserved as layout height after −90° rotation.
-    static let axisTreeRailLabelHeight: CGFloat = 54
+    /// Snapped up from measured ~54 onto the 4pt lattice.
+    static let axisTreeRailLabelHeight: CGFloat = StudioSpace.unit * 14 // 56
 
     static let instancesMin: CGFloat = 320
 

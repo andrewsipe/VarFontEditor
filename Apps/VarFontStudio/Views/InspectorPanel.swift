@@ -145,7 +145,7 @@ struct InstanceInspectorContent: View {
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
-                            .frame(width: 52, alignment: .center)
+                            .frame(width: InspectorAxisCoordLayout.elisionWidth, alignment: .center)
                     }
                 }
 

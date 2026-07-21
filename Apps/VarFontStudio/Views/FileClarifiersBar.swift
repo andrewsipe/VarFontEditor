@@ -1,6 +1,11 @@
 import SwiftUI
 import VarFontCore
 
+/// File naming form label column (on-lattice).
+enum FileNamingLayout {
+    static let labelWidth: CGFloat = StudioSpace.unit * 18 // 72
+}
+
 /// File naming fields — PostScript prefix only (file identity lives on registration axes).
 struct FileClarifierFields: View {
     @EnvironmentObject private var editor: EditorViewModel
@@ -41,7 +46,7 @@ struct FileClarifierFields: View {
             Text("PostScript prefix")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.secondary)
-                .frame(width: 72, alignment: .leading)
+                .frame(width: FileNamingLayout.labelWidth, alignment: .leading)
 
             StudioTextField(
                 placeholder: "FamilyVariable",

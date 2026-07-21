@@ -420,6 +420,9 @@ struct AxisTreePanel: View {
                 },
                 onReviewPlanIssue: {
                     editor.presentFirstResolvablePlanIssue(on: axis.tag)
+                },
+                onUpdateDisplayName: { name in
+                    editor.updateAxisDisplayName(tag: axis.tag, name: name)
                 }
             )
             .opacity(axisDragSession.draggingTag == axis.tag ? 0.28 : 1)
